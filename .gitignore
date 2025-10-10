@@ -1,0 +1,69 @@
+# Dependencies
+**/node_modules/
+**/package-lock.json
+**/.pnpm-debug.log
+
+# Environment variables
+.env
+.env.local
+.env.development
+.env.production
+.env.*.local
+**/.env
+
+# Build outputs
+**/dist/
+**/build/
+**/.vite/
+**/.cache/
+
+# Uploaded files (keep directory structure)
+backend/uploads/*
+!backend/uploads/.gitkeep
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+loglevel.log
+
+# Operating System Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# IDE and Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+*.sublime-project
+*.sublime-workspace
+
+# Testing
+coverage/
+*.lcov
+.nyc_output
+
+# Temporary files
+*.tmp
+*.temp
+tmp/
+temp/
+
+# PDF reports (generated dynamically)
+backend/uploads/*.pdf
+
+# Optional: Keep example files
+!backend/uploads/example.xlsx
