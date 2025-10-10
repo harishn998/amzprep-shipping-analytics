@@ -497,12 +497,305 @@ const ShippingAnalytics = () => {
     );
   };
 
-  const DashboardView = () => {
-    if (!dashboardData) return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-gray-400">Loading dashboard...</div>
+  const WelcomeScreen = () => (
+  <div className="relative min-h-[calc(100vh-200px)] p-6 overflow-hidden">
+    {/* Animated background with moving gradients */}
+    <div className="absolute inset-0 bg-gradient-to-br from-blue-600/20 via-purple-600/20 to-pink-600/20 animate-gradient-shift"></div>
+
+    {/* Animated geometric shapes */}
+    <div className="absolute inset-0 overflow-hidden pointer-events-none">
+      <div className="absolute w-96 h-96 bg-blue-500/20 rounded-full blur-3xl -top-48 -left-48 animate-float"></div>
+      <div className="absolute w-96 h-96 bg-purple-500/20 rounded-full blur-3xl -bottom-48 -right-48 animate-float-delayed"></div>
+      <div className="absolute w-64 h-64 bg-pink-500/20 rounded-full blur-3xl top-1/3 right-1/4 animate-float-slow"></div>
+
+      {/* Grid pattern overlay */}
+      <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.02)_1px,transparent_1px)] bg-[size:50px_50px] [mask-image:radial-gradient(ellipse_80%_50%_at_50%_50%,#000,transparent)]"></div>
+    </div>
+
+    <div className="relative flex flex-col items-center justify-center min-h-[calc(100vh-250px)] max-w-6xl mx-auto">
+
+      {/* Main content card */}
+      <div className="w-full backdrop-blur-xl bg-[#1a1f2e]/60 rounded-3xl p-12 border border-gray-700/50 shadow-2xl shadow-blue-500/10 animate-fade-in-up">
+
+        {/* Hero Section */}
+        <div className="text-center mb-12">
+          {/* Animated logo/icon */}
+          <div className="relative inline-block mb-8">
+            <div className="absolute inset-0 bg-gradient-to-br from-blue-500 to-purple-600 rounded-3xl blur-3xl opacity-50 animate-pulse-slow"></div>
+            <div className="relative bg-gradient-to-br from-blue-500 via-blue-600 to-purple-600 rounded-3xl w-40 h-40 flex items-center justify-center shadow-2xl shadow-blue-500/40 animate-float">
+              <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/20 to-transparent animate-shine rounded-3xl"></div>
+              <Package size={80} className="text-white drop-shadow-2xl relative z-10" />
+            </div>
+          </div>
+
+          {/* Title with animated gradient */}
+          <h1 className="text-6xl font-black mb-6 animate-fade-in">
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 animate-gradient-text">
+              Welcome to AMZ Prep
+            </span>
+          </h1>
+
+          <p className="text-2xl text-gray-300 mb-4 animate-fade-in-delayed">
+            Intelligent Shipping Analytics Platform
+          </p>
+
+          <p className="text-lg text-gray-400 max-w-3xl mx-auto animate-fade-in-more-delayed">
+            Transform your shipping data into actionable insights. Optimize warehouse locations, reduce costs, and improve delivery times with our advanced analytics engine.
+          </p>
+        </div>
+
+        {/* Feature Cards Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+
+          {/* Feature 1 */}
+          <div className="group relative bg-gradient-to-br from-blue-500/10 to-blue-600/10 border border-blue-500/30 rounded-2xl p-6 hover:border-blue-400/60 transition-all duration-500 hover:scale-105 hover:shadow-2xl hover:shadow-blue-500/30 animate-fade-in-stagger-1">
+            <div className="absolute inset-0 bg-gradient-to-br from-blue-500/0 to-blue-500/20 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+            <div className="relative z-10">
+              <div className="bg-blue-500/20 w-16 h-16 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+                <BarChart3 size={32} className="text-blue-400" />
+              </div>
+              <h3 className="text-xl font-bold text-white mb-3">Advanced Analytics</h3>
+              <p className="text-gray-400 leading-relaxed">
+                Comprehensive insights on shipping costs, volumes, zones, and delivery performance metrics
+              </p>
+            </div>
+          </div>
+
+          {/* Feature 2 */}
+          <div className="group relative bg-gradient-to-br from-purple-500/10 to-purple-600/10 border border-purple-500/30 rounded-2xl p-6 hover:border-purple-400/60 transition-all duration-500 hover:scale-105 hover:shadow-2xl hover:shadow-purple-500/30 animate-fade-in-stagger-2">
+            <div className="absolute inset-0 bg-gradient-to-br from-purple-500/0 to-purple-500/20 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+            <div className="relative z-10">
+              <div className="bg-purple-500/20 w-16 h-16 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+                <TruckIcon size={32} className="text-purple-400" />
+              </div>
+              <h3 className="text-xl font-bold text-white mb-3">Warehouse Optimization</h3>
+              <p className="text-gray-400 leading-relaxed">
+                AI-powered recommendations for optimal warehouse configurations to minimize costs
+              </p>
+            </div>
+          </div>
+
+          {/* Feature 3 */}
+          <div className="group relative bg-gradient-to-br from-pink-500/10 to-pink-600/10 border border-pink-500/30 rounded-2xl p-6 hover:border-pink-400/60 transition-all duration-500 hover:scale-105 hover:shadow-2xl hover:shadow-pink-500/30 animate-fade-in-stagger-3">
+            <div className="absolute inset-0 bg-gradient-to-br from-pink-500/0 to-pink-500/20 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+            <div className="relative z-10">
+              <div className="bg-pink-500/20 w-16 h-16 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+                <MapPin size={32} className="text-pink-400" />
+              </div>
+              <h3 className="text-xl font-bold text-white mb-3">Geographic Insights</h3>
+              <p className="text-gray-400 leading-relaxed">
+                Interactive heat maps and state-level analysis for strategic decision making
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Stats Banner */}
+        <div className="bg-gradient-to-r from-blue-600/20 via-purple-600/20 to-pink-600/20 border border-gray-700/50 rounded-2xl p-8 mb-10 animate-fade-in-stagger-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 text-center">
+            <div className="group hover:scale-110 transition-transform duration-300">
+              <div className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-blue-600 mb-2">
+                100K+
+              </div>
+              <div className="text-gray-400 text-sm font-semibold">Shipments Analyzed</div>
+            </div>
+            <div className="group hover:scale-110 transition-transform duration-300">
+              <div className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-purple-600 mb-2">
+                $2M+
+              </div>
+              <div className="text-gray-400 text-sm font-semibold">Cost Savings Identified</div>
+            </div>
+            <div className="group hover:scale-110 transition-transform duration-300">
+              <div className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-pink-400 to-pink-600 mb-2">
+                50+
+              </div>
+              <div className="text-gray-400 text-sm font-semibold">States Covered</div>
+            </div>
+            <div className="group hover:scale-110 transition-transform duration-300">
+              <div className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-green-600 mb-2">
+                24/7
+              </div>
+              <div className="text-gray-400 text-sm font-semibold">Real-time Processing</div>
+            </div>
+          </div>
+        </div>
+
+        {/* CTA Button */}
+        <div className="text-center animate-fade-in-stagger-5">
+          <button
+            onClick={() => setActiveView('upload')}
+            className="group relative inline-flex items-center gap-4 px-12 py-6 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 rounded-2xl text-white font-bold text-xl shadow-2xl shadow-blue-500/40 hover:shadow-blue-500/60 transition-all duration-500 hover:scale-105 overflow-hidden"
+          >
+            {/* Animated shine effect */}
+            <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent transform -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></span>
+
+            <Upload size={28} className="group-hover:rotate-12 transition-transform duration-300 relative z-10" />
+            <span className="relative z-10">Get Started - Upload Data</span>
+            <svg className="w-6 h-6 group-hover:translate-x-2 transition-transform duration-300 relative z-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+            </svg>
+          </button>
+
+          <p className="text-gray-500 text-sm mt-6">
+            No credit card required • Upload your data securely • Generate reports instantly
+          </p>
+        </div>
+
       </div>
-    );
+
+      {/* Floating elements */}
+      <div className="absolute top-20 left-10 w-20 h-20 bg-blue-500/10 rounded-lg backdrop-blur-sm border border-blue-500/20 animate-float-element-1 hidden lg:block"></div>
+      <div className="absolute bottom-20 right-10 w-24 h-24 bg-purple-500/10 rounded-lg backdrop-blur-sm border border-purple-500/20 animate-float-element-2 hidden lg:block"></div>
+      <div className="absolute top-1/2 right-20 w-16 h-16 bg-pink-500/10 rounded-lg backdrop-blur-sm border border-pink-500/20 animate-float-element-3 hidden lg:block"></div>
+
+    </div>
+
+    <style>{`
+      @keyframes gradient-shift {
+        0%, 100% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+      }
+
+      @keyframes float {
+        0%, 100% { transform: translateY(0px) translateX(0px); }
+        50% { transform: translateY(-20px) translateX(10px); }
+      }
+
+      @keyframes float-delayed {
+        0%, 100% { transform: translateY(0px) translateX(0px); }
+        50% { transform: translateY(20px) translateX(-10px); }
+      }
+
+      @keyframes float-slow {
+        0%, 100% { transform: translateY(0px) scale(1); }
+        50% { transform: translateY(-30px) scale(1.1); }
+      }
+
+      @keyframes pulse-slow {
+        0%, 100% { opacity: 0.5; }
+        50% { opacity: 0.8; }
+      }
+
+      @keyframes shine {
+        from { transform: translateX(-100%) skewX(-15deg); }
+        to { transform: translateX(200%) skewX(-15deg); }
+      }
+
+      @keyframes fade-in {
+        from { opacity: 0; transform: translateY(-20px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+
+      @keyframes fade-in-up {
+        from { opacity: 0; transform: translateY(40px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+
+      @keyframes gradient-text {
+        0%, 100% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+      }
+
+      @keyframes float-element-1 {
+        0%, 100% { transform: translateY(0px) rotate(0deg); }
+        50% { transform: translateY(-15px) rotate(5deg); }
+      }
+
+      @keyframes float-element-2 {
+        0%, 100% { transform: translateY(0px) rotate(0deg); }
+        50% { transform: translateY(15px) rotate(-5deg); }
+      }
+
+      @keyframes float-element-3 {
+        0%, 100% { transform: translateY(0px) rotate(0deg); }
+        50% { transform: translateY(-10px) rotate(3deg); }
+      }
+
+      .animate-gradient-shift {
+        background-size: 200% 200%;
+        animation: gradient-shift 15s ease infinite;
+      }
+
+      .animate-float {
+        animation: float 6s ease-in-out infinite;
+      }
+
+      .animate-float-delayed {
+        animation: float-delayed 8s ease-in-out infinite;
+      }
+
+      .animate-float-slow {
+        animation: float-slow 10s ease-in-out infinite;
+      }
+
+      .animate-pulse-slow {
+        animation: pulse-slow 4s ease-in-out infinite;
+      }
+
+      .animate-shine {
+        animation: shine 3s ease-in-out infinite;
+      }
+
+      .animate-fade-in {
+        animation: fade-in 1s ease-out;
+      }
+
+      .animate-fade-in-up {
+        animation: fade-in-up 1s ease-out;
+      }
+
+      .animate-fade-in-delayed {
+        animation: fade-in 1s ease-out 0.2s both;
+      }
+
+      .animate-fade-in-more-delayed {
+        animation: fade-in 1s ease-out 0.4s both;
+      }
+
+      .animate-fade-in-stagger-1 {
+        animation: fade-in-up 0.8s ease-out 0.2s both;
+      }
+
+      .animate-fade-in-stagger-2 {
+        animation: fade-in-up 0.8s ease-out 0.4s both;
+      }
+
+      .animate-fade-in-stagger-3 {
+        animation: fade-in-up 0.8s ease-out 0.6s both;
+      }
+
+      .animate-fade-in-stagger-4 {
+        animation: fade-in-up 0.8s ease-out 0.8s both;
+      }
+
+      .animate-fade-in-stagger-5 {
+        animation: fade-in-up 0.8s ease-out 1s both;
+      }
+
+      .animate-gradient-text {
+        background-size: 200% 200%;
+        animation: gradient-text 3s ease infinite;
+      }
+
+      .animate-float-element-1 {
+        animation: float-element-1 5s ease-in-out infinite;
+      }
+
+      .animate-float-element-2 {
+        animation: float-element-2 6s ease-in-out infinite;
+      }
+
+      .animate-float-element-3 {
+        animation: float-element-3 7s ease-in-out infinite;
+      }
+    `}</style>
+  </div>
+);
+
+    const DashboardView = () => {
+    if (!dashboardData) {
+      return <WelcomeScreen />;
+    }
 
     return (
       <div className="space-y-6 p-6">
