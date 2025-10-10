@@ -223,5 +223,3 @@ For questions or support, please contact:
 ---
 
 Made with ❤️ by AmzPrep Team
-
-Made with ❤️ by AmzPrep Team
