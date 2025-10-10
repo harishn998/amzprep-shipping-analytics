@@ -4,6 +4,12 @@ A comprehensive full-stack shipping analytics platform that helps businesses ana
 
 ![AmzPrep Analytics](https://img.shields.io/badge/React-18.3.1-blue) ![Node.js](https://img.shields.io/badge/Node.js-Express-green) ![License](https://img.shields.io/badge/license-MIT-blue)
 
+## 🌐 Live Demo
+
+**Try it now:** [https://amzprep-shipping-analytics.onrender.com/](https://amzprep-shipping-analytics.onrender.com/)
+
+Upload your shipping data and get instant analytics with warehouse optimization recommendations!
+
 ## 🌟 Features
 
 ### Analytics Dashboard
