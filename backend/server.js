@@ -312,10 +312,10 @@ async function generatePDF(data, outputPath) {
           console.log('Logo rendered successfully');
         } catch (imgErr) {
           console.log('Logo rendering failed:', imgErr.message);
-          doc.fontSize(22).fillColor('#ffffff').font('Helvetica-Bold').text('AmzPrep', 50, yPos);
+          doc.fontSize(22).fillColor('#ffffff').font('Helvetica-Bold').text('AMZ Prep', 50, yPos);
         }
       } else {
-        doc.fontSize(22).fillColor('#ffffff').font('Helvetica-Bold').text('AmzPrep', 50, yPos);
+        doc.fontSize(22).fillColor('#ffffff').font('Helvetica-Bold').text('AMZ Prep', 50, yPos);
       }
 
       // Header right info
@@ -551,7 +551,7 @@ async function generatePDF(data, outputPath) {
 
       // Footer text line 1
       doc.fontSize(8).fillColor('#64748b').font('Helvetica-Bold');
-      const footerText1 = 'AmzPrep Shipping Analytics';
+      const footerText1 = 'AMZ Prep Shipping Analytics';
       const footerWidth1 = doc.widthOfString(footerText1);
       const footerX1 = (doc.page.width - footerWidth1) / 2;
       doc.text(footerText1, footerX1, footerY + 8, { lineBreak: false });
@@ -735,7 +735,7 @@ async function generatePDF(data, outputPath) {
 
       // Footer text line 1
       doc.fontSize(8).fillColor('#64748b').font('Helvetica-Bold');
-      const footer2Text1 = 'AmzPrep Shipping Analytics';
+      const footer2Text1 = 'AMZ Prep Shipping Analytics';
       const footer2Width1 = doc.widthOfString(footer2Text1);
       const footer2X1 = (doc.page.width - footer2Width1) / 2;
       doc.text(footer2Text1, footer2X1, footer2Y + 8, { lineBreak: false });
@@ -770,7 +770,7 @@ async function generatePDF(data, outputPath) {
 }
 
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', message: 'AmzPrep Analytics API is running' });
+  res.json({ status: 'ok', message: 'AMZ Prep Analytics API is running' });
 });
 
 app.post('/api/upload', upload.single('file'), (req, res) => {
@@ -866,6 +866,6 @@ app.get('/api/export/pdf/:id', async (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`🚀 AmzPrep Analytics API running on http://localhost:${PORT}`);
+  console.log(`🚀 AMZ Prep Analytics API running on http://localhost:${PORT}`);
   console.log(`📁 Uploads directory: ${uploadsDir}`);
 });

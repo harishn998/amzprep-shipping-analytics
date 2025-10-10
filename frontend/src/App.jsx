@@ -138,7 +138,7 @@ const ShippingAnalytics = () => {
             <Package className="text-white" size={24} />
           </div>
           <div>
-            <h1 className="text-white font-bold text-lg">AmzPrep</h1>
+            <h1 className="text-white font-bold text-lg">AMZ Prep</h1>
             <p className="text-gray-400 text-xs">Shipping Analytics</p>
           </div>
         </div>
@@ -506,7 +506,7 @@ const ShippingAnalytics = () => {
         {error && <Alert type="error" message={error} onClose={() => setError(null)} />}
 
         <div className="bg-[#1a1f2e] rounded-xl p-6 border border-gray-800">
-          <h2 className="text-2xl font-bold text-white mb-2">AmzPrep Shipping Analysis</h2>
+          <h2 className="text-2xl font-bold text-white mb-2">AMZ Prep Shipping Analysis</h2>
           <p className="text-gray-400">
             Generated on {new Date().toLocaleDateString()} • Analysis Period: {dashboardData.analysisMonths} {dashboardData.analysisMonths > 1 ? 'months' : 'month'}
           </p>
