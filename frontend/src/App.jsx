@@ -522,9 +522,13 @@ const ShippingAnalytics = () => {
           {/* Animated logo/icon */}
           <div className="relative inline-block mb-8">
             <div className="absolute inset-0 bg-gradient-to-br from-blue-500 to-purple-600 rounded-3xl blur-3xl opacity-50 animate-pulse-slow"></div>
-            <div className="relative bg-gradient-to-br from-blue-500 via-blue-600 to-purple-600 rounded-3xl w-40 h-40 flex items-center justify-center shadow-2xl shadow-blue-500/40 animate-float">
+            <div className="relative bg-gradient-to-br from-blue-500 via-blue-600 to-purple-600 rounded-3xl w-40 h-40 flex items-center justify-center shadow-2xl shadow-blue-500/40 animate-float p-8">
               <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/20 to-transparent animate-shine rounded-3xl"></div>
-              <Package size={80} className="text-white drop-shadow-2xl relative z-10" />
+              <img
+                src={amzprepLogo}
+                alt="AMZ Prep Logo"
+                className="w-full h-full object-contain drop-shadow-2xl relative z-10"
+              />
             </div>
           </div>
 
@@ -732,9 +736,9 @@ const ShippingAnalytics = () => {
         animation: pulse-slow 4s ease-in-out infinite;
       }
 
-      .animate-shine {
+      /*.animate-shine {
         animation: shine 3s ease-in-out infinite;
-      }
+      }*/
 
       .animate-fade-in {
         animation: fade-in 1s ease-out;
