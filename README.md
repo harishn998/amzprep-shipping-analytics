@@ -2,7 +2,7 @@
 
 A comprehensive full-stack shipping analytics platform that helps businesses analyze shipping costs, optimize warehouse configurations, and visualize geographic distribution of shipments.
 
-![Deployment](https://img.shields.io/badge/deployment-live-brightgreen)![Platform](https://img.shields.io/badge/platform-Render-blueviolet)![Status](https://img.shields.io/badge/status-active-success)![AmzPrep Analytics](https://img.shields.io/badge/React-18.3.1-blue) ![Node.js](https://img.shields.io/badge/Node.js-Express-green) ![License](https://img.shields.io/badge/license-MIT-blue)
+![Deployment](https://img.shields.io/badge/deployment-live-brightgreen) ![Platform](https://img.shields.io/badge/platform-Render-blueviolet) ![Status](https://img.shields.io/badge/status-active-success) ![AmzPrep Analytics](https://img.shields.io/badge/React-18.3.1-blue) ![Node.js](https://img.shields.io/badge/Node.js-Express-green) ![License](https://img.shields.io/badge/license-MIT-blue)
 
 ## 🌐 Live Demo
 
