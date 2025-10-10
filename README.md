@@ -222,4 +222,4 @@ For questions or support, please contact:
 
 ---
 
-Made with ❤️ by AmzPrep Team
+Made with ❤️ by AMZ Prep Team
