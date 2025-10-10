@@ -848,7 +848,7 @@ app.get('/api/export/pdf/:id', async (req, res) => {
 
     await generatePDF(report, pdfPath);
 
-    res.download(pdfPath, `AmzPrep-Analytics-Report-${reportId}.pdf`, (err) => {
+    res.download(pdfPath, `AMZ-Prep-Analytics-Report-${reportId}.pdf`, (err) => {
       if (err) {
         console.error('Error sending PDF:', err);
       }
