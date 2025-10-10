@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Upload, BarChart3, Package, DollarSign, Download, Settings, LogOut, AlertCircle, CheckCircle, MapPin, FileText, TruckIcon } from 'lucide-react';
 import axios from 'axios';
 import { ComposableMap, Geographies, Geography } from 'react-simple-maps';
+import amzprepLogo from './assets/amz-prep-logo-resized.png';
+
 
 //const API_URL = 'http://localhost:5000/api';
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
@@ -134,9 +136,11 @@ const ShippingAnalytics = () => {
     <header className="bg-[#1a1f2e] border-b border-gray-800 px-6 py-4 flex items-center justify-between sticky top-0 z-50">
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-            <Package className="text-white" size={24} />
-          </div>
+        <img
+          src={amzprepLogo}
+          alt="AmzPrep Logo"
+          className="h-10 w-auto object-contain"
+          />
           <div>
             <h1 className="text-white font-bold text-lg">AMZ Prep</h1>
             <p className="text-gray-400 text-xs">Shipping Analytics</p>
