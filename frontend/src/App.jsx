@@ -193,7 +193,7 @@ const ShippingAnalytics = () => {
         {success && <Alert type="success" message={success} onClose={() => setSuccess(null)} />}
 
         <div className="text-center">
-          <div className="bg-gradient-to-br from-blue-500 to-purple-600 rounded-full w-24 h-24 flex items-center justify-center mx-auto mb-6 shadow-lg shadow-blue-500/20">
+          <div className="bg-gradient-to-br from-blue-500 to-blue-700 rounded-full w-24 h-24 flex items-center justify-center mx-auto mb-6 shadow-lg shadow-blue-500/20">
             <Upload size={40} className="text-white" />
           </div>
           <h2 className="text-3xl font-bold text-white mb-4">Upload Shipping Data</h2>
@@ -209,7 +209,7 @@ const ShippingAnalytics = () => {
               disabled={loading}
               className="hidden"
             />
-            <span className={`bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-8 py-4 rounded-lg cursor-pointer inline-flex items-center gap-3 transition-all transform hover:scale-105 shadow-lg ${
+            <span className={`bg-gradient-to-r from-sky-500 to-blue-700 hover:from-blue-700 hover:to-purple-700 text-white px-8 py-4 rounded-lg cursor-pointer inline-flex items-center gap-3 transition-all transform hover:scale-105 shadow-lg ${
               loading ? 'opacity-50 cursor-not-allowed' : ''
             }`}>
               <Upload size={20} />
@@ -499,14 +499,14 @@ const ShippingAnalytics = () => {
 
   const WelcomeScreen = () => (
   <div className="relative min-h-[calc(100vh-200px)] p-6 overflow-hidden">
-    {/* Animated background with moving gradients */}
-    <div className="absolute inset-0 bg-gradient-to-br from-blue-600/20 via-purple-600/20 to-pink-600/20 animate-gradient-shift"></div>
+    {/* UPDATED: Pure blue animated background */}
+    <div className="absolute inset-0 bg-gradient-to-br from-blue-600/20 via-blue-700/20 to-blue-900/20 animate-gradient-shift"></div>
 
-    {/* Animated geometric shapes */}
+    {/* UPDATED: Blue floating orbs */}
     <div className="absolute inset-0 overflow-hidden pointer-events-none">
       <div className="absolute w-96 h-96 bg-blue-500/20 rounded-full blur-3xl -top-48 -left-48 animate-float"></div>
-      <div className="absolute w-96 h-96 bg-purple-500/20 rounded-full blur-3xl -bottom-48 -right-48 animate-float-delayed"></div>
-      <div className="absolute w-64 h-64 bg-pink-500/20 rounded-full blur-3xl top-1/3 right-1/4 animate-float-slow"></div>
+      <div className="absolute w-96 h-96 bg-blue-600/20 rounded-full blur-3xl -bottom-48 -right-48 animate-float-delayed"></div>
+      <div className="absolute w-64 h-64 bg-blue-400/20 rounded-full blur-3xl top-1/3 right-1/4 animate-float-slow"></div>
 
       {/* Grid pattern overlay */}
       <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.02)_1px,transparent_1px)] bg-[size:50px_50px] [mask-image:radial-gradient(ellipse_80%_50%_at_50%_50%,#000,transparent)]"></div>
@@ -519,10 +519,10 @@ const ShippingAnalytics = () => {
 
         {/* Hero Section */}
         <div className="text-center mb-12">
-          {/* Animated logo/icon */}
+          {/* UPDATED: Pure blue gradient logo container */}
           <div className="relative inline-block mb-8">
-            <div className="absolute inset-0 bg-gradient-to-br from-blue-500 to-purple-600 rounded-3xl blur-3xl opacity-50 animate-pulse-slow"></div>
-            <div className="relative bg-gradient-to-br from-blue-500 via-blue-600 to-purple-600 rounded-3xl w-40 h-40 flex items-center justify-center shadow-2xl shadow-blue-500/40 animate-float p-8">
+            <div className="absolute inset-0 bg-gradient-to-br from-blue-500 to-blue-700 rounded-3xl blur-3xl opacity-50 animate-pulse-slow"></div>
+            <div className="relative bg-gradient-to-br from-blue-500 via-blue-600 to-blue-700 rounded-3xl w-40 h-40 flex items-center justify-center shadow-2xl shadow-blue-500/40 animate-float p-8">
               <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/20 to-transparent animate-shine rounded-3xl"></div>
               <img
                 src={amzprepLogo}
@@ -532,9 +532,9 @@ const ShippingAnalytics = () => {
             </div>
           </div>
 
-          {/* Title with animated gradient */}
+          {/* UPDATED: Pure blue gradient title */}
           <h1 className="text-6xl font-black mb-6 animate-fade-in">
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 animate-gradient-text">
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-blue-500 to-blue-600 animate-gradient-text">
               Welcome to AMZ Prep
             </span>
           </h1>
@@ -548,10 +548,10 @@ const ShippingAnalytics = () => {
           </p>
         </div>
 
-        {/* Feature Cards Grid */}
+        {/* Feature Cards Grid - UPDATED to blue theme only */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
 
-          {/* Feature 1 */}
+          {/* Feature 1 - Light Blue */}
           <div className="group relative bg-gradient-to-br from-blue-500/10 to-blue-600/10 border border-blue-500/30 rounded-2xl p-6 hover:border-blue-400/60 transition-all duration-500 hover:scale-105 hover:shadow-2xl hover:shadow-blue-500/30 animate-fade-in-stagger-1">
             <div className="absolute inset-0 bg-gradient-to-br from-blue-500/0 to-blue-500/20 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
             <div className="relative z-10">
@@ -565,12 +565,12 @@ const ShippingAnalytics = () => {
             </div>
           </div>
 
-          {/* Feature 2 */}
-          <div className="group relative bg-gradient-to-br from-purple-500/10 to-purple-600/10 border border-purple-500/30 rounded-2xl p-6 hover:border-purple-400/60 transition-all duration-500 hover:scale-105 hover:shadow-2xl hover:shadow-purple-500/30 animate-fade-in-stagger-2">
-            <div className="absolute inset-0 bg-gradient-to-br from-purple-500/0 to-purple-500/20 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+          {/* Feature 2 - Medium Blue */}
+          <div className="group relative bg-gradient-to-br from-blue-600/10 to-blue-700/10 border border-blue-600/30 rounded-2xl p-6 hover:border-blue-500/60 transition-all duration-500 hover:scale-105 hover:shadow-2xl hover:shadow-blue-600/30 animate-fade-in-stagger-2">
+            <div className="absolute inset-0 bg-gradient-to-br from-blue-600/0 to-blue-600/20 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
             <div className="relative z-10">
-              <div className="bg-purple-500/20 w-16 h-16 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
-                <TruckIcon size={32} className="text-purple-400" />
+              <div className="bg-blue-600/20 w-16 h-16 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+                <TruckIcon size={32} className="text-blue-400" />
               </div>
               <h3 className="text-xl font-bold text-white mb-3">Warehouse Optimization</h3>
               <p className="text-gray-400 leading-relaxed">
@@ -579,12 +579,12 @@ const ShippingAnalytics = () => {
             </div>
           </div>
 
-          {/* Feature 3 */}
-          <div className="group relative bg-gradient-to-br from-pink-500/10 to-pink-600/10 border border-pink-500/30 rounded-2xl p-6 hover:border-pink-400/60 transition-all duration-500 hover:scale-105 hover:shadow-2xl hover:shadow-pink-500/30 animate-fade-in-stagger-3">
-            <div className="absolute inset-0 bg-gradient-to-br from-pink-500/0 to-pink-500/20 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+          {/* Feature 3 - Dark Blue */}
+          <div className="group relative bg-gradient-to-br from-blue-700/10 to-blue-800/10 border border-blue-700/30 rounded-2xl p-6 hover:border-blue-600/60 transition-all duration-500 hover:scale-105 hover:shadow-2xl hover:shadow-blue-700/30 animate-fade-in-stagger-3">
+            <div className="absolute inset-0 bg-gradient-to-br from-blue-700/0 to-blue-700/20 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
             <div className="relative z-10">
-              <div className="bg-pink-500/20 w-16 h-16 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
-                <MapPin size={32} className="text-pink-400" />
+              <div className="bg-blue-700/20 w-16 h-16 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+                <MapPin size={32} className="text-blue-400" />
               </div>
               <h3 className="text-xl font-bold text-white mb-3">Geographic Insights</h3>
               <p className="text-gray-400 leading-relaxed">
@@ -594,8 +594,8 @@ const ShippingAnalytics = () => {
           </div>
         </div>
 
-        {/* Stats Banner */}
-        <div className="bg-gradient-to-r from-blue-600/20 via-purple-600/20 to-pink-600/20 border border-gray-700/50 rounded-2xl p-8 mb-10 animate-fade-in-stagger-4">
+        {/* Stats Banner - UPDATED pure blue theme */}
+        <div className="bg-gradient-to-r from-blue-600/20 via-blue-700/20 to-blue-800/20 border border-gray-700/50 rounded-2xl p-8 mb-10 animate-fade-in-stagger-4">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6 text-center">
             <div className="group hover:scale-110 transition-transform duration-300">
               <div className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-blue-600 mb-2">
@@ -604,13 +604,13 @@ const ShippingAnalytics = () => {
               <div className="text-gray-400 text-sm font-semibold">Shipments Analyzed</div>
             </div>
             <div className="group hover:scale-110 transition-transform duration-300">
-              <div className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-purple-600 mb-2">
+              <div className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-500 to-blue-700 mb-2">
                 $2M+
               </div>
               <div className="text-gray-400 text-sm font-semibold">Cost Savings Identified</div>
             </div>
             <div className="group hover:scale-110 transition-transform duration-300">
-              <div className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-pink-400 to-pink-600 mb-2">
+              <div className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-blue-800 mb-2">
                 50+
               </div>
               <div className="text-gray-400 text-sm font-semibold">States Covered</div>
@@ -624,11 +624,11 @@ const ShippingAnalytics = () => {
           </div>
         </div>
 
-        {/* CTA Button */}
+        {/* UPDATED: Pure Blue CTA Button - matches screenshot style */}
         <div className="text-center animate-fade-in-stagger-5">
           <button
             onClick={() => setActiveView('upload')}
-            className="group relative inline-flex items-center gap-4 px-12 py-6 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 rounded-2xl text-white font-bold text-xl shadow-2xl shadow-blue-500/40 hover:shadow-blue-500/60 transition-all duration-500 hover:scale-105 overflow-hidden"
+            className="group relative inline-flex items-center gap-4 px-12 py-6 bg-gradient-to-r from-sky-500 via-blue-600 to-blue-700 rounded-2xl text-white font-bold text-xl shadow-2xl shadow-blue-500/40 hover:shadow-blue-500/60 transition-all duration-500 hover:scale-105 overflow-hidden"
           >
             {/* Animated shine effect */}
             <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent transform -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></span>
@@ -647,10 +647,10 @@ const ShippingAnalytics = () => {
 
       </div>
 
-      {/* Floating elements */}
+      {/* UPDATED: Blue floating elements */}
       <div className="absolute top-20 left-10 w-20 h-20 bg-blue-500/10 rounded-lg backdrop-blur-sm border border-blue-500/20 animate-float-element-1 hidden lg:block"></div>
-      <div className="absolute bottom-20 right-10 w-24 h-24 bg-purple-500/10 rounded-lg backdrop-blur-sm border border-purple-500/20 animate-float-element-2 hidden lg:block"></div>
-      <div className="absolute top-1/2 right-20 w-16 h-16 bg-pink-500/10 rounded-lg backdrop-blur-sm border border-pink-500/20 animate-float-element-3 hidden lg:block"></div>
+      <div className="absolute bottom-20 right-10 w-24 h-24 bg-blue-600/10 rounded-lg backdrop-blur-sm border border-blue-600/20 animate-float-element-2 hidden lg:block"></div>
+      <div className="absolute top-1/2 right-20 w-16 h-16 bg-blue-700/10 rounded-lg backdrop-blur-sm border border-blue-700/20 animate-float-element-3 hidden lg:block"></div>
 
     </div>
 
@@ -871,7 +871,7 @@ const ShippingAnalytics = () => {
                   </div>
                   <div className="bg-[#0f1419] rounded-full h-8 overflow-hidden">
                     <div
-                      className="bg-gradient-to-r from-cyan-500 to-cyan-600 h-full rounded-full transition-all duration-500"
+                      className="bg-gradient-to-r from-blue-500 to-blue-600 h-full rounded-full transition-all duration-500"
                       style={{ width: `${(weight.count / dashboardData.totalShipments) * 100}%` }}
                     />
                   </div>
@@ -884,7 +884,7 @@ const ShippingAnalytics = () => {
         </div>
 
         {dashboardData.warehouseComparison.find(w => w.recommended) && (
-          <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl p-8 border border-blue-500 shadow-2xl shadow-blue-500/20">
+          <div className="bg-gradient-to-r from-sky-500 to-blue-700 rounded-xl p-8 border border-blue-500 shadow-2xl shadow-blue-500/20">
             <div className="flex items-start justify-between flex-wrap gap-4">
               <div className="flex-1 min-w-[300px]">
                 <div className="flex items-center gap-2 mb-2">
@@ -1005,7 +1005,7 @@ const ShippingAnalytics = () => {
           <button
             onClick={exportToPDF}
             disabled={exportingPDF || !currentReportId}
-            className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-8 py-4 rounded-lg flex items-center gap-3 transition-all transform hover:scale-105 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
+            className="bg-gradient-to-r from-sky-500 to-blue-700 hover:from-blue-700 hover:to-purple-700 text-white px-8 py-4 rounded-lg flex items-center gap-3 transition-all transform hover:scale-105 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
           >
             <Download size={20} />
             {exportingPDF ? 'Generating PDF...' : 'Export PDF Report'}
@@ -1038,7 +1038,7 @@ const ShippingAnalytics = () => {
 
       <div className="max-w-7xl mx-auto">
         <div className="p-6 pb-4">
-          <h1 className="text-4xl font-black text-white mb-2 bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+          <h1 className="text-4xl font-black text-white mb-2 bg-gradient-to-r from-blue-400 to-blue-400 bg-clip-text text-transparent">
             Shipping Analytics Dashboard
           </h1>
           <p className="text-gray-400 text-lg">
