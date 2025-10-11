@@ -796,6 +796,49 @@ const ShippingAnalytics = () => {
   </div>
 );
 
+const WarehouseLocationMap = ({ warehouses }) => (
+  <div className="bg-[#1a1f2e] rounded-xl p-6 border border-gray-800">
+    <h3 className="text-white text-xl font-semibold mb-6 flex items-center gap-2">
+      <MapPin className="text-blue-400" size={24} />
+      DTC Warehouse Network
+    </h3>
+
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      {warehouses
+        .filter(w => !w.name.includes('('))  // Filter out multi-warehouse strategies
+        .map((wh, idx) => (
+          <div
+            key={idx}
+            className="bg-gradient-to-br from-blue-500/10 to-blue-600/10 border border-blue-500/30 rounded-xl p-4 hover:border-blue-400/60 transition-all duration-300 hover:scale-105"
+          >
+            <div className="flex items-start gap-3">
+              <div className="bg-blue-500/20 p-2 rounded-lg flex-shrink-0">
+                <MapPin size={20} className="text-blue-400" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h4 className="text-white font-bold text-sm mb-1">{wh.name}</h4>
+                <p className="text-gray-400 text-xs mb-2 leading-relaxed">
+                  {wh.fullAddress}
+                </p>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs bg-blue-500/20 text-blue-400 px-2 py-1 rounded">
+                    {wh.region}
+                  </span>
+                  {wh.specialty && (
+                    <span className="text-xs bg-amber-500/20 text-amber-400 px-2 py-1 rounded">
+                      {wh.specialty}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        ))}
+    </div>
+  </div>
+);
+
+
     const DashboardView = () => {
     if (!dashboardData) {
       return <WelcomeScreen />;
@@ -944,6 +987,11 @@ const ShippingAnalytics = () => {
           <USAHeatMap states={dashboardData.topStates} title="Average Cost per Order by State" dataType="cost" />
         </div>
 
+        {/* Warehouse Location Network */}
+        {dashboardData.warehouseComparison && (
+          <WarehouseLocationMap warehouses={dashboardData.warehouseComparison} />
+        )}
+
         <div className="bg-[#1a1f2e] rounded-xl p-6 border border-gray-800">
           <div className="flex items-center gap-2 mb-6">
             <TruckIcon className="text-blue-400" size={24} />
@@ -971,13 +1019,37 @@ const ShippingAnalytics = () => {
                     } transition-colors`}
                   >
                     <td className="py-4 px-4">
-                      <div className="flex items-center gap-2">
-                        {wh.recommended && <span className="text-xs bg-green-500 text-white px-2 py-1 rounded font-bold">✓ RECOMMENDED</span>}
-                        <span className="text-white font-semibold">{wh.name}</span>
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-2">
+                          {wh.recommended && (
+                            <span className="text-xs bg-green-500 text-white px-2 py-1 rounded font-bold">
+                              ✓ RECOMMENDED
+                            </span>
+                          )}
+                          {wh.specialty && (
+                            <span className="text-xs bg-amber-500 text-white px-2 py-1 rounded font-bold">
+                              {wh.specialty}
+                            </span>
+                          )}
+                          <span className="text-white font-semibold">{wh.name}</span>
+                        </div>
+                        <div className="flex items-start gap-2 text-xs text-gray-500">
+                          <MapPin size={12} className="mt-0.5 flex-shrink-0" />
+                          <span>{wh.fullAddress}</span>
+                        </div>
+                        {wh.region && (
+                          <span className="text-xs text-blue-400 font-medium">
+                            {wh.region}
+                          </span>
+                        )}
                       </div>
                     </td>
-                    <td className="text-center py-4 px-4 text-gray-300">{wh.shipments.toLocaleString()}</td>
-                    <td className="text-center py-4 px-4 text-white font-semibold">${wh.cost.toLocaleString()}</td>
+                    <td className="text-center py-4 px-4 text-gray-300">
+                      {wh.shipments.toLocaleString()}
+                    </td>
+                    <td className="text-center py-4 px-4 text-white font-semibold">
+                      ${wh.cost.toLocaleString()}
+                    </td>
                     <td className="text-center py-4 px-4 text-gray-300">{wh.avgZone}</td>
                     <td className="text-center py-4 px-4 text-gray-300">{wh.transitTime} days</td>
                     <td className="text-center py-4 px-4">

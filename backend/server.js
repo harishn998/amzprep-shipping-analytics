@@ -130,13 +130,90 @@ function parseExcelFile(filePath) {
 function calculateWarehouseComparison(shipments) {
   const baseCost = shipments.reduce((sum, s) => sum + s.cost, 0);
 
+  // Real DTC Warehouse Locations with full addresses
   const warehouses = [
-    { name: 'Kentucky', costMultiplier: 1.0, avgZone: 5.1, transitTime: 4.5 },
-    { name: 'Nevada', costMultiplier: 1.21, avgZone: 6.2, transitTime: 5.4 },
-    { name: 'Florida', costMultiplier: 1.15, avgZone: 6.0, transitTime: 4.9 },
-    { name: 'KY+NV+FL (3)', costMultiplier: 0.85, avgZone: 3.9, transitTime: 4.1, recommended: true },
-    { name: 'KY+NV (2)', costMultiplier: 0.86, avgZone: 4.1, transitTime: 4.1 },
-    { name: 'NV+FL (2)', costMultiplier: 0.98, avgZone: 4.8, transitTime: 4.5 }
+    {
+      name: 'Charlotte, NC',
+      fullAddress: 'Suite C - 585 11th Street Ct NW, Hickory, NC 28601',
+      costMultiplier: 1.0,
+      avgZone: 5.1,
+      transitTime: 4.5,
+      region: 'Southeast'
+    },
+    {
+      name: 'California',
+      fullAddress: '2530 Lindsay Privado Dr #A, Ontario, CA 91761',
+      costMultiplier: 1.21,
+      avgZone: 6.2,
+      transitTime: 5.4,
+      region: 'West Coast'
+    },
+    {
+      name: 'Orlando, FL',
+      fullAddress: 'Unit 2 - 212 Outlook Point Dr., Orlando, FL 32809',
+      costMultiplier: 1.15,
+      avgZone: 6.0,
+      transitTime: 4.9,
+      region: 'Southeast'
+    },
+    {
+      name: 'Charlotte + CA + Orlando (3)',
+      fullAddress: 'Multi-warehouse strategy',
+      costMultiplier: 0.85,
+      avgZone: 3.9,
+      transitTime: 4.1,
+      recommended: true,
+      region: 'Multi-Region'
+    },
+    {
+      name: 'Charlotte + California (2)',
+      fullAddress: 'East-West coverage',
+      costMultiplier: 0.86,
+      avgZone: 4.1,
+      transitTime: 4.1,
+      region: 'Multi-Region'
+    },
+    {
+      name: 'California + Orlando (2)',
+      fullAddress: 'West-Southeast coverage',
+      costMultiplier: 0.98,
+      avgZone: 4.8,
+      transitTime: 4.5,
+      region: 'Multi-Region'
+    },
+    {
+      name: 'Dallas, TX',
+      fullAddress: 'Suite 1 - 1809 W. Frankford Rd. #160, Carrollton, TX 75007',
+      costMultiplier: 1.05,
+      avgZone: 5.5,
+      transitTime: 4.7,
+      region: 'South Central'
+    },
+    {
+      name: 'Salt Lake City, UT',
+      fullAddress: '720 Gladiola St. Suite A, Salt Lake City, UT 84104',
+      costMultiplier: 1.18,
+      avgZone: 5.8,
+      transitTime: 5.2,
+      region: 'Mountain West'
+    },
+    {
+      name: 'Chicago, IL',
+      fullAddress: '3001 Broadsmore Dr #340., Algonquin, IL 60102',
+      costMultiplier: 1.08,
+      avgZone: 5.3,
+      transitTime: 4.6,
+      region: 'Midwest'
+    },
+    {
+      name: 'Alabama (Temp Controlled)',
+      fullAddress: 'Unit 408 - 980 Murray Rd, Dothan, AL 36303',
+      costMultiplier: 1.12,
+      avgZone: 5.7,
+      transitTime: 5.0,
+      region: 'Southeast',
+      specialty: 'Temperature Controlled'
+    }
   ];
 
   return warehouses.map(wh => {
