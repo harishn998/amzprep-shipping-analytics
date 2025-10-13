@@ -7,6 +7,7 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 import PDFDocument from 'pdfkit';
 import https from 'https';
+import { createCanvas } from 'canvas';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -346,6 +347,372 @@ function analyzeShipments(shipments) {
   };
 }
 
+async function generateUSMapVisualization(topStates, mapType = 'volume') {
+  // HIGH RESOLUTION for crystal clarity
+  const width = 1024;   // Double resolution
+  const height = 400;   // Double resolution
+
+  const canvas = createCanvas(width, height);
+  const ctx = canvas.getContext('2d');
+
+  // CRITICAL: Disable all smoothing for sharp rendering
+  ctx.imageSmoothingEnabled = false;
+  ctx.textRendering = 'geometricPrecision';
+
+  // Background
+  const gradient = ctx.createLinearGradient(0, 0, 0, height);
+  gradient.addColorStop(0, '#1e293b');
+  gradient.addColorStop(1, '#0f172a');
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, width, height);
+
+  // CRISP HEADERS - Larger fonts for clarity
+  ctx.fillStyle = '#ffffff';
+  ctx.font = 'bold 22px Arial';
+  ctx.textBaseline = 'top';
+  ctx.textRendering = 'optimizeLegibility';
+  const title = mapType === 'volume' ? 'Shipping Volume Heat Map' : 'Average Cost Heat Map';
+  ctx.fillText(title, 30, 20);
+
+  ctx.fillStyle = '#94a3b8';
+  ctx.font = '16px Arial';
+  const subtitle = mapType === 'volume'
+    ? 'Distribution by state volume'
+    : 'Distribution by avg shipping cost';
+  ctx.fillText(subtitle, 30, 48);
+
+  // REALISTIC US MAP - Better state positions (doubled coordinates)
+  const statePositions = {
+    // West Coast - Clear positioning
+    'WA': { x: 130, y: 100 },
+    'OR': { x: 130, y: 140 },
+    'CA': { x: 116, y: 200 },
+
+    // Mountain West
+    'ID': { x: 176, y: 126 },
+    'MT': { x: 224, y: 100 },
+    'WY': { x: 230, y: 140 },
+    'NV': { x: 156, y: 180 },
+    'UT': { x: 196, y: 180 },
+    'CO': { x: 240, y: 174 },
+    'AZ': { x: 176, y: 226 },
+    'NM': { x: 224, y: 234 },
+
+    // Plains States
+    'ND': { x: 300, y: 100 },
+    'SD': { x: 304, y: 134 },
+    'NE': { x: 304, y: 166 },
+    'KS': { x: 310, y: 200 },
+    'OK': { x: 310, y: 234 },
+    'TX': { x: 300, y: 280 },
+
+    // Upper Midwest
+    'MN': { x: 356, y: 106 },
+    'IA': { x: 356, y: 146 },
+    'MO': { x: 356, y: 186 },
+    'AR': { x: 360, y: 220 },
+    'LA': { x: 364, y: 266 },
+
+    // Great Lakes
+    'WI': { x: 396, y: 120 },
+    'IL': { x: 396, y: 160 },
+    'MI': { x: 430, y: 126 },
+    'IN': { x: 416, y: 166 },
+    'OH': { x: 450, y: 160 },
+
+    // Southeast
+    'MS': { x: 396, y: 246 },
+    'AL': { x: 420, y: 246 },
+    'TN': { x: 430, y: 210 },
+    'KY': { x: 440, y: 186 },
+    'WV': { x: 474, y: 174 },
+    'VA': { x: 504, y: 180 },
+    'NC': { x: 494, y: 206 },
+    'SC': { x: 480, y: 230 },
+    'GA': { x: 454, y: 240 },
+    'FL': { x: 480, y: 290 },
+
+    // Mid-Atlantic
+    'PA': { x: 514, y: 154 },
+    'MD': { x: 514, y: 174 },
+    'DE': { x: 528, y: 166 },
+    'NJ': { x: 534, y: 154 },
+    'NY': { x: 534, y: 134 },
+
+    // New England
+    'CT': { x: 554, y: 144 },
+    'RI': { x: 564, y: 146 },
+    'MA': { x: 568, y: 136 },
+    'VT': { x: 548, y: 120 },
+    'NH': { x: 560, y: 120 },
+    'ME': { x: 580, y: 106 }
+  };
+
+  // DETAILED US OUTLINE - More map-like appearance
+  ctx.strokeStyle = '#64748b';
+  ctx.lineWidth = 4;
+  ctx.lineJoin = 'round';
+  ctx.lineCap = 'round';
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+  ctx.shadowBlur = 8;
+  ctx.beginPath();
+
+  // Complete US border path
+  // West Coast
+  ctx.moveTo(110, 94);
+  ctx.lineTo(106, 120);
+  ctx.quadraticCurveTo(100, 150, 104, 180);
+  ctx.lineTo(108, 210);
+  ctx.lineTo(112, 236);
+
+  // Southern border
+  ctx.lineTo(160, 250);
+  ctx.lineTo(210, 260);
+  ctx.lineTo(270, 300);
+  ctx.lineTo(330, 310);
+  ctx.lineTo(380, 304);
+  ctx.lineTo(430, 294);
+
+  // Florida
+  ctx.lineTo(464, 300);
+  ctx.lineTo(490, 320);
+  ctx.lineTo(494, 306);
+  ctx.lineTo(490, 280);
+  ctx.lineTo(484, 260);
+
+  // East Coast
+  ctx.lineTo(494, 240);
+  ctx.lineTo(508, 220);
+  ctx.lineTo(520, 194);
+  ctx.lineTo(534, 170);
+  ctx.lineTo(548, 150);
+  ctx.lineTo(564, 134);
+  ctx.lineTo(580, 116);
+  ctx.lineTo(590, 104);
+
+  // Northeast
+  ctx.lineTo(584, 100);
+  ctx.lineTo(564, 104);
+
+  // Great Lakes
+  ctx.quadraticCurveTo(534, 106, 504, 114);
+  ctx.quadraticCurveTo(474, 106, 444, 104);
+  ctx.quadraticCurveTo(414, 96, 384, 100);
+
+  // Northern border
+  ctx.lineTo(356, 94);
+  ctx.lineTo(304, 90);
+  ctx.lineTo(250, 94);
+  ctx.lineTo(196, 90);
+  ctx.lineTo(150, 90);
+  ctx.closePath();
+
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  // State data map
+  const stateDataMap = {};
+  topStates.forEach(state => {
+    stateDataMap[state.code] = state;
+  });
+
+  function getColor(state, type) {
+    if (!state) return null;
+
+    if (type === 'volume') {
+      if (state.percentage >= 15) return '#1e40af';
+      if (state.percentage >= 10) return '#2563eb';
+      if (state.percentage >= 5) return '#3b82f6';
+      return '#60a5fa';
+    } else {
+      const cost = state.avgCost || 0;
+      if (cost >= 16) return '#dc2626';
+      if (cost >= 14) return '#f97316';
+      if (cost >= 12) return '#fbbf24';
+      return '#34d399';
+    }
+  }
+
+  function getSize(state, type) {
+    if (!state) return 0;
+
+    if (type === 'volume') {
+      if (state.percentage >= 15) return 40;
+      if (state.percentage >= 10) return 32;
+      if (state.percentage >= 5) return 26;
+      return 20;
+    } else {
+      const cost = state.avgCost || 0;
+      if (cost >= 16) return 40;
+      if (cost >= 14) return 32;
+      if (cost >= 12) return 26;
+      return 20;
+    }
+  }
+
+  // Draw ONLY active states - CRISP rendering
+  Object.entries(statePositions).forEach(([code, pos]) => {
+    const stateData = stateDataMap[code];
+
+    if (stateData) {
+      const color = getColor(stateData, mapType);
+      const size = getSize(stateData, mapType);
+
+      // Outer glow
+      ctx.shadowColor = color;
+      ctx.shadowBlur = 30;
+
+      ctx.fillStyle = color + '30';
+      ctx.beginPath();
+      ctx.arc(pos.x, pos.y, size / 2 + 8, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Middle glow
+      ctx.fillStyle = color + '60';
+      ctx.beginPath();
+      ctx.arc(pos.x, pos.y, size / 2 + 4, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Main circle
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.arc(pos.x, pos.y, size / 2, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.shadowBlur = 0;
+
+      // CRISP state code
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 15px Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(code, pos.x, pos.y);
+    }
+  });
+
+  // PROPERLY FORMATTED LEGEND
+  const legendY = height - 35;
+
+  // Dark background bar
+  ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
+  ctx.fillRect(20, legendY - 22, width - 40, 40);
+
+  // Legend title
+  ctx.fillStyle = '#ffffff';
+  ctx.font = 'bold 16px Arial';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('Legend:', 36, legendY);
+
+  // Legend items with proper spacing
+  let legendX = 140;
+  const legendSpacing = 190;
+
+  if (mapType === 'volume') {
+    const volumeLegend = [
+      { color: '#60a5fa', label: 'Low', range: '(1-4%)', size: 20 },
+      { color: '#3b82f6', label: 'Med', range: '(5-9%)', size: 26 },
+      { color: '#2563eb', label: 'High', range: '(10-14%)', size: 32 },
+      { color: '#1e40af', label: 'V.High', range: '(15%+)', size: 40 }
+    ];
+
+    volumeLegend.forEach(item => {
+      // Circle
+      ctx.fillStyle = item.color;
+      ctx.beginPath();
+      ctx.arc(legendX, legendY, item.size / 2, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Label
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 14px Arial';
+      ctx.textAlign = 'left';
+      ctx.fillText(item.label, legendX + 28, legendY - 2);
+
+      // Range
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = '12px Arial';
+      ctx.fillText(item.range, legendX + 28, legendY + 12);
+
+      legendX += legendSpacing;
+    });
+  } else {
+    const costLegend = [
+      { color: '#34d399', label: 'Low', range: '($0-12)', size: 20 },
+      { color: '#fbbf24', label: 'Med', range: '($12-14)', size: 26 },
+      { color: '#f97316', label: 'High', range: '($14-16)', size: 32 },
+      { color: '#dc2626', label: 'V.High', range: '($16+)', size: 40 }
+    ];
+
+    costLegend.forEach(item => {
+      ctx.fillStyle = item.color;
+      ctx.beginPath();
+      ctx.arc(legendX, legendY, item.size / 2, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 14px Arial';
+      ctx.textAlign = 'left';
+      ctx.fillText(item.label, legendX + 28, legendY - 2);
+
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = '12px Arial';
+      ctx.fillText(item.range, legendX + 28, legendY + 12);
+
+      legendX += legendSpacing;
+    });
+  }
+
+  // PROPERLY SPACED TOP 5 TABLE
+  const panelX = width - 200;
+  const panelY = 90;
+  const rowHeight = 32;
+
+  // Table background
+  ctx.fillStyle = 'rgba(15, 23, 42, 0.8)';
+  ctx.fillRect(panelX - 15, panelY, 185, 180);
+
+  // Table header
+  ctx.fillStyle = '#ffffff';
+  ctx.font = 'bold 18px Arial';
+  ctx.textAlign = 'left';
+  ctx.fillText('Top 5 States:', panelX, panelY + 20);
+
+  let listY = panelY + 50;
+
+  topStates.slice(0, 5).forEach((state, idx) => {
+    const color = getColor(state, mapType);
+    const value = mapType === 'volume' ? `${state.percentage}%` : `$${state.avgCost}`;
+
+    // Rank circle
+    ctx.fillStyle = '#475569';
+    ctx.beginPath();
+    ctx.arc(panelX + 10, listY, 12, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 14px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText(`${idx + 1}`, panelX + 10, listY + 1);
+
+    // State code
+    ctx.fillStyle = '#e2e8f0';
+    ctx.font = 'bold 18px Arial';
+    ctx.textAlign = 'left';
+    ctx.fillText(state.code, panelX + 32, listY + 1);
+
+    // Value with color
+    ctx.fillStyle = color;
+    ctx.font = 'bold 18px Arial';
+    ctx.textAlign = 'right';
+    ctx.fillText(value, panelX + 155, listY + 1);
+
+    listY += rowHeight;
+  });
+
+  return canvas.toBuffer('image/png', { compressionLevel: 0, filters: canvas.PNG_FILTER_NONE });
+}
+
 async function generatePDF(data, outputPath) {
   return new Promise(async (resolve, reject) => {
     try {
@@ -650,99 +1017,57 @@ async function generatePDF(data, outputPath) {
       // Page 2 Title
       doc.fontSize(17).fillColor('#ffffff').font('Helvetica-Bold')
          .text('Geographic Analysis', 50, yPos);
-      yPos += 30;
+      yPos += 35;
 
-      // Two maps side by side
-      const mapWidth = (doc.page.width - 120) / 2;
+      // Generate CRISP maps
+      const volumeMapBuffer = await generateUSMapVisualization(data.topStates, 'volume');
+      const costMapBuffer = await generateUSMapVisualization(data.topStates, 'cost');
+
+      // CRITICAL: Use exact dimensions - no scaling
+      const mapWidth = 512;
       const mapHeight = 200;
 
       // Map 1: Volume Heat Map
       doc.roundedRect(50, yPos, mapWidth, mapHeight, 8)
          .lineWidth(1).fillAndStroke('#1a1f2e', '#2d3748');
-      doc.fontSize(11).fillColor('#ffffff').font('Helvetica-Bold')
-         .text('Shipping Volume Heat Map', 60, yPos + 12);
-      doc.fontSize(8).fillColor('#64748b').font('Helvetica')
-         .text('Distribution by state volume', 60, yPos + 28);
 
-      let mapItemY = yPos + 48;
-      data.topStates.slice(0, 5).forEach((state) => {
-        const barMaxWidth = mapWidth - 80;
-        const barWidth = (state.percentage / 100) * barMaxWidth;
-        const color = state.percentage >= 15 ? '#1e40af' :
-                     state.percentage >= 10 ? '#2563eb' :
-                     state.percentage >= 5 ? '#3b82f6' : '#60a5fa';
+      if (volumeMapBuffer) {
+        try {
+          // Place image at exact size - NO SCALING
+          doc.image(volumeMapBuffer, 50, yPos, {
+            width: mapWidth,
+            height: mapHeight,
+            fit: [mapWidth, mapHeight],
+            align: 'center',
+            valign: 'center'
+          });
+        } catch (err) {
+          console.error('Volume map error:', err);
+        }
+      }
 
-        doc.fontSize(9).fillColor('#e2e8f0').font('Helvetica')
-           .text(state.code, 60, mapItemY);
-        doc.roundedRect(90, mapItemY - 2, barWidth, 16, 4).fill(color);
-        doc.fontSize(8).fillColor('#ffffff').font('Helvetica-Bold')
-           .text(`${state.percentage}%`, 95, mapItemY + 2);
-        mapItemY += 26;
-      });
-
-      // Legend for Volume Map
-      const legendY = yPos + mapHeight - 30;
-      doc.fontSize(7).fillColor('#94a3b8').font('Helvetica').text('Legend:', 60, legendY);
-      const legendItems = [
-        { color: '#60a5fa', label: 'Low' },
-        { color: '#3b82f6', label: 'Med' },
-        { color: '#2563eb', label: 'High' },
-        { color: '#1e40af', label: 'V.High' }
-      ];
-      let legendX = 60;
-      legendItems.forEach((item) => {
-        doc.circle(legendX, legendY + 13, 4).fill(item.color);
-        doc.fontSize(6).fillColor('#cbd5e1').font('Helvetica')
-           .text(item.label, legendX + 8, legendY + 10);
-        legendX += 45;
-      });
+      yPos += mapHeight + 15;
 
       // Map 2: Average Cost Heat Map
-      const map2X = 50 + mapWidth + 20;
-      doc.roundedRect(map2X, yPos, mapWidth, mapHeight, 8)
+      doc.roundedRect(50, yPos, mapWidth, mapHeight, 8)
          .lineWidth(1).fillAndStroke('#1a1f2e', '#2d3748');
-      doc.fontSize(11).fillColor('#ffffff').font('Helvetica-Bold')
-         .text('Average Cost Heat Map', map2X + 10, yPos + 12);
-      doc.fontSize(8).fillColor('#64748b').font('Helvetica')
-         .text('Distribution by avg shipping cost', map2X + 10, yPos + 28);
 
-      mapItemY = yPos + 48;
-      const maxCost = Math.max(...data.topStates.map(s => s.avgCost || 0));
+      if (costMapBuffer) {
+        try {
+          // Place image at exact size - NO SCALING
+          doc.image(costMapBuffer, 50, yPos, {
+            width: mapWidth,
+            height: mapHeight,
+            fit: [mapWidth, mapHeight],
+            align: 'center',
+            valign: 'center'
+          });
+        } catch (err) {
+          console.error('Cost map error:', err);
+        }
+      }
 
-      data.topStates.slice(0, 5).forEach((state) => {
-        const cost = state.avgCost || 0;
-        const barMaxWidth = mapWidth - 80;
-        const barWidth = (cost / maxCost) * barMaxWidth;
-        const color = cost >= 16 ? '#dc2626' :
-                     cost >= 14 ? '#f97316' :
-                     cost >= 12 ? '#fbbf24' : '#34d399';
-
-        doc.fontSize(9).fillColor('#e2e8f0').font('Helvetica')
-           .text(state.code, map2X + 10, mapItemY);
-        doc.roundedRect(map2X + 40, mapItemY - 2, barWidth, 16, 4).fill(color);
-        doc.fontSize(8).fillColor('#ffffff').font('Helvetica-Bold')
-           .text(`$${state.avgCost}`, map2X + 45, mapItemY + 2);
-        mapItemY += 26;
-      });
-
-      // Legend for Cost Map
-      const legend2Y = yPos + mapHeight - 30;
-      doc.fontSize(7).fillColor('#94a3b8').font('Helvetica').text('Legend:', map2X + 10, legend2Y);
-      const legend2Items = [
-        { color: '#34d399', label: 'Low' },
-        { color: '#fbbf24', label: 'Med' },
-        { color: '#f97316', label: 'High' },
-        { color: '#dc2626', label: 'V.High' }
-      ];
-      let legend2X = map2X + 10;
-      legend2Items.forEach((item) => {
-        doc.circle(legend2X, legend2Y + 13, 4).fill(item.color);
-        doc.fontSize(6).fillColor('#cbd5e1').font('Helvetica')
-           .text(item.label, legend2X + 8, legend2Y + 10);
-        legend2X += 45;
-      });
-
-      yPos += mapHeight + 25;
+      yPos += mapHeight + 20;
 
       // Additional Insights Section
       doc.fontSize(15).fillColor('#ffffff').font('Helvetica-Bold')
