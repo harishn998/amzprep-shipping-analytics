@@ -3,6 +3,7 @@ import { Upload, BarChart3, Package, DollarSign, Download, Settings, LogOut, Ale
 import axios from 'axios';
 import { ComposableMap, Geographies, Geography } from 'react-simple-maps';
 import amzprepLogo from './assets/amz-prep-logo-resized.png';
+import { useAuth } from './contexts/AuthContext';
 
 
 //const API_URL = 'http://localhost:5000/api';
@@ -25,6 +26,7 @@ const stateNameToCode = {
 };
 
 const ShippingAnalytics = () => {
+  const { user, logout, getAuthHeader } = useAuth();
   const [activeView, setActiveView] = useState('dashboard');
   const [uploadedFile, setUploadedFile] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -41,9 +43,17 @@ const ShippingAnalytics = () => {
 
   const fetchReports = async () => {
     try {
-      const response = await axios.get(`${API_URL}/reports`);
+      const response = await axios.get(`${API_URL}/reports`, {
+      headers: getAuthHeader()  // ← ADD THIS
+      });
       setReports(response.data.reports);
     } catch (err) {
+      // Handle auth errors
+      if (err.response?.status === 401 || err.response?.status === 403) {
+      logout();
+      window.location.href = '/login';
+      return;
+      }
       console.error('Error fetching reports:', err);
     }
   };
@@ -62,7 +72,10 @@ const ShippingAnalytics = () => {
 
     try {
       const response = await axios.post(`${API_URL}/upload`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
+        headers: {
+          'Content-Type': 'multipart/form-data',
+          ...getAuthHeader()
+       },
       });
 
       if (response.data.success) {
@@ -81,6 +94,16 @@ const ShippingAnalytics = () => {
         fetchReports();
       }
     } catch (err) {
+      // Handle authentication errors
+      if (err.response?.status === 401 || err.response?.status === 403) {
+        setError('Your session has expired. Please login again.');
+        logout();
+        setTimeout(() => {
+          window.location.href = '/login';
+        }, 2000);
+        return;
+      }
+
       setError(err.response?.data?.error || 'Error uploading file. Please try again.');
     } finally {
       setLoading(false);
@@ -98,7 +121,8 @@ const ShippingAnalytics = () => {
 
     try {
       const response = await axios.get(`${API_URL}/export/pdf/${currentReportId}`, {
-        responseType: 'blob'
+        responseType: 'blob',
+        headers: getAuthHeader()
       });
 
       const url = window.URL.createObjectURL(new Blob([response.data]));
@@ -112,6 +136,17 @@ const ShippingAnalytics = () => {
       setSuccess('PDF report downloaded successfully!');
     } catch (err) {
       console.error('PDF export error:', err);
+
+      // Handle auth errors
+      if (err.response?.status === 401 || err.response?.status === 403) {
+        setError('Your session has expired. Please login again.');
+        logout();
+        setTimeout(() => {
+          window.location.href = '/login';
+        }, 2000);
+        return;
+      }
+
       setError('Error generating PDF. Please try again.');
     } finally {
       setExportingPDF(false);
@@ -121,11 +156,19 @@ const ShippingAnalytics = () => {
   const loadReport = async (reportId) => {
     setLoading(true);
     try {
-      const response = await axios.get(`${API_URL}/reports/${reportId}`);
+      const response = await axios.get(`${API_URL}/reports/${reportId}`, {
+      headers: getAuthHeader()  // ← ADD THIS
+      });
       setDashboardData(response.data);
       setCurrentReportId(reportId);
       setActiveView('dashboard');
     } catch (err) {
+      // Handle auth errors
+      if (err.response?.status === 401 || err.response?.status === 403) {
+        logout();
+        window.location.href = '/login';
+        return;
+      }
       setError('Error loading report');
     } finally {
       setLoading(false);
@@ -147,7 +190,25 @@ const ShippingAnalytics = () => {
           </div>
         </div>
       </div>
+
+      {/* THIS IS THE NEW PART - User Info & Logout */}
       <div className="flex items-center gap-4">
+        {/* User Profile Section */}
+        <div className="flex items-center gap-3 bg-[#0f1419] px-4 py-2 rounded-lg border border-gray-700">
+          {user.picture && (
+            <img
+              src={user.picture}
+              alt={user.name}
+              className="w-8 h-8 rounded-full border-2 border-blue-500"
+            />
+          )}
+          <div className="text-sm">
+            <div className="text-white font-medium">{user.name}</div>
+            <div className="text-gray-400 text-xs">{user.email}</div>
+          </div>
+        </div>
+
+        {/* Upload New Button (existing) */}
         <button
           onClick={() => setActiveView('upload')}
           className="text-gray-400 hover:text-white transition-colors flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-[#242936]"
@@ -155,10 +216,21 @@ const ShippingAnalytics = () => {
           <Upload size={20} />
           <span className="text-sm">Upload New</span>
         </button>
+
+        {/* Settings Button (existing) */}
         <button className="text-gray-400 hover:text-white transition-colors p-2 rounded-lg hover:bg-[#242936]">
           <Settings size={20} />
         </button>
-        <button className="text-gray-400 hover:text-white transition-colors p-2 rounded-lg hover:bg-[#242936]">
+
+        {/* NEW: Logout Button */}
+        <button
+          onClick={() => {
+            logout();
+            window.location.href = '/login';
+          }}
+          className="text-gray-400 hover:text-red-400 transition-colors p-2 rounded-lg hover:bg-[#242936]"
+          title="Logout"
+        >
           <LogOut size={20} />
         </button>
       </div>

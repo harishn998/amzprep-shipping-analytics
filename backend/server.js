@@ -1,3 +1,5 @@
+import 'dotenv/config';
+
 import express from 'express';
 import multer from 'multer';
 import cors from 'cors';
@@ -8,6 +10,11 @@ import { fileURLToPath } from 'url';
 import PDFDocument from 'pdfkit';
 import https from 'https';
 import { createCanvas } from 'canvas';
+import session from 'express-session';
+import passport from './config/passport.js';
+import jwt from 'jsonwebtoken';
+//import dotenv from 'dotenv';
+//dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -53,6 +60,22 @@ const storage = multer.diskStorage({
     cb(null, uniqueSuffix + '-' + file.originalname);
   }
 });
+
+// Session configuration
+app.use(session({
+  secret: process.env.SESSION_SECRET,
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: process.env.NODE_ENV === 'production', // true in production
+    httpOnly: true,
+    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+  }
+}));
+
+// Initialize Passport
+app.use(passport.initialize());
+app.use(passport.session());
 
 const upload = multer({
   storage,
@@ -1171,11 +1194,90 @@ async function generatePDF(data, outputPath) {
   });
 }
 
+// ============================================
+// AUTHENTICATION ROUTES
+// ============================================
+
+// Initiate Google OAuth
+app.get('/auth/google',
+  passport.authenticate('google', {
+    scope: ['profile', 'email']
+  })
+);
+
+// Google OAuth callback
+app.get('/auth/google/callback',
+  passport.authenticate('google', {
+    failureRedirect: `${process.env.FRONTEND_URL}/login?error=auth_failed`
+  }),
+  (req, res) => {
+    console.log('Auth callback - user authenticated:', req.user.email);
+
+    // Generate JWT token
+    const token = jwt.sign(
+      {
+        id: req.user.id,
+        email: req.user.email,
+        name: req.user.name,
+        picture: req.user.picture
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+
+    console.log('JWT token generated for:', req.user.email);
+
+    // Redirect to frontend with token
+    res.redirect(`${process.env.FRONTEND_URL}/auth/callback?token=${token}`);
+  }
+);
+
+// Logout
+app.post('/auth/logout', (req, res) => {
+  const email = req.user?.email;
+  req.logout((err) => {
+    if (err) {
+      console.error('Logout error:', err);
+      return res.status(500).json({ error: 'Logout failed' });
+    }
+    console.log('User logged out:', email);
+    res.json({ success: true, message: 'Logged out successfully' });
+  });
+});
+
+// Get current user info
+app.get('/auth/user', authenticateToken, (req, res) => {
+  res.json({ user: req.user });
+});
+
+// Middleware to verify JWT token
+function authenticateToken(req, res, next) {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) {
+    console.log('No token provided');
+    return res.status(401).json({ error: 'Access token required' });
+  }
+
+  jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
+    if (err) {
+      console.log('Token verification failed:', err.message);
+      return res.status(403).json({ error: 'Invalid or expired token' });
+    }
+    req.user = user;
+    next();
+  });
+}
+
+// Export middleware for use in other routes
+export { authenticateToken };
+
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'AMZ Prep Analytics API is running' });
 });
 
-app.post('/api/upload', upload.single('file'), (req, res) => {
+app.post('/api/upload', authenticateToken, upload.single('file'), (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' });
@@ -1215,7 +1317,7 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
   }
 });
 
-app.get('/api/reports', (req, res) => {
+app.get('/api/reports', authenticateToken, (req, res) => {
   const reportSummaries = reports.map(r => ({
     id: r.id,
     uploadDate: r.uploadDate,
@@ -1226,7 +1328,7 @@ app.get('/api/reports', (req, res) => {
   res.json({ reports: reportSummaries });
 });
 
-app.get('/api/reports/:id', (req, res) => {
+app.get('/api/reports/:id', authenticateToken, (req, res) => {
   const reportId = parseInt(req.params.id);
   const report = reports.find(r => r.id === reportId);
 
@@ -1237,7 +1339,7 @@ app.get('/api/reports/:id', (req, res) => {
   res.json(report);
 });
 
-app.get('/api/export/pdf/:id', async (req, res) => {
+app.get('/api/export/pdf/:id', authenticateToken, async (req, res) => {
   try {
     const reportId = parseInt(req.params.id);
     const report = reports.find(r => r.id === reportId);
