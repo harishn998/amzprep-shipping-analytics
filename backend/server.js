@@ -13,6 +13,7 @@ import { createCanvas } from 'canvas';
 import session from 'express-session';
 import passport from './config/passport.js';
 import jwt from 'jsonwebtoken';
+import { zipToState, calculateZone, estimateTransitTime } from './utils/zipToState.js';
 //import dotenv from 'dotenv';
 //dotenv.config();
 
@@ -138,6 +139,24 @@ function parseExcelFile(filePath) {
   const worksheet = workbook.Sheets[sheetName];
   const data = xlsx.utils.sheet_to_json(worksheet);
 
+  console.log(`📊 Parsing ${data.length} rows from Excel file`);
+
+  // Detect format type
+  const firstRow = data[0];
+  const isMuscleMacFormat = firstRow.hasOwnProperty('Amazon Partnered Carrier Cost') ||
+                            firstRow.hasOwnProperty('Ship To Postal Code');
+
+  console.log(`📋 Detected format: ${isMuscleMacFormat ? 'MUSCLE MAC (Real User Data)' : 'Simple Format'}`);
+
+  if (isMuscleMacFormat) {
+    return parseMuscleMacFormat(data);
+  } else {
+    return parseSimpleFormat(data);
+  }
+}
+
+// Original simple format parser
+function parseSimpleFormat(data) {
   return data.map(row => ({
     state: row.State || row.state || '',
     weight: parseFloat(row.Weight || row.weight || 0),
@@ -149,6 +168,95 @@ function parseExcelFile(filePath) {
     date: row.Date || row.date || new Date().toISOString(),
     country: row.Country || row.country || 'US'
   }));
+}
+
+// New MUSCLE MAC format parser
+function parseMuscleMacFormat(data) {
+  console.log('🔄 Parsing MUSCLE MAC format...');
+
+  const shipments = [];
+  let skippedRows = 0;
+
+  // Warehouse origin ZIP (Charlotte, NC warehouse)
+  const warehouseZip = '28601'; // Hickory, NC
+
+  data.forEach((row, index) => {
+    try {
+      // Extract and clean ZIP code
+      const rawZip = row['Ship To Postal Code'];
+      if (!rawZip) {
+        skippedRows++;
+        return;
+      }
+
+      const zipCode = String(rawZip).split('-')[0].trim();
+
+      // Get state from ZIP
+      const stateInfo = zipToState(zipCode);
+      if (!stateInfo) {
+        console.log(`⚠️  Row ${index + 1}: Could not determine state for ZIP ${zipCode}`);
+        skippedRows++;
+        return;
+      }
+
+      // Calculate total cost
+      const carrierCost = parseFloat(row['Amazon Partnered Carrier Cost'] || 0);
+      const placementFee = parseFloat(row['Chosen Placement Fee'] || 0);
+      const totalCost = carrierCost + placementFee;
+
+      // Get weight
+      const weight = parseFloat(row['Total Weight (lbs)'] || 0);
+
+      // Skip if no valid data
+      if (totalCost === 0 && weight === 0) {
+        skippedRows++;
+        return;
+      }
+
+      // Get shipping method
+      const shippingMethod = row['Ship Method'] || row['Carrier'] || 'Ground';
+
+      // Calculate zone
+      const zone = calculateZone(warehouseZip, zipCode);
+
+      // Estimate transit time
+      const transitTime = estimateTransitTime(shippingMethod, zone);
+
+      // Parse date
+      let date = new Date().toISOString();
+      if (row['Created Date']) {
+        try {
+          const parsedDate = new Date(row['Created Date']);
+          if (!isNaN(parsedDate.getTime())) {
+            date = parsedDate.toISOString();
+          }
+        } catch (e) {
+          // Use default date
+        }
+      }
+
+      shipments.push({
+        state: stateInfo.state,
+        weight: weight || 1, // Default to 1 lb if 0
+        cost: totalCost,
+        shippingMethod: shippingMethod,
+        zone: zone,
+        transitTime: transitTime,
+        zipCode: zipCode,
+        date: date,
+        country: row['Ship To Country Code'] || 'US'
+      });
+
+    } catch (error) {
+      console.error(`❌ Error parsing row ${index + 1}:`, error.message);
+      skippedRows++;
+    }
+  });
+
+  console.log(`✅ Successfully parsed ${shipments.length} shipments`);
+  console.log(`⚠️  Skipped ${skippedRows} rows (missing data or errors)`);
+
+  return shipments;
 }
 
 function calculateWarehouseComparison(shipments) {
