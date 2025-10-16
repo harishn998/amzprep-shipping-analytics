@@ -1,9 +1,6 @@
 import passport from 'passport';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
-
-// Simple in-memory user storage (for testing)
-// In production, use MongoDB, PostgreSQL, etc.
-const users = [];
+import User from '../models/User.js';
 
 passport.use(new GoogleStrategy({
     clientID: process.env.GOOGLE_CLIENT_ID,
@@ -16,6 +13,7 @@ passport.use(new GoogleStrategy({
       const email = profile.emails[0].value;
       const name = profile.displayName;
       const picture = profile.photos[0]?.value || '';
+      const googleId = profile.id;
 
       console.log('Google login attempt:', email);
 
@@ -30,24 +28,25 @@ passport.use(new GoogleStrategy({
         }
       }
 
-      // Find existing user or create new one
-      let user = users.find(u => u.email === email);
+      // Find existing user or create new one in MongoDB
+      let user = await User.findOne({ email });
 
       if (!user) {
-        user = {
-          id: Date.now().toString(),
-          googleId: profile.id,
+        // Create new user
+        user = await User.create({
+          googleId,
           email,
           name,
-          picture,
-          createdAt: new Date().toISOString(),
-          lastLogin: new Date().toISOString()
-        };
-        users.push(user);
-        console.log('New user created:', email);
+          picture
+        });
+        console.log('✅ New user created in MongoDB:', email);
       } else {
-        user.lastLogin = new Date().toISOString();
-        console.log('Existing user logged in:', email);
+        // Update existing user's last login and info
+        user.lastLogin = new Date();
+        user.name = name;  // Update name in case it changed
+        user.picture = picture;  // Update picture in case it changed
+        await user.save();
+        console.log('✅ Existing user logged in:', email);
       }
 
       return done(null, user);
@@ -58,15 +57,19 @@ passport.use(new GoogleStrategy({
   }
 ));
 
-// Serialize user for session
+// Serialize user for session - store user ID
 passport.serializeUser((user, done) => {
-  done(null, user.id);
+  done(null, user._id.toString());
 });
 
-// Deserialize user from session
-passport.deserializeUser((id, done) => {
-  const user = users.find(u => u.id === id);
-  done(null, user);
+// Deserialize user from session - fetch from MongoDB
+passport.deserializeUser(async (id, done) => {
+  try {
+    const user = await User.findById(id);
+    done(null, user);
+  } catch (error) {
+    done(error, null);
+  }
 });
 
 export default passport;

@@ -14,6 +14,9 @@ import session from 'express-session';
 import passport from './config/passport.js';
 import jwt from 'jsonwebtoken';
 import { zipToState, calculateZone, estimateTransitTime } from './utils/zipToState.js';
+import connectDB from './config/database.js';
+import User from './models/User.js';
+import Report from './models/Report.js';
 //import dotenv from 'dotenv';
 //dotenv.config();
 
@@ -24,6 +27,11 @@ const app = express();
 //const PORT = 5000;
 
 const PORT = process.env.PORT || 5000;
+
+// ============================================
+// DATABASE CONNECTION (NEW)
+// ============================================
+connectDB();
 
 //app.use(cors());
 
@@ -92,8 +100,8 @@ const upload = multer({
   }
 });
 
-let reports = [];
-let reportIdCounter = 1;
+//let reports = [];
+//let reportIdCounter = 1;
 
 const stateNameToCode = {
   'Alabama': 'AL', 'Alaska': 'AK', 'Arizona': 'AZ', 'Arkansas': 'AR', 'California': 'CA',
@@ -1324,7 +1332,7 @@ app.get('/auth/google/callback',
     // Generate JWT token
     const token = jwt.sign(
       {
-        id: req.user.id,
+        id: req.user._id.toString(),
         email: req.user.email,
         name: req.user.name,
         picture: req.user.picture
@@ -1354,8 +1362,17 @@ app.post('/auth/logout', (req, res) => {
 });
 
 // Get current user info
-app.get('/auth/user', authenticateToken, (req, res) => {
-  res.json({ user: req.user });
+app.get('/auth/user', authenticateToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).select('-__v');
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    res.json({ user });
+  } catch (error) {
+    console.error('Error fetching user:', error);
+    res.status(500).json({ error: 'Error fetching user data' });
+  }
 });
 
 // Middleware to verify JWT token
@@ -1385,72 +1402,165 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'AMZ Prep Analytics API is running' });
 });
 
-app.post('/api/upload', authenticateToken, upload.single('file'), (req, res) => {
+app.post('/api/upload', authenticateToken, upload.single('file'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
+    console.log('📤 File upload from user:', req.user.email);
+
     const filePath = req.file.path;
     const shipments = parseExcelFile(filePath);
 
     if (shipments.length === 0) {
+      // Clean up uploaded file
+      fs.unlinkSync(filePath);
       return res.status(400).json({ error: 'No valid data found in file' });
     }
 
     const analysis = analyzeShipments(shipments);
 
-    const report = {
-      id: reportIdCounter++,
-      uploadDate: new Date().toISOString(),
+    // ← NEW: Save to MongoDB
+    const report = new Report({
+      userId: req.user.id,
+      userEmail: req.user.email,
       filename: req.file.originalname,
+      uploadDate: new Date(),
       ...analysis
-    };
+    });
 
-    reports.push(report);
+    await report.save();
+    console.log('✅ Report saved to MongoDB:', report._id);
 
-    if (reports.length > 50) {
-      reports = reports.slice(-50);
-    }
+    // Clean up uploaded file after processing
+    setTimeout(() => {
+      try {
+        fs.unlinkSync(filePath);
+        console.log('🗑️  Cleaned up uploaded file:', req.file.filename);
+      } catch (err) {
+        console.error('Error cleaning up file:', err);
+      }
+    }, 5000);
 
     res.json({
       success: true,
       data: analysis,
-      reportId: report.id
+      reportId: report._id.toString()  // ← NEW: MongoDB _id
     });
 
   } catch (error) {
     console.error('Upload error:', error);
+
+    // Clean up file on error
+    if (req.file && req.file.path) {
+      try {
+        fs.unlinkSync(req.file.path);
+      } catch (err) {}
+    }
+
     res.status(500).json({ error: 'Error processing file: ' + error.message });
   }
 });
 
-app.get('/api/reports', authenticateToken, (req, res) => {
-  const reportSummaries = reports.map(r => ({
-    id: r.id,
-    uploadDate: r.uploadDate,
-    filename: r.filename,
-    totalShipments: r.totalShipments
-  }));
+app.get('/api/reports', authenticateToken, async (req, res) => {
+  try {
+    console.log('📋 Fetching reports for user:', req.user.email);
 
-  res.json({ reports: reportSummaries });
+    // Fetch reports sorted by upload date (newest first)
+    const reports = await Report.find({ userId: req.user.id })
+      .sort({ uploadDate: -1 })
+      .select('_id filename uploadDate totalShipments avgCost analysisMonths')
+      .lean();
+
+    console.log(`✅ Found ${reports.length} reports`);
+
+    // Format reports for response
+    const reportSummaries = reports.map(r => ({
+      id: r._id.toString(),
+      filename: r.filename,
+      uploadDate: r.uploadDate,
+      totalShipments: r.totalShipments,
+      avgCost: r.avgCost,
+      analysisMonths: r.analysisMonths
+    }));
+
+    res.json({ reports: reportSummaries });
+
+  } catch (error) {
+    console.error('Error fetching reports:', error);
+    res.status(500).json({ error: 'Error fetching reports: ' + error.message });
+  }
 });
 
-app.get('/api/reports/:id', authenticateToken, (req, res) => {
-  const reportId = parseInt(req.params.id);
-  const report = reports.find(r => r.id === reportId);
+app.get('/api/reports/:id', authenticateToken, async (req, res) => {
+  try {
+    const reportId = req.params.id;
+    console.log('📄 Fetching report:', reportId, 'for user:', req.user.email);
 
-  if (!report) {
-    return res.status(404).json({ error: 'Report not found' });
+    const report = await Report.findOne({
+      _id: reportId,
+      userId: req.user.id  // Security: ensure user owns this report
+    }).lean();
+
+    if (!report) {
+      return res.status(404).json({ error: 'Report not found' });
+    }
+
+    console.log('✅ Report found and sent');
+
+    // Remove MongoDB specific fields
+    const { _id, userId, userEmail, __v, createdAt, updatedAt, ...reportData } = report;
+
+    res.json({
+      id: _id.toString(),
+      ...reportData
+    });
+
+  } catch (error) {
+    console.error('Error fetching report:', error);
+    res.status(500).json({ error: 'Error fetching report: ' + error.message });
   }
+});
 
-  res.json(report);
+// Delete specific report
+app.delete('/api/reports/:id', authenticateToken, async (req, res) => {
+  try {
+    const reportId = req.params.id;
+    console.log('🗑️  Deleting report:', reportId, 'for user:', req.user.email);
+
+    const report = await Report.findOneAndDelete({
+      _id: reportId,
+      userId: req.user.id  // Security: ensure user owns this report
+    });
+
+    if (!report) {
+      return res.status(404).json({ error: 'Report not found' });
+    }
+
+    console.log('✅ Report deleted successfully');
+
+    res.json({
+      success: true,
+      message: 'Report deleted successfully',
+      deletedReportId: reportId
+    });
+
+  } catch (error) {
+    console.error('Error deleting report:', error);
+    res.status(500).json({ error: 'Error deleting report: ' + error.message });
+  }
 });
 
 app.get('/api/export/pdf/:id', authenticateToken, async (req, res) => {
   try {
-    const reportId = parseInt(req.params.id);
-    const report = reports.find(r => r.id === reportId);
+    const reportId = req.params.id;
+    console.log('📑 Exporting PDF for report:', reportId);
+
+    const report = await Report.findOne({  // ← NEW: MongoDB query
+      _id: reportId,
+      userId: req.user.id
+    }).lean();
 
     if (!report) {
       return res.status(404).json({ error: 'Report not found' });
@@ -1458,7 +1568,10 @@ app.get('/api/export/pdf/:id', authenticateToken, async (req, res) => {
 
     const pdfPath = path.join(uploadsDir, `report-${reportId}-${Date.now()}.pdf`);
 
-    await generatePDF(report, pdfPath);
+    // Remove MongoDB specific fields before PDF generation
+    const { _id, userId, userEmail, __v, createdAt, updatedAt, ...reportData } = report;
+
+    await generatePDF(reportData, pdfPath);  
 
     res.download(pdfPath, `AMZ-Prep-Analytics-Report-${reportId}.pdf`, (err) => {
       if (err) {

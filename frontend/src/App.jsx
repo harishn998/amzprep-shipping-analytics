@@ -27,6 +27,7 @@ const stateNameToCode = {
 
 const ShippingAnalytics = () => {
   const { user, logout, getAuthHeader } = useAuth();
+  const [deletingReportId, setDeletingReportId] = useState(null);
   const [activeView, setActiveView] = useState('dashboard');
   const [uploadedFile, setUploadedFile] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -174,6 +175,40 @@ const ShippingAnalytics = () => {
       setLoading(false);
     }
   };
+
+  const deleteReport = async (reportId) => {
+  if (!window.confirm('Are you sure you want to delete this report? This action cannot be undone.')) {
+    return;
+  }
+
+  setDeletingReportId(reportId);
+
+  try {
+    await axios.delete(`${API_URL}/reports/${reportId}`, {
+      headers: getAuthHeader()
+    });
+
+    // Remove report from list
+    setReports(reports.filter(r => r.id !== reportId));
+
+    // If deleted report was currently loaded, clear dashboard
+    if (currentReportId === reportId) {
+      setDashboardData(null);
+      setCurrentReportId(null);
+    }
+
+    setSuccess('Report deleted successfully');
+  } catch (err) {
+    if (err.response?.status === 401 || err.response?.status === 403) {
+      logout();
+      window.location.href = '/login';
+      return;
+    }
+    setError('Error deleting report: ' + (err.response?.data?.error || err.message));
+  } finally {
+    setDeletingReportId(null);
+  }
+};
 
   const Header = () => (
     <header className="bg-[#1a1f2e] border-b border-gray-800 px-6 py-4 flex items-center justify-between sticky top-0 z-50">
@@ -327,25 +362,51 @@ const ShippingAnalytics = () => {
 
           {reports.length > 0 && (
             <div className="mt-8 text-left">
-              <h3 className="text-sm font-semibold text-gray-300 mb-3">Recent Reports:</h3>
-              <div className="space-y-2">
-                {reports.slice(0, 5).map((report) => (
+              <h3 className="text-sm font-semibold text-gray-300 mb-3 flex items-center gap-2">
+                <FileText size={16} className="text-blue-400" />
+                Recent Reports:
+              </h3>
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {reports.slice(0, 10).map((report) => (
                   <div
                     key={report.id}
-                    className="bg-[#0f1419] p-3 rounded-lg text-sm flex items-center justify-between hover:bg-[#1a1f2e] transition-colors"
+                    className="bg-[#0f1419] p-3 rounded-lg text-sm flex items-center justify-between hover:bg-[#1a1f2e] transition-colors group"
                   >
-                    <div>
-                      <div className="text-white">{report.totalShipments.toLocaleString()} shipments</div>
-                      <div className="text-gray-500 text-xs">
-                        {new Date(report.uploadDate).toLocaleDateString()}
+                    <div className="flex-1 min-w-0">
+                      <div className="text-white font-medium truncate">{report.filename}</div>
+                      <div className="flex items-center gap-3 text-xs text-gray-500 mt-1">
+                        <span>{report.totalShipments.toLocaleString()} shipments</span>
+                        <span>•</span>
+                        <span>{new Date(report.uploadDate).toLocaleDateString()}</span>
+                        {report.avgCost && (
+                          <>
+                            <span>•</span>
+                            <span>Avg: {typeof report.avgCost === 'number' ? `$${report.avgCost}` : report.avgCost}</span>
+                          </>
+                        )}
                       </div>
                     </div>
-                    <button
-                      onClick={() => loadReport(report.id)}
-                      className="text-blue-500 hover:text-blue-400 font-semibold"
-                    >
-                      View
-                    </button>
+                    <div className="flex items-center gap-2 ml-4">
+                      <button
+                        onClick={() => loadReport(report.id)}
+                        className="text-blue-500 hover:text-blue-400 font-semibold px-3 py-1 rounded hover:bg-blue-500/10 transition-colors"
+                        disabled={loading}
+                      >
+                        View
+                      </button>
+                      <button
+                        onClick={() => deleteReport(report.id)}
+                        disabled={deletingReportId === report.id}
+                        className="text-red-500 hover:text-red-400 font-semibold px-3 py-1 rounded hover:bg-red-500/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        title="Delete report"
+                      >
+                        {deletingReportId === report.id ? (
+                          <div className="inline-block animate-spin rounded-full h-4 w-4 border-2 border-red-500 border-t-transparent"></div>
+                        ) : (
+                          '✕'
+                        )}
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -910,13 +971,112 @@ const WarehouseLocationMap = ({ warehouses }) => (
   </div>
 );
 
+const ReportsPanel = () => {
+  const [showAllReports, setShowAllReports] = useState(false);
+  const displayReports = showAllReports ? reports : reports.slice(0, 5);
+
+  return (
+    <div className="bg-[#1a1f2e] rounded-xl p-6 border border-gray-800">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-white text-lg font-semibold flex items-center gap-2">
+          <FileText className="text-blue-400" size={20} />
+          Your Reports ({reports.length})
+        </h3>
+        {reports.length > 5 && (
+          <button
+            onClick={() => setShowAllReports(!showAllReports)}
+            className="text-blue-400 hover:text-blue-300 text-sm font-semibold"
+          >
+            {showAllReports ? 'Show Less' : `Show All (${reports.length})`}
+          </button>
+        )}
+      </div>
+
+      {reports.length === 0 ? (
+        <div className="text-center py-8 text-gray-500">
+          <FileText size={48} className="mx-auto mb-3 opacity-50" />
+          <p>No reports yet. Upload data to create your first report!</p>
+        </div>
+      ) : (
+        <div className="space-y-2 max-h-96 overflow-y-auto">
+          {displayReports.map((report) => (
+            <div
+              key={report.id}
+              className={`p-4 rounded-lg border transition-all ${
+                currentReportId === report.id
+                  ? 'bg-blue-500/10 border-blue-500/50'
+                  : 'bg-[#0f1419] border-gray-800 hover:border-gray-700'
+              }`}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-2">
+                    {currentReportId === report.id && (
+                      <span className="text-xs bg-blue-500 text-white px-2 py-0.5 rounded font-bold">
+                        CURRENT
+                      </span>
+                    )}
+                    <h4 className="text-white font-medium truncate">{report.filename}</h4>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-xs text-gray-400">
+                    <div>
+                      <span className="text-gray-500">Shipments:</span>{' '}
+                      <span className="text-white font-semibold">{report.totalShipments.toLocaleString()}</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">Avg Cost:</span>{' '}
+                      <span className="text-white font-semibold">
+                        {typeof report.avgCost === 'number' ? `$${report.avgCost}` : report.avgCost}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">Date:</span>{' '}
+                      <span className="text-white">{new Date(report.uploadDate).toLocaleDateString()}</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">Period:</span>{' '}
+                      <span className="text-white">{report.analysisMonths} month{report.analysisMonths > 1 ? 's' : ''}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  {currentReportId !== report.id && (
+                    <button
+                      onClick={() => loadReport(report.id)}
+                      disabled={loading}
+                      className="text-blue-400 hover:text-blue-300 text-sm font-semibold px-3 py-1 rounded hover:bg-blue-500/10 transition-colors disabled:opacity-50"
+                    >
+                      Load
+                    </button>
+                  )}
+                  <button
+                    onClick={() => deleteReport(report.id)}
+                    disabled={deletingReportId === report.id}
+                    className="text-red-400 hover:text-red-300 text-sm font-semibold px-3 py-1 rounded hover:bg-red-500/10 transition-colors disabled:opacity-50"
+                  >
+                    {deletingReportId === report.id ? (
+                      <div className="inline-block animate-spin rounded-full h-4 w-4 border-2 border-red-500 border-t-transparent"></div>
+                    ) : (
+                      'Delete'
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
 
     const DashboardView = () => {
-    if (!dashboardData) {
-      return <WelcomeScreen />;
-    }
+      if (!dashboardData) {
+        return <WelcomeScreen />;
+      }
 
-    return (
+      return (
       <div className="space-y-6 p-6">
         {success && <Alert type="success" message={success} onClose={() => setSuccess(null)} />}
         {error && <Alert type="error" message={error} onClose={() => setError(null)} />}
@@ -1144,6 +1304,8 @@ const WarehouseLocationMap = ({ warehouses }) => (
             </table>
           </div>
         </div>
+
+        <ReportsPanel />
 
         <div className="flex flex-wrap gap-4">
           <button
