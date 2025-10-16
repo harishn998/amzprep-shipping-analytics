@@ -3,7 +3,6 @@ import mongoose from 'mongoose';
 let isConnected = false;
 
 const connectDB = async () => {
-  // Prevent multiple connections
   if (isConnected) {
     console.log('📊 Using existing MongoDB connection');
     return;
@@ -12,12 +11,10 @@ const connectDB = async () => {
   try {
     console.log('🔄 Connecting to MongoDB Atlas...');
 
+    // UPDATED: Removed deprecated options
     const conn = await mongoose.connect(process.env.MONGODB_URI, {
-      // These options help with connection stability
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-      serverSelectionTimeoutMS: 5000,  // Timeout after 5s instead of 30s
-      socketTimeoutMS: 45000,  // Close sockets after 45s of inactivity
+      serverSelectionTimeoutMS: 5000,
+      socketTimeoutMS: 45000,
     });
 
     isConnected = true;
@@ -25,7 +22,6 @@ const connectDB = async () => {
     console.log('✅ MongoDB Connected:', conn.connection.host);
     console.log('📁 Database:', conn.connection.name);
 
-    // Handle connection events
     mongoose.connection.on('error', (err) => {
       console.error('❌ MongoDB connection error:', err);
       isConnected = false;
@@ -36,7 +32,6 @@ const connectDB = async () => {
       isConnected = false;
     });
 
-    // Graceful shutdown
     process.on('SIGINT', async () => {
       await mongoose.connection.close();
       console.log('🔌 MongoDB connection closed through app termination');
@@ -48,7 +43,6 @@ const connectDB = async () => {
     console.error('Full error:', error);
     isConnected = false;
 
-    // In development, exit on connection failure
     if (process.env.NODE_ENV === 'development') {
       process.exit(1);
     }

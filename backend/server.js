@@ -11,6 +11,7 @@ import PDFDocument from 'pdfkit';
 import https from 'https';
 import { createCanvas } from 'canvas';
 import session from 'express-session';
+import MongoStore from 'connect-mongo';
 import passport from './config/passport.js';
 import jwt from 'jsonwebtoken';
 import { zipToState, calculateZone, estimateTransitTime } from './utils/zipToState.js';
@@ -75,8 +76,15 @@ app.use(session({
   secret: process.env.SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
+  store: MongoStore.create({
+    mongoUrl: process.env.MONGODB_URI,
+    touchAfter: 24 * 3600, // lazy session update (seconds)
+    crypto: {
+      secret: process.env.SESSION_SECRET
+    }
+  }),
   cookie: {
-    secure: process.env.NODE_ENV === 'production', // true in production
+    secure: process.env.NODE_ENV === 'production',
     httpOnly: true,
     maxAge: 24 * 60 * 60 * 1000 // 24 hours
   }
@@ -1571,7 +1579,7 @@ app.get('/api/export/pdf/:id', authenticateToken, async (req, res) => {
     // Remove MongoDB specific fields before PDF generation
     const { _id, userId, userEmail, __v, createdAt, updatedAt, ...reportData } = report;
 
-    await generatePDF(reportData, pdfPath);  
+    await generatePDF(reportData, pdfPath);
 
     res.download(pdfPath, `AMZ-Prep-Analytics-Report-${reportId}.pdf`, (err) => {
       if (err) {
