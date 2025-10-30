@@ -18,6 +18,9 @@ import { zipToState, calculateZone, estimateTransitTime } from './utils/zipToSta
 import connectDB from './config/database.js';
 import User from './models/User.js';
 import Report from './models/Report.js';
+import AmazonRate from './models/AmazonRate.js';
+import ShopifyRate from './models/ShopifyRate.js';
+import ratesRouter from './routes/rates.js';
 //import dotenv from 'dotenv';
 //dotenv.config();
 
@@ -1705,6 +1708,13 @@ app.get('/api/health', (req, res) => {
 
 app.post('/api/upload', authenticateToken, upload.single('file'), async (req, res) => {
   try {
+
+    // ADD THESE LINES:
+    const uploadType = req.body.uploadType || 'amazon'; // 'amazon' or 'shopify'
+    const rateType = req.body.rateType || 'prep'; // rate type selected
+
+    console.log(`📁 Upload Type: ${uploadType}, Rate Type: ${rateType}`);
+
     if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' });
     }
@@ -1728,6 +1738,8 @@ app.post('/api/upload', authenticateToken, upload.single('file'), async (req, re
       userEmail: req.user.email,
       filename: req.file.originalname,
       uploadDate: new Date(),
+      uploadType,
+      rateType,
       ...analysis
     });
 
@@ -1890,6 +1902,8 @@ app.get('/api/export/pdf/:id', authenticateToken, async (req, res) => {
     res.status(500).json({ error: 'Error generating PDF: ' + error.message });
   }
 });
+
+app.use('/api/rates', ratesRouter);
 
 app.listen(PORT, () => {
   console.log(`🚀 AMZ Prep Analytics API running on http://localhost:${PORT}`);

@@ -25,6 +25,16 @@ const reportSchema = new mongoose.Schema({
     index: true
   },
 
+  uploadType: {
+     type: String,
+     enum: ['amazon', 'shopify'],
+     default: 'amazon'
+   },
+   rateType: {
+     type: String,
+     default: 'prep'
+   },
+
   // Analytics data
   totalShipments: {
     type: Number,
