@@ -21,6 +21,10 @@ import Report from './models/Report.js';
 import AmazonRate from './models/AmazonRate.js';
 import ShopifyRate from './models/ShopifyRate.js';
 import ratesRouter from './routes/rates.js';
+import AmazonRateEnhanced from './models/AmazonRateEnhanced.js';
+import ReportEnhanced from './models/ReportEnhanced.js';
+import uploadEnhancedRoutes from './routes/uploadEnhanced.js';
+import adminRateUploadRoutes from './routes/adminRateUpload.js';
 //import dotenv from 'dotenv';
 //dotenv.config();
 
@@ -1904,6 +1908,11 @@ app.get('/api/export/pdf/:id', authenticateToken, async (req, res) => {
 });
 
 app.use('/api/rates', ratesRouter);
+
+app.use('/api/upload', uploadEnhancedRoutes);
+
+// Admin rate management (requires admin role)
+app.use('/api/admin/rates', adminRateUploadRoutes);
 
 app.listen(PORT, () => {
   console.log(`🚀 AMZ Prep Analytics API running on http://localhost:${PORT}`);

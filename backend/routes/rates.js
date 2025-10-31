@@ -4,7 +4,8 @@
 // ============================================================================
 
 import express from 'express';
-import AmazonRate from '../models/AmazonRate.js';
+//import AmazonRate from '../models/AmazonRate.js';
+import AmazonRateEnhanced from '../models/AmazonRateEnhanced.js';
 import ShopifyRate from '../models/ShopifyRate.js';
 
 const router = express.Router();
@@ -34,7 +35,7 @@ router.get('/amazon', async (req, res) => {
     const rates = {};
 
     for (const rateType of rateTypes) {
-      rates[rateType] = await AmazonRate.getActiveRate(rateType);
+      rates[rateType] = await AmazonRateEnhanced.getActiveRate(rateType);
     }
 
     res.json({

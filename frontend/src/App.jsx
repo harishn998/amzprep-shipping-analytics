@@ -78,6 +78,7 @@ const ShippingAnalytics = () => {
 
     const formData = new FormData();
     formData.append('file', file);
+    formData.append('rateType', rateType);
 
     try {
       const response = await axios.post(`${API_URL}/upload`, formData, {
@@ -469,11 +470,13 @@ const ShippingAnalytics = () => {
               <option value="prep">Prep Services</option>
               <option value="middleMile">Middle Mile</option>
               <option value="fbaShipment">FBA Shipment</option>
+              <option value="combined">Complete Solution (Recommended)</option>
             </select>
             <p className="text-xs text-gray-500 mt-2">
               {amazonRateType === 'prep' && 'Preparation & inspection services'}
               {amazonRateType === 'middleMile' && 'Warehouse to fulfillment center'}
               {amazonRateType === 'fbaShipment' && 'Fulfillment by Amazon shipping'}
+              {amazonRateType === 'combined' && 'Complete Solution by Amazon shipping'}
             </p>
           </div>
 
