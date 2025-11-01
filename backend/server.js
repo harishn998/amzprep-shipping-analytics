@@ -25,6 +25,7 @@ import AmazonRateEnhanced from './models/AmazonRateEnhanced.js';
 import ReportEnhanced from './models/ReportEnhanced.js';
 import uploadEnhancedRoutes from './routes/uploadEnhanced.js';
 import adminRateUploadRoutes from './routes/adminRateUpload.js';
+import adminUserManagementRoutes from './routes/adminUserManagement.js';
 //import dotenv from 'dotenv';
 //dotenv.config();
 
@@ -1643,7 +1644,8 @@ app.get('/auth/google/callback',
         id: req.user._id.toString(),
         email: req.user.email,
         name: req.user.name,
-        picture: req.user.picture
+        picture: req.user.picture,
+        role: req.user.role
       },
       process.env.JWT_SECRET,
       { expiresIn: '24h' }
@@ -1913,6 +1915,8 @@ app.use('/api/upload', uploadEnhancedRoutes);
 
 // Admin rate management (requires admin role)
 app.use('/api/admin/rates', adminRateUploadRoutes);
+
+app.use('/api/admin', adminUserManagementRoutes);
 
 app.listen(PORT, () => {
   console.log(`🚀 AMZ Prep Analytics API running on http://localhost:${PORT}`);

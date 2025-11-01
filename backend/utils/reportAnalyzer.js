@@ -126,7 +126,7 @@ class ReportAnalyzer {
       const destinationState = stateInfo ? stateInfo.code : 'Unknown';
 
       return {
-        shipmentId: row['FBA Shipment ID'],
+        shipmentId: row['FBA Shipment ID'] || row['Shipment Name'],
         shipmentName: row['Shipment Name'],
         destinationFC: row['Destination FC'],
         destinationState: destinationState,
@@ -137,10 +137,10 @@ class ReportAnalyzer {
         shipDate: row['Shipment Status: SHIPPED'],
 
         // Quantities
-        units: parseInt(row['Total Shipped Qty'] || row['Total Located Qty'] || 0),
+        units: parseInt(row['Total Shipped Qty'] || 0),
         pallets: parseInt(row['Total Pallet Quantity'] || 0),
-        volume: volume,
-        weight: weight,
+        volume: parseFloat(row['Cuft'] || 0),
+        weight: parseFloat(row['Total Weight'] || 0),
         skus: parseInt(row['Total SKUs'] || 0),
 
         // Carrier information

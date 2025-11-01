@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Upload, BarChart3, Package, DollarSign, Download, Settings, LogOut, AlertCircle, CheckCircle, MapPin, FileText, TruckIcon, ShoppingCart } from 'lucide-react';
+import { Upload, BarChart3, Package, DollarSign, Download, Settings, LogOut, AlertCircle, CheckCircle, MapPin, FileText, TruckIcon, ShoppingCart, Users, X } from 'lucide-react';
 import axios from 'axios';
 import { ComposableMap, Geographies, Geography } from 'react-simple-maps';
 import amzprepLogo from './assets/amz-prep-logo-resized.png';
@@ -29,6 +29,18 @@ const stateNameToCode = {
 
 const ShippingAnalytics = () => {
   const { user, logout, getAuthHeader } = useAuth();
+
+  const [showAdminPanel, setShowAdminPanel] = useState(false);
+  const [adminRateType, setAdminRateType] = useState('prep');
+  const [adminRateFile, setAdminRateFile] = useState(null);
+  const [adminRateName, setAdminRateName] = useState('');
+  const [adminEffectiveDate, setAdminEffectiveDate] = useState(
+    new Date().toISOString().split('T')[0]
+  );
+  const [adminUploading, setAdminUploading] = useState(false);
+  const [adminMessage, setAdminMessage] = useState(null);
+  const [showUserManagement, setShowUserManagement] = useState(false);
+
   const [deletingReportId, setDeletingReportId] = useState(null);
   const [activeView, setActiveView] = useState('dashboard');
   const [uploadedFile, setUploadedFile] = useState(null);
@@ -237,6 +249,7 @@ const ShippingAnalytics = () => {
 
       {/* THIS IS THE NEW PART - User Info & Logout */}
       <div className="flex items-center gap-4">
+
         {/* User Profile Section */}
         <div className="flex items-center gap-3 bg-[#0f1419] px-4 py-2 rounded-lg border border-gray-700">
           {user.picture && (
@@ -260,6 +273,18 @@ const ShippingAnalytics = () => {
           <Upload size={20} />
           <span className="text-sm">Upload New</span>
         </button>
+
+        {/* Admin Users Button - ADD THIS */}
+            {user?.role === 'admin' && (
+              <button
+                onClick={() => setShowUserManagement(!showUserManagement)}
+                className="text-gray-300 hover:text-white flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-700 transition-all"
+                title="Manage Users"
+              >
+                <Users size={20} />
+                <span className="hidden md:inline">Users</span>
+              </button>
+        )}
 
         {/* Settings Button (existing) */}
         <button className="text-gray-400 hover:text-white transition-colors p-2 rounded-lg hover:bg-[#242936]">
@@ -415,6 +440,9 @@ const ShippingAnalytics = () => {
 
   return (
     <div className="min-h-[calc(100vh-200px)] p-6">
+    {/* Show admin panel only for admin users */}
+    {user?.role === 'admin' && <AdminRatePanel />}
+
       {/* Header */}
       <div className="text-center mb-8">
         <h2 className="text-4xl font-bold text-white mb-3">Upload Shipping Data</h2>
@@ -470,7 +498,7 @@ const ShippingAnalytics = () => {
               <option value="prep">Prep Services</option>
               <option value="middleMile">Middle Mile</option>
               <option value="fbaShipment">FBA Shipment</option>
-              <option value="combined">Complete Solution (Recommended)</option>
+              <option value="combined">Complete Solution</option>
             </select>
             <p className="text-xs text-gray-500 mt-2">
               {amazonRateType === 'prep' && 'Preparation & inspection services'}
@@ -713,6 +741,91 @@ const ShippingAnalytics = () => {
     </div>
   );
 
+  const handleAdminRateUpload = async (event) => {
+  event.preventDefault();
+
+  console.log('Upload attempt - File:', adminRateFile);
+  console.log('Upload attempt - Rate Name:', adminRateName);
+  console.log('Upload attempt - Rate Type:', adminRateType);
+
+  if (!adminRateFile) {
+    setAdminMessage({ type: 'error', text: 'Please select a file' });
+    return;
+  }
+
+  if (!adminRateName || adminRateName.trim() === '') {
+    setAdminMessage({ type: 'error', text: 'Please enter a rate name' });
+    return;
+  }
+
+  setAdminUploading(true);
+  setAdminMessage(null);
+
+  const formData = new FormData();
+  formData.append('file', adminRateFile);
+  formData.append('rateName', adminRateName.trim());
+  formData.append('effectiveDate', adminEffectiveDate);
+
+  // Debug FormData
+  for (let pair of formData.entries()) {
+    console.log('FormData:', pair[0], pair[1]);
+  }
+
+  try {
+    const token = localStorage.getItem('authToken');
+    console.log('Auth token exists:', !!token);
+
+    const response = await axios.post(
+      `${API_URL}/admin/rates/upload/${adminRateType}`,
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+          'Authorization': `Bearer ${token}`
+        },
+      }
+    );
+
+    console.log('Upload response:', response.data);
+
+    if (response.data.success) {
+      setAdminMessage({
+        type: 'success',
+        text: `Rate "${adminRateName}" uploaded successfully!`
+      });
+
+      // Reset form
+      setAdminRateFile(null);
+      setAdminRateName('');
+      setAdminEffectiveDate(new Date().toISOString().split('T')[0]);
+
+      // Reset file input
+      document.getElementById('admin-rate-file').value = '';
+    }
+  } catch (err) {
+  console.error('Admin rate upload error:', err);
+  console.error('Error response:', err.response);
+
+  const errorMessage = err.response?.data?.error ||
+                      err.response?.data?.message ||
+                      err.response?.data?.details ||
+                      'Upload failed. Please check backend logs.';
+
+  setAdminMessage({
+    type: 'error',
+    text: errorMessage
+  });
+  } finally {
+    setAdminUploading(false);
+  }
+};
+
+const handleDownloadTemplate = () => {
+  const url = `${API_URL}/admin/rates/template/${adminRateType}`;
+  // Include auth token in download
+  window.open(url + '?token=' + localStorage.getItem('authToken'), '_blank');
+};
+
   const USAHeatMap = ({ states, title, dataType = "volume" }) => {
     const [hoveredState, setHoveredState] = useState(null);
     const [tooltipContent, setTooltipContent] = useState('');
@@ -865,6 +978,160 @@ const ShippingAnalytics = () => {
       </div>
     );
   };
+
+  const AdminRatePanel = () => {
+    const rateTypeOptions = [
+      { value: 'prep', label: 'Prep Services Rates' },
+      { value: 'middleMile', label: 'Middle-Mile Transport Rates' },
+      { value: 'fbaShipment', label: 'FBA Shipment Rates' }
+    ];
+
+  return (
+    <div className="bg-[#1a1f2e] rounded-xl p-6 border border-gray-800 mb-6">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h3 className="text-white text-2xl font-bold mb-2 flex items-center gap-2">
+            <Settings className="text-purple-400" size={28} />
+            Admin Rate Management
+          </h3>
+          <p className="text-gray-400">Upload Excel files with rate configurations</p>
+        </div>
+        <button
+          onClick={() => setShowAdminPanel(!showAdminPanel)}
+          className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors"
+        >
+          {showAdminPanel ? 'Hide Panel' : 'Show Panel'}
+        </button>
+      </div>
+
+      {showAdminPanel && (
+        <form onSubmit={handleAdminRateUpload} className="space-y-6">
+          {/* Rate Type Selection */}
+          <div>
+            <label className="block text-gray-300 font-semibold mb-2">
+              Rate Type
+            </label>
+            <select
+              value={adminRateType}
+              onChange={(e) => setAdminRateType(e.target.value)}
+              className="w-full bg-[#242936] text-white border border-gray-700 rounded-lg px-4 py-3 focus:outline-none focus:border-purple-500"
+            >
+              {rateTypeOptions.map(option => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Rate Name */}
+          <div>
+            <label className="block text-gray-300 font-semibold mb-2">
+              Rate Name *
+            </label>
+            <input
+              type="text"
+              value={adminRateName}
+              onChange={(e) => setAdminRateName(e.target.value)}
+              placeholder="e.g., Q2 2025 Prep Rates"
+              className="w-full bg-[#242936] text-white border border-gray-700 rounded-lg px-4 py-3 focus:outline-none focus:border-purple-500"
+              required
+            />
+          </div>
+
+          {/* Effective Date */}
+          <div>
+            <label className="block text-gray-300 font-semibold mb-2">
+              Effective Date *
+            </label>
+            <input
+              type="date"
+              value={adminEffectiveDate}
+              onChange={(e) => setAdminEffectiveDate(e.target.value)}
+              className="w-full bg-[#242936] text-white border border-gray-700 rounded-lg px-4 py-3 focus:outline-none focus:border-purple-500"
+              required
+            />
+          </div>
+
+          {/* File Upload - UPDATED WITHOUT REQUIRED ATTRIBUTE */}
+          <div>
+            <label className="block text-gray-300 font-semibold mb-2">
+              Rate Configuration File *
+            </label>
+            <div className="relative">
+              <input
+                id="admin-rate-file"
+                type="file"
+                accept=".xlsx,.xls,.csv"
+                onChange={(e) => {
+                  const file = e.target.files[0];
+                  console.log('File selected:', file); // Debug
+                  setAdminRateFile(file);
+                  // Auto-fill rate name from filename if empty
+                  if (file && !adminRateName) {
+                    const nameWithoutExt = file.name.replace(/\.[^/.]+$/, "");
+                    setAdminRateName(nameWithoutExt);
+                  }
+                }}
+                className="w-full bg-[#242936] text-white border border-gray-700 rounded-lg px-4 py-3 focus:outline-none focus:border-purple-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-purple-600 file:text-white hover:file:bg-purple-700"
+                // REMOVED: required
+              />
+              {adminRateFile && (
+                <div className="mt-2 text-sm text-gray-400">
+                  Selected: {adminRateFile.name}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Message Display */}
+          {adminMessage && (
+            <div className={`rounded-lg p-4 border ${
+              adminMessage.type === 'success'
+                ? 'bg-green-900/20 border-green-500 text-green-400'
+                : 'bg-red-900/20 border-red-500 text-red-400'
+            }`}>
+              {adminMessage.text}
+            </div>
+          )}
+
+          {/* Action Buttons */}
+          <div className="flex gap-4">
+            <button
+              type="button"
+              onClick={handleDownloadTemplate}
+              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg flex items-center justify-center gap-2 transition-colors"
+              disabled={adminUploading}
+            >
+              <Download size={20} />
+              Download Template
+            </button>
+
+            <button
+              type="submit"
+              className="flex-1 bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg flex items-center justify-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={adminUploading || !adminRateFile}
+            >
+              <Upload size={20} />
+              {adminUploading ? 'Uploading...' : 'Upload Rate Configuration'}
+            </button>
+          </div>
+
+          {/* Help Text */}
+          <div className="bg-[#242936] rounded-lg p-4 mt-4">
+            <h4 className="text-white font-semibold mb-2">📖 How to Use</h4>
+            <ol className="text-gray-400 text-sm space-y-1 list-decimal list-inside">
+              <li>Download the template for your rate type</li>
+              <li>Fill in your rate information in Excel</li>
+              <li>Save the file and upload it here</li>
+              <li>The new rate will become active on the effective date</li>
+            </ol>
+          </div>
+        </form>
+      )}
+    </div>
+  );
+};
 
   const DomesticVsInternational = ({ data }) => {
     if (!data) return null;
@@ -1356,6 +1623,117 @@ const ReportsPanel = () => {
   );
 };
 
+// Admin User Management Component - Add this around line 1500
+const AdminUserManagement = () => {
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  const fetchUsers = async () => {
+    setLoading(true);
+    try {
+      const response = await axios.get(`${API_URL}/admin/users`, {
+        headers: getAuthHeader()
+      });
+
+      if (response.data.success) {
+        setUsers(response.data.users);
+      }
+    } catch (error) {
+      console.error('Error fetching users:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const toggleUserRole = async (userId, currentRole) => {
+    const newRole = currentRole === 'admin' ? 'user' : 'admin';
+
+    try {
+      const response = await axios.put(
+        `${API_URL}/admin/users/${userId}/role`,
+        { role: newRole },
+        { headers: getAuthHeader() }
+      );
+
+      if (response.data.success) {
+        setUsers(users.map(u =>
+          u._id === userId ? { ...u, role: newRole } : u
+        ));
+
+        setSuccess(`User role updated to ${newRole}`);
+      }
+    } catch (error) {
+      console.error('Error updating user role:', error);
+      setError('Failed to update user role');
+    }
+  };
+
+  useEffect(() => {
+    if (showUserManagement) {
+      fetchUsers();
+    }
+  }, [showUserManagement]);
+
+  if (!showUserManagement) return null;
+
+  return (
+    <div className="bg-[#1a1f2e] rounded-xl p-6 border border-gray-800 mb-6">
+      <h3 className="text-white text-2xl font-bold mb-4">User Management</h3>
+
+      {loading ? (
+        <div className="text-gray-400">Loading users...</div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead className="bg-[#242936]">
+              <tr>
+                <th className="px-4 py-3 text-gray-300">Email</th>
+                <th className="px-4 py-3 text-gray-300">Name</th>
+                <th className="px-4 py-3 text-gray-300">Role</th>
+                <th className="px-4 py-3 text-gray-300">Last Login</th>
+                <th className="px-4 py-3 text-gray-300">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {users.map(u => (
+                <tr key={u._id} className="border-t border-gray-700">
+                  <td className="px-4 py-3 text-gray-200">{u.email}</td>
+                  <td className="px-4 py-3 text-gray-200">{u.name}</td>
+                  <td className="px-4 py-3">
+                    <span className={`px-2 py-1 rounded text-xs ${
+                      u.role === 'admin'
+                        ? 'bg-purple-600 text-white'
+                        : 'bg-gray-600 text-gray-200'
+                    }`}>
+                      {u.role}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-gray-200">
+                    {new Date(u.lastLogin).toLocaleDateString()}
+                  </td>
+                  <td className="px-4 py-3">
+                    <button
+                      onClick={() => toggleUserRole(u._id, u.role)}
+                      className={`px-3 py-1 rounded text-sm ${
+                        u.role === 'admin'
+                          ? 'bg-red-600 hover:bg-red-700'
+                          : 'bg-green-600 hover:bg-green-700'
+                      } text-white transition-colors`}
+                      disabled={u.email === user?.email}
+                    >
+                      {u.role === 'admin' ? 'Remove Admin' : 'Make Admin'}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+};
+
     const DashboardView = () => {
       if (!dashboardData) {
         return <WelcomeScreen />;
@@ -1639,6 +2017,28 @@ const ReportsPanel = () => {
 
         {activeView === 'upload' ? <UploadView /> : <DashboardView />}
       </div>
+      {showUserManagement && user?.role === 'admin' && (
+      <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+        <div className="bg-[#1a1f2e] rounded-xl max-w-5xl w-full max-h-[90vh] overflow-hidden border border-gray-700 shadow-2xl">
+          <div className="p-6 border-b border-gray-700 flex justify-between items-center bg-gradient-to-r from-purple-600 to-purple-700">
+            <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+              <Users size={24} />
+              User Management
+            </h2>
+            <button
+              onClick={() => setShowUserManagement(false)}
+              className="text-white hover:bg-white/20 p-2 rounded-lg transition-colors"
+            >
+              <X size={24} />
+            </button>
+          </div>
+
+          <div className="p-6 overflow-y-auto max-h-[70vh]">
+            <AdminUserManagement />
+          </div>
+        </div>
+      </div>
+    )}
     </div>
   );
 };

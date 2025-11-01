@@ -8,6 +8,7 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import XLSX from 'xlsx';
+import jwt from 'jsonwebtoken';
 import AmazonRateEnhanced from '../models/AmazonRateEnhanced.js';
 import ShopifyRate from '../models/ShopifyRate.js';
 
@@ -42,15 +43,52 @@ const upload = multer({
   }
 });
 
-// Admin middleware
-const isAdmin = (req, res, next) => {
-  if (!req.user || req.user.role !== 'admin') {
-    return res.status(403).json({
+// Replace the existing isAdmin middleware with this:
+const isAdmin = async (req, res, next) => {
+  try {
+    let token = null;
+
+    // Check for token in Authorization header
+    if (req.headers.authorization?.startsWith('Bearer ')) {
+      token = req.headers.authorization.split(' ')[1];
+    }
+
+    // Check for token in query params (for downloads)
+    if (!token && req.query.token) {
+      token = req.query.token;
+    }
+
+    if (!token) {
+      console.log('No token provided in request');
+      return res.status(401).json({
+        success: false,
+        message: 'No token provided'
+      });
+    }
+
+    // Verify the JWT token
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    console.log('Decoded token:', decoded);
+
+    // Check if user has admin role
+    if (decoded.role !== 'admin') {
+      console.log('User role is not admin:', decoded.role);
+      return res.status(403).json({
+        success: false,
+        message: 'Admin access required'
+      });
+    }
+
+    req.user = decoded;
+    next();
+  } catch (error) {
+    console.error('JWT verification error:', error.message);
+    return res.status(401).json({
       success: false,
-      message: 'Admin access required'
+      message: 'Invalid token',
+      error: error.message
     });
   }
-  next();
 };
 
 // ============================================================================
@@ -231,69 +269,74 @@ class RateFileParser {
  * POST /api/admin/rates/upload/prep
  * Upload prep rate configuration file
  */
-router.post('/upload/prep', isAdmin, upload.single('file'), async (req, res) => {
-  try {
+ router.post('/upload/prep', isAdmin, upload.single('file'), async (req, res) => {
+   try {
+     console.log('Prep upload endpoint hit');
+     console.log('Request user:', req.user);
+     console.log('Request file:', req.file);
+     console.log('Request body:', req.body);
 
-    const rateTypeLabel = 'Prep';
+     if (!req.file) {
+       return res.status(400).json({
+         success: false,
+         message: 'No file uploaded'
+       });
+     }
 
-    if (!req.file) {
-      return res.status(400).json({
-        success: false,
-        message: 'No file uploaded'
-      });
-    }
+     const { rateName, description, effectiveDate, notes } = req.body;
 
-    const { rateName, description, effectiveDate, notes } = req.body;
+     if (!rateName) {
+       fs.unlinkSync(req.file.path);
+       return res.status(400).json({
+         success: false,
+         message: 'Rate name is required'
+       });
+     }
 
-    if (!rateName) {
-      fs.unlinkSync(req.file.path);
-      return res.status(400).json({
-        success: false,
-        message: 'Rate name is required'
-      });
-    }
+     console.log('Parsing prep rate file:', req.file.originalname);
 
-    console.log('Parsing prep rate file:', req.file.originalname);
+     // Parse the uploaded file
+     const rateDetails = RateFileParser.parsePrepRateFile(req.file.path);
+     console.log('Parsed rate details:', rateDetails);
 
-    // Parse the uploaded file
-    const rateDetails = RateFileParser.parsePrepRateFile(req.file.path);
+     // Create rate document
+     const newRate = new AmazonRateEnhanced({
+       rateType: 'prep',
+       rateName,
+       description: description || `Prep rate uploaded from ${req.file.originalname}`,
+       rateDetails,
+       effectiveDate: effectiveDate || new Date(),
+       isActive: true,
+       createdBy: req.user._id || req.user.id || req.user.sub, // Handle both _id and id
+       notes: notes || `Uploaded from file: ${req.file.originalname}`
+     });
 
-    // Create rate document
-    const newRate = new AmazonRateEnhanced({
-      rateType: 'prep',
-      rateName,
-      description: description || `Prep rate uploaded from ${req.file.originalname}`,
-      rateDetails,
-      effectiveDate: effectiveDate || new Date(),
-      isActive: true,
-      createdBy: req.user._id,
-      notes: notes || `Uploaded from file: ${req.file.originalname}`
-    });
+     await newRate.save();
+     console.log('Rate saved successfully');
 
-    await newRate.save();
+     // Clean up uploaded file
+     fs.unlinkSync(req.file.path);
 
-    // Clean up uploaded file
-    fs.unlinkSync(req.file.path);
+     res.status(201).json({
+       success: true,
+       message: 'Prep rate created successfully from uploaded file',
+       rate: newRate.toObject()
+     });
 
-    res.status(201).json({
-    success: true,
-    message: `${rateTypeLabel} rate created successfully from uploaded file`,
-    rate: newRate.toObject() // Return full rate document
-    });
+   } catch (error) {
+     if (req.file && fs.existsSync(req.file.path)) {
+       fs.unlinkSync(req.file.path);
+     }
 
-  } catch (error) {
-    if (req.file && fs.existsSync(req.file.path)) {
-      fs.unlinkSync(req.file.path);
-    }
-
-    console.error('Error uploading prep rate:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error processing rate file',
-      error: error.message
-    });
-  }
-});
+     console.error('Error uploading prep rate:', error);
+     res.status(500).json({
+       success: false,
+       message: 'Error processing rate file',
+       error: error.message,
+       details: error.stack // Add stack trace for debugging
+     });
+   }
+ });
 
 /**
  * POST /api/admin/rates/upload/middleMile
@@ -435,35 +478,38 @@ router.post('/upload/fbaShipment', isAdmin, upload.single('file'), async (req, r
  * GET /api/admin/rates/template/:rateType
  * Download template Excel file for rate upload
  */
-router.get('/template/:rateType', isAdmin, (req, res) => {
-  const { rateType } = req.params;
+ router.get('/template/:rateType', isAdmin, (req, res) => {
+   const { rateType } = req.params;
 
-  const templates = {
-    prep: 'PREP_RATE_TEMPLATE.xlsx',
-    middleMile: 'MIDDLE_MILE_RATE_TEMPLATE.xlsx',
-    fbaShipment: 'FBA_SHIPMENT_RATE_TEMPLATE.xlsx'
-  };
+   const templates = {
+     prep: 'PREP_RATE_TEMPLATE.xlsx',
+     middleMile: 'MIDDLE_MILE_RATE_TEMPLATE.xlsx',
+     fbaShipment: 'FBA_SHIPMENT_RATE_TEMPLATE.xlsx'
+   };
 
-  const templateFile = templates[rateType];
+   const templateFile = templates[rateType];
 
-  if (!templateFile) {
-    return res.status(400).json({
-      success: false,
-      message: 'Invalid rate type'
-    });
-  }
+   if (!templateFile) {
+     return res.status(400).json({
+       success: false,
+       message: 'Invalid rate type'
+     });
+   }
 
-  const templatePath = path.join(__dirname, '../templates/rates', templateFile);
+   // Use relative path from project root instead of __dirname
+   const templatePath = path.join(process.cwd(), 'templates/rates', templateFile);
 
-  if (!fs.existsSync(templatePath)) {
-    return res.status(404).json({
-      success: false,
-      message: 'Template file not found',
-      note: 'Create template files in backend/templates/rates/ directory'
-    });
-  }
+   console.log('Looking for template at:', templatePath); // Debug log
 
-  res.download(templatePath, templateFile);
-});
+   if (!fs.existsSync(templatePath)) {
+     return res.status(404).json({
+       success: false,
+       message: 'Template file not found at: ' + templatePath,
+       hint: 'Run: node utils/generateRateTemplates.js'
+     });
+   }
+
+   res.download(templatePath, templateFile);
+ });
 
 export default router;
