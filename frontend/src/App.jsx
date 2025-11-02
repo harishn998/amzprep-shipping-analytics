@@ -991,14 +991,14 @@ const handleDownloadTemplate = () => {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h3 className="text-white text-2xl font-bold mb-2 flex items-center gap-2">
-            <Settings className="text-purple-400" size={28} />
+            <Settings className="text-blue-400" size={28} />
             Admin Rate Management
           </h3>
           <p className="text-gray-400">Upload Excel files with rate configurations</p>
         </div>
         <button
           onClick={() => setShowAdminPanel(!showAdminPanel)}
-          className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors"
+          className="bg-blue-700 hover:bg-blue-800 text-white px-4 py-2 rounded-lg transition-colors"
         >
           {showAdminPanel ? 'Hide Panel' : 'Show Panel'}
         </button>
@@ -1014,7 +1014,7 @@ const handleDownloadTemplate = () => {
             <select
               value={adminRateType}
               onChange={(e) => setAdminRateType(e.target.value)}
-              className="w-full bg-[#242936] text-white border border-gray-700 rounded-lg px-4 py-3 focus:outline-none focus:border-purple-500"
+              className="w-full bg-[#242936] text-white border border-gray-700 rounded-lg px-4 py-3 focus:outline-none focus:border-blue-600"
             >
               {rateTypeOptions.map(option => (
                 <option key={option.value} value={option.value}>
@@ -1034,7 +1034,7 @@ const handleDownloadTemplate = () => {
               value={adminRateName}
               onChange={(e) => setAdminRateName(e.target.value)}
               placeholder="e.g., Q2 2025 Prep Rates"
-              className="w-full bg-[#242936] text-white border border-gray-700 rounded-lg px-4 py-3 focus:outline-none focus:border-purple-500"
+              className="w-full bg-[#242936] text-white border border-gray-700 rounded-lg px-4 py-3 focus:outline-none focus:border-blue-600"
               required
             />
           </div>
@@ -1048,7 +1048,7 @@ const handleDownloadTemplate = () => {
               type="date"
               value={adminEffectiveDate}
               onChange={(e) => setAdminEffectiveDate(e.target.value)}
-              className="w-full bg-[#242936] text-white border border-gray-700 rounded-lg px-4 py-3 focus:outline-none focus:border-purple-500"
+              className="w-full bg-[#242936] text-white border border-gray-700 rounded-lg px-4 py-3 focus:outline-none focus:border-blue-600"
               required
             />
           </div>
@@ -1073,7 +1073,7 @@ const handleDownloadTemplate = () => {
                     setAdminRateName(nameWithoutExt);
                   }
                 }}
-                className="w-full bg-[#242936] text-white border border-gray-700 rounded-lg px-4 py-3 focus:outline-none focus:border-purple-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-purple-600 file:text-white hover:file:bg-purple-700"
+                className="w-full bg-[#242936] text-white border border-gray-700 rounded-lg px-4 py-3 focus:outline-none focus:border-blue-600 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-700 file:text-white hover:file:bg-blue-800"
                 // REMOVED: required
               />
               {adminRateFile && (
@@ -1109,7 +1109,7 @@ const handleDownloadTemplate = () => {
 
             <button
               type="submit"
-              className="flex-1 bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg flex items-center justify-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 bg-blue-700 hover:bg-blue-800 text-white px-6 py-3 rounded-lg flex items-center justify-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={adminUploading || !adminRateFile}
             >
               <Upload size={20} />
@@ -1702,7 +1702,7 @@ const AdminUserManagement = () => {
                   <td className="px-4 py-3">
                     <span className={`px-2 py-1 rounded text-xs ${
                       u.role === 'admin'
-                        ? 'bg-purple-600 text-white'
+                        ? 'bg-blue-700 text-white'
                         : 'bg-gray-600 text-gray-200'
                     }`}>
                       {u.role}
@@ -1974,7 +1974,7 @@ const AdminUserManagement = () => {
           <button
             onClick={exportToPDF}
             disabled={exportingPDF || !currentReportId}
-            className="bg-gradient-to-r from-sky-500 to-blue-700 hover:from-blue-700 hover:to-purple-700 text-white px-8 py-4 rounded-lg flex items-center gap-3 transition-all transform hover:scale-105 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
+            className="bg-gradient-to-r from-sky-500 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-8 py-4 rounded-lg flex items-center gap-3 transition-all transform hover:scale-105 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
           >
             <Download size={20} />
             {exportingPDF ? 'Generating PDF...' : 'Export PDF Report'}
@@ -2020,7 +2020,7 @@ const AdminUserManagement = () => {
       {showUserManagement && user?.role === 'admin' && (
       <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
         <div className="bg-[#1a1f2e] rounded-xl max-w-5xl w-full max-h-[90vh] overflow-hidden border border-gray-700 shadow-2xl">
-          <div className="p-6 border-b border-gray-700 flex justify-between items-center bg-gradient-to-r from-purple-600 to-purple-700">
+          <div className="p-6 border-b border-gray-700 flex justify-between items-center bg-gradient-to-r from-blue-700 to-blue-800">
             <h2 className="text-2xl font-bold text-white flex items-center gap-2">
               <Users size={24} />
               User Management

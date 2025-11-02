@@ -39,6 +39,9 @@ class ReportAnalyzer {
 
       let analysis;
       switch (dataFormat) {
+        case 'smash_foods':
+        analysis = this.analyzeSmashFoodsActualFormat(data, rateType);
+        break;
         case 'smash_foods_actual':
           analysis = await this.analyzeSmashFoodsActualFormat(data, rateType);
           break;
@@ -66,21 +69,43 @@ class ReportAnalyzer {
    * Detect data format based on column headers
    */
   static detectDataFormat(firstRow) {
+
+    if (!data || data.length === 0) return 'unknown';
+
     const headers = Object.keys(firstRow).map(h => h.toLowerCase());
-    console.log('Headers detected:', headers.join(', '));
+
+    console.log('Detecting format. Headers found:', headers);
+    //const headers = Object.keys(firstRow).map(h => h.toLowerCase());
+    //console.log('Headers detected:', headers.join(', '));
 
     // ACTUAL Smash Foods format detection
-    if (headers.includes('shipment name') &&
+    /*if (headers.includes('shipment name') &&
         headers.includes('fba shipment id') &&
         headers.includes('total shipped qty') &&
         headers.includes('amazon partnered carrier cost')) {
       return 'smash_foods_actual';
+    }*/
+
+    // Check for Smash Foods specific columns (ACTUAL column names)
+    if (headers.includes('shipment name') &&
+        headers.includes('total shipped qty') &&
+        headers.includes('total pallet quantity')) {
+      console.log('Detected: Smash Foods (actual) format');
+      return 'smash_foods_actual';
     }
 
     // Old Smash Foods format (from original spec)
-    if (headers.includes('shipment id') &&
+    /*if (headers.includes('shipment id') &&
         headers.includes('destination fulfillment center id')) {
       return 'smash_foods_original';
+    }*/
+
+    // Check for old Smash Foods format (original detection)
+    if (headers.includes('shipment id') &&
+        headers.includes('destination fulfillment center id') &&
+        headers.includes('placement service fee')) {
+      console.log('Detected: Smash Foods format');
+      return 'smash_foods';
     }
 
     // Amazon Seller Central format
@@ -126,34 +151,37 @@ class ReportAnalyzer {
       const destinationState = stateInfo ? stateInfo.code : 'Unknown';
 
       return {
-        shipmentId: row['FBA Shipment ID'] || row['Shipment Name'],
-        shipmentName: row['Shipment Name'],
-        destinationFC: row['Destination FC'],
+        shipmentId: row['FBA Shipment ID'] || row['Shipment ID'] || '',
+        shipmentName: row['Shipment Name'] || '',
+        destinationFC: row['Destination FC'] || row['Destination Fulfillment Center ID'] || '',
+        destinationAddress: row['Ship To Postal Code'] || row['Destination Fulfillment Center Address'] || '',
         destinationState: destinationState,
         zipCode: zipCode,
 
         // Order and ship dates
-        orderDate: row['Created Date'],
-        shipDate: row['Shipment Status: SHIPPED'],
+        orderDate: row['Order Date'] || row['order date'] || null,
+        shipDate: row['Ship Date'] || row['ship date'] || null,
 
         // Quantities
-        units: parseInt(row['Total Shipped Qty'] || 0),
-        pallets: parseInt(row['Total Pallet Quantity'] || 0),
-        volume: parseFloat(row['Cuft'] || 0),
-        weight: parseFloat(row['Total Weight'] || 0),
+        units: parseInt(row['Total Shipped Qty'] || row['Units'] || 0),
+        pallets: parseInt(row['Total Pallet Quantity'] || row['Pallets'] || 0),
+        volume: parseFloat(row['Cuft'] || row['Volume'] || 0),
+        weight: this.parseWeight(row['Total Weight'] || row['Weight'] || 0), // Use parseWeight helper
         skus: parseInt(row['Total SKUs'] || 0),
 
         // Carrier information
-        carrier: row['Carrier'],
+        carrier: row['Carrier'] || row['carrier'] || 'Unknown',
         shipMethod: row['Ship Method'],
+        freight: parseFloat(row['Amazon Partnered Carrier Cost'] || row['Estimated freight cost ($)'] || 0),
 
         // Costs
-        placementFee: parseFloat(row['Placement Fees'] || 0),
+        placementFees: parseFloat(row['Placement Fees'] || row['Placement service fee'] || 0),
         estFreight: parseFloat(row['Amazon Partnered Carrier Cost'] || 0),
         prepFees: parseFloat(row['Prep and Labeling Fees'] || 0),
 
         // Additional info
         status: row['Status'],
+        transportMode: row['Transportation option'] || row['transportation option'] || 'SPD',
         origin: row['Ship From Owner Name']
       };
     }).filter(s => s.units > 0 || s.weight > 0); // Filter out empty rows
@@ -187,6 +215,10 @@ class ReportAnalyzer {
       totalPlacementFees,
       totalFreight
     });
+
+    console.log('Sample shipment parsed:', shipments[0]);
+    console.log('Total units:', shipments.reduce((sum, s) => sum + s.units, 0));
+    console.log('Total pallets:', shipments.reduce((sum, s) => sum + s.pallets, 0));
 
     // Extract destination states
     const stateDistribution = this.extractStateDistribution(shipments);
@@ -448,6 +480,19 @@ class ReportAnalyzer {
     }
 
     return results;
+  }
+
+  static parseWeight(value) {
+  if (!value) return 0;
+
+  // If it's a string that might contain a formula result
+  if (typeof value === 'string') {
+    // Remove any non-numeric characters except decimal point
+    const cleaned = value.replace(/[^0-9.]/g, '');
+    return parseFloat(cleaned) || 0;
+  }
+
+  return parseFloat(value) || 0;
   }
 
   /**
