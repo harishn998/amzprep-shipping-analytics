@@ -15,6 +15,7 @@ import MongoStore from 'connect-mongo';
 import passport from './config/passport.js';
 import jwt from 'jsonwebtoken';
 import { zipToState, calculateZone, estimateTransitTime } from './utils/zipToState.js';
+import { detectFileFormat, getFormatDisplayName } from './utils/formatDetector.js';
 import connectDB from './config/database.js';
 import User from './models/User.js';
 import Report from './models/Report.js';
@@ -171,48 +172,34 @@ function parseExcelFile(filePath) {
     return [];
   }
 
-  // Detect SMASH FOODS format (NEW - CHECK THIS FIRST!)
-  const isSmashFoodsFormat = firstRow.hasOwnProperty('Shipment Name') &&
-                             firstRow.hasOwnProperty('Total Shipped Qty') &&
-                             firstRow.hasOwnProperty('Total Pallet Quantity') &&
-                             firstRow.hasOwnProperty('Cuft');
+  // ✅ USE UNIFIED DETECTION
+  const detection = detectFileFormat(firstRow);
 
-  // Detect MUSCLE MAC format (Amazon FBA shipments)
-  const isMuscleMacFormat = !isSmashFoodsFormat && (  // Only if NOT Smash Foods
-    firstRow.hasOwnProperty('Amazon Partnered Carrier Cost') ||
-    firstRow.hasOwnProperty('Ship To Postal Code') ||
-    firstRow.hasOwnProperty('FBA Shipment ID')
-  );
+  console.log(`📋 Detected format: ${getFormatDisplayName(detection.format).toUpperCase()} (${detection.confidence}% confidence)`);
 
-  // Detect SHOPIFY format
-  const isShopifyFormat = firstRow.hasOwnProperty('Shipping Zip') ||
-                          firstRow.hasOwnProperty('Lineitem weight') ||
-                          (firstRow.hasOwnProperty('Name') &&
-                           firstRow.hasOwnProperty('Shipping Method') &&
-                           firstRow.hasOwnProperty('Lineitem name'));
-
-  // Log detected format
-  let detectedFormat = 'SIMPLE FORMAT (Default)';
-  if (isSmashFoodsFormat) {
-    detectedFormat = 'SMASH FOODS (Amazon FBA Analysis)';
-  } else if (isMuscleMacFormat) {
-    detectedFormat = 'MUSCLE MAC (Amazon FBA)';
-  } else if (isShopifyFormat) {
-    detectedFormat = 'SHOPIFY ORDERS (E-commerce)';
+  if (detection.indicators && detection.indicators.length > 0) {
+    console.log(`📋 Key indicators:`, detection.indicators.join(', '));
   }
 
-  console.log(`📋 Detected format: ${detectedFormat}`);
-  console.log(`📋 Sample headers:`, Object.keys(firstRow).slice(0, 10).join(', '));
+  // Route to appropriate parser based on detected format
+  switch (detection.format) {
+    case 'smash_foods':
+      return parseSmashFoodsFormat(data);
 
-  // Route to appropriate parser
-  if (isSmashFoodsFormat) {
-    return parseSmashFoodsFormat(data);  // Need to add this function
-  } else if (isMuscleMacFormat) {
-    return parseMuscleMacFormat(data);
-  } else if (isShopifyFormat) {
-    return parseShopifyFormat(data);
-  } else {
-    return parseSimpleFormat(data);
+    case 'muscle_mac':
+      return parseMuscleMacFormat(data);
+
+    case 'shopify':
+      return parseShopifyFormat(data);
+
+    case 'simple':
+      return parseSimpleFormat(data);
+
+    case 'unknown':
+    default:
+      console.error('❌ Unknown format. Cannot parse data.');
+      console.error('📋 Sample headers:', Object.keys(firstRow).slice(0, 10).join(', '));
+      return [];
   }
 }
 
@@ -320,9 +307,9 @@ function parseMuscleMacFormat(data) {
   return shipments;
 }
 
-// Add this function after parseMuscleMacFormat
+// Smash Foods format parser
 function parseSmashFoodsFormat(data) {
-  console.log('🍔 Parsing SMASH FOODS format...');
+  console.log('🔄 Parsing SMASH FOODS format...');
 
   const shipments = [];
   let skippedRows = 0;
@@ -330,40 +317,44 @@ function parseSmashFoodsFormat(data) {
 
   data.forEach((row, index) => {
     try {
-      // Map Smash Foods columns to standard format
-      const zipCode = String(row['Ship To Postal Code'] || '').split('-')[0].trim();
-
-      if (!zipCode) {
+      const rawZip = row['Ship To Postal Code'];
+      if (!rawZip) {
         skippedRows++;
         return;
       }
 
+      const zipCode = String(rawZip).split('-')[0].trim();
       const stateInfo = zipToState(zipCode);
+
       if (!stateInfo) {
         skippedRows++;
         return;
       }
 
-      // Get costs - Smash Foods specific column names
       const carrierCost = parseFloat(row['Amazon Partnered Carrier Cost'] || 0);
-      const placementFee = parseFloat(row['Placement Fees'] || 0);
+      const placementFee = parseFloat(row['Placement Fees'] || 0);  // PLURAL
       const totalCost = carrierCost + placementFee;
 
-      // Get weight and other metrics
       const weight = parseFloat(row['Total Weight'] || 0);
-      const units = parseInt(row['Total Shipped Qty'] || 0);
-      const pallets = parseInt(row['Total Pallet Quantity'] || 0);
-      const volume = parseFloat(row['Cuft'] || 0);
 
-      // Skip if no valid data
       if (totalCost === 0 && weight === 0) {
         skippedRows++;
         return;
       }
 
-      const shippingMethod = row['Carrier'] || 'Ground';
+      const shippingMethod = row['Ship Method'] || row['Carrier'] || 'Ground';
       const zone = calculateZone(warehouseZip, zipCode);
       const transitTime = estimateTransitTime(shippingMethod, zone);
+
+      let date = new Date().toISOString();
+      if (row['Created Date']) {
+        try {
+          const parsedDate = new Date(row['Created Date']);
+          if (!isNaN(parsedDate.getTime())) {
+            date = parsedDate.toISOString();
+          }
+        } catch (e) {}
+      }
 
       shipments.push({
         state: stateInfo.state,
@@ -373,24 +364,21 @@ function parseSmashFoodsFormat(data) {
         zone: zone,
         transitTime: transitTime,
         zipCode: zipCode,
-        date: new Date().toISOString(),
-        country: 'US',
-        // Additional Smash Foods specific data
-        units: units,
-        pallets: pallets,
-        volume: volume,
-        shipmentId: row['FBA Shipment ID'],
-        shipmentName: row['Shipment Name']
+        date: date,
+        country: row['Ship To Country Code'] || 'US',
+        pallets: parseInt(row['Total Pallet Quantity'] || 0),
+        volume: parseFloat(row['Cuft'] || 0),
+        shipmentName: row['Shipment Name'] || ''
       });
 
     } catch (error) {
-      console.error(`❌ Error parsing row ${index + 1}:`, error.message);
+      console.error(`❌ Error parsing Smash Foods row ${index + 1}:`, error.message);
       skippedRows++;
     }
   });
 
   console.log(`✅ Successfully parsed ${shipments.length} Smash Foods shipments`);
-  console.log(`⚠️ Skipped ${skippedRows} rows`);
+  console.log(`⚠️  Skipped ${skippedRows} rows`);
 
   return shipments;
 }

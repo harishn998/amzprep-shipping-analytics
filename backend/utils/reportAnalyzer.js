@@ -5,6 +5,7 @@
 
 import XLSX from 'xlsx';
 import AmazonRateEnhanced from '../models/AmazonRateEnhanced.js';
+import { detectFileFormat, getFormatDisplayName } from './formatDetector.js';
 import ShopifyRate from '../models/ShopifyRate.js';
 import { zipToState } from './zipToState.js';
 
@@ -18,288 +19,290 @@ class ReportAnalyzer {
    * Analyze uploaded Excel file for Amazon shipments
    * Supports the ACTUAL Smash Foods data structure
    */
-  static async analyzeAmazonReport(filePath, uploadType, rateType) {
-    try {
-      const workbook = XLSX.readFile(filePath);
-      const sheetName = workbook.SheetNames[0];
-      const worksheet = workbook.Sheets[sheetName];
+   static async analyzeAmazonReport(filePath, uploadType, rateType) {
+   try {
+     const workbook = XLSX.readFile(filePath);
+     const sheetName = workbook.SheetNames[0];
+     const worksheet = workbook.Sheets[sheetName];
 
-      // Use raw: false to get formatted values (resolves formulas)
-      const data = XLSX.utils.sheet_to_json(worksheet, { raw: false, defval: null });
+     const data = XLSX.utils.sheet_to_json(worksheet, { raw: false, defval: null });
 
-      if (!data || data.length === 0) {
-        throw new Error('No data found in uploaded file');
-      }
+     if (!data || data.length === 0) {
+       throw new Error('No data found in uploaded file');
+     }
 
-      console.log('First row columns:', Object.keys(data[0]));
+     console.log('First row columns:', Object.keys(data[0]));
 
-      // Detect data format
-      const dataFormat = this.detectDataFormat(data[0]);
-      console.log('Detected data format:', dataFormat);
+     // ✅ USE UNIFIED DETECTION
+     const detection = detectFileFormat(data[0]);
 
-      let analysis;
-      switch (dataFormat) {
-        case 'smash_foods':
-        analysis = this.analyzeSmashFoodsActualFormat(data, rateType);
-        break;
-        case 'smash_foods_actual':
-          analysis = await this.analyzeSmashFoodsActualFormat(data, rateType);
-          break;
-        case 'amazon_seller_central':
-          analysis = await this.analyzeSellerCentralFormat(data, rateType);
-          break;
-        case 'generic_shipment':
-        default:
-          analysis = await this.analyzeGenericFormat(data, rateType);
-      }
+     console.log(`✅ Detected: ${getFormatDisplayName(detection.format)} (${detection.confidence}% confidence)`);
 
-      return {
-        ...analysis,
-        uploadType,
-        rateType,
-        dataFormat
-      };
-    } catch (error) {
-      console.error('Error analyzing report:', error);
-      throw error;
-    }
-  }
+     let analysis;
 
-  /**
-   * Detect data format based on column headers
-   */
-  static detectDataFormat(firstRow) {
+     // Route to appropriate analyzer
+     switch (detection.format) {
+       case 'smash_foods':
+         analysis = await this.analyzeSmashFoodsActualFormat(data, rateType);
+         break;
 
-    if (!data || data.length === 0) return 'unknown';
+       case 'muscle_mac':
+         analysis = await this.analyzeMuscleMacFormat(data, rateType);
+         break;
 
-    const headers = Object.keys(firstRow).map(h => h.toLowerCase());
+       case 'amazon_seller_central':
+         analysis = await this.analyzeSellerCentralFormat(data, rateType);
+         break;
 
-    console.log('Detecting format. Headers found:', headers);
-    //const headers = Object.keys(firstRow).map(h => h.toLowerCase());
-    //console.log('Headers detected:', headers.join(', '));
+       case 'generic_shipment':
+       case 'simple':
+       case 'unknown':
+       default:
+         analysis = await this.analyzeGenericFormat(data, rateType);
+     }
 
-    // ACTUAL Smash Foods format detection
-    /*if (headers.includes('shipment name') &&
-        headers.includes('fba shipment id') &&
-        headers.includes('total shipped qty') &&
-        headers.includes('amazon partnered carrier cost')) {
-      return 'smash_foods_actual';
-    }*/
+     return {
+       ...analysis,
+       uploadType,
+       rateType,
+       dataFormat: detection.format,
+       detectionConfidence: detection.confidence
+     };
 
-    // Check for Smash Foods specific columns (ACTUAL column names)
-    if (headers.includes('shipment name') &&
-        headers.includes('total shipped qty') &&
-        headers.includes('total pallet quantity')) {
-      console.log('Detected: Smash Foods (actual) format');
-      return 'smash_foods_actual';
-    }
-
-    // Old Smash Foods format (from original spec)
-    /*if (headers.includes('shipment id') &&
-        headers.includes('destination fulfillment center id')) {
-      return 'smash_foods_original';
-    }*/
-
-    // Check for old Smash Foods format (original detection)
-    if (headers.includes('shipment id') &&
-        headers.includes('destination fulfillment center id') &&
-        headers.includes('placement service fee')) {
-      console.log('Detected: Smash Foods format');
-      return 'smash_foods';
-    }
-
-    // Amazon Seller Central format
-    if (headers.includes('shipment-id') || headers.includes('amazon-reference-id')) {
-      return 'amazon_seller_central';
-    }
-
-    // Generic format
-    return 'generic_shipment';
-  }
+   } catch (error) {
+     console.error('Error analyzing report:', error);
+     throw error;
+   }
+ }
 
   /**
    * Analyze ACTUAL Smash Foods format data
    * This matches the real Excel file structure
    */
-  static async analyzeSmashFoodsActualFormat(data, rateType) {
-    console.log('Analyzing ACTUAL Smash Foods format data...');
+   /**
+    * Analyze ACTUAL Smash Foods format data
+    */
+   static async analyzeSmashFoodsActualFormat(data, rateType) {
+     console.log('Analyzing ACTUAL Smash Foods format data...');
+     console.log(`Processing ${data.length} shipments`);
+
+     // Extract shipment details with ACTUAL column names
+     const shipments = data.map((row, index) => {
+       // Parse weight and volume carefully
+       let weight = 0;
+       let volume = 0;
+
+       try {
+         const weightStr = String(row['Total Weight'] || '0').replace(/[^0-9.]/g, '');
+         weight = parseFloat(weightStr) || 0;
+       } catch (e) {
+         console.warn(`Row ${index}: Could not parse weight, using 0`);
+       }
+
+       try {
+         const volumeStr = String(row['Cuft'] || '0').replace(/[^0-9.]/g, '');
+         volume = parseFloat(volumeStr) || 0;
+       } catch (e) {
+         console.warn(`Row ${index}: Could not parse volume, using 0`);
+       }
+
+       // Extract state from ZIP code
+       const zipCode = row['Ship To Postal Code'];
+       const stateInfo = zipCode ? zipToState(String(zipCode)) : null;
+
+       return {
+         shipmentName: row['Shipment Name'] || '',
+         fbaShipmentId: row['FBA Shipment ID'] || '',
+         units: parseInt(row['Total Shipped Qty'] || 0),
+         pallets: parseInt(row['Total Pallet Quantity'] || 0),  // ✅ Full name
+         volume,
+         weight,
+         destinationFC: row['Destination FC'] || '',
+         destinationState: stateInfo?.code || 'Unknown',
+         carrier: row['Carrier'] || '',
+         transportMode: row['Ship Method'] || '',
+         placementFee: parseFloat(row['Placement Fees'] || 0),  // ✅ PLURAL
+         freight: parseFloat(row['Amazon Partnered Carrier Cost'] || 0),
+         createdDate: row['Created Date'],
+         status: row['Status'] || ''
+       };
+     });
+
+     // Use shared analysis logic
+     return this.performShipmentAnalysis(shipments, rateType, 'smash_foods');
+   }
+
+  /**
+   * Analyze Muscle Mac format data
+   */
+  static async analyzeMuscleMacFormat(data, rateType) {
+    console.log('Analyzing Muscle Mac format data...');
     console.log(`Processing ${data.length} shipments`);
 
-    // Extract shipment details with ACTUAL column names
     const shipments = data.map((row, index) => {
-      // Parse weight and volume carefully (may be formulas or numbers)
       let weight = 0;
-      let volume = 0;
-
       try {
-        const weightStr = String(row['Total Weight'] || '0').replace(/[^0-9.]/g, '');
+        // Muscle Mac uses "Total Weight (lbs)"
+        const weightStr = String(row['Total Weight (lbs)'] || '0').replace(/[^0-9.]/g, '');
         weight = parseFloat(weightStr) || 0;
       } catch (e) {
-        console.warn(`Row ${index}: Could not parse weight, using 0`);
+        weight = 0;
       }
 
+      let volume = 0;
       try {
         const volumeStr = String(row['Cuft'] || '0').replace(/[^0-9.]/g, '');
         volume = parseFloat(volumeStr) || 0;
       } catch (e) {
-        console.warn(`Row ${index}: Could not parse volume, using 0`);
+        volume = 0;
       }
 
-      // Extract state from ZIP code
       const zipCode = row['Ship To Postal Code'];
       const stateInfo = zipCode ? zipToState(String(zipCode)) : null;
-      const destinationState = stateInfo ? stateInfo.code : 'Unknown';
 
       return {
-        shipmentId: row['FBA Shipment ID'] || row['Shipment ID'] || '',
         shipmentName: row['Shipment Name'] || '',
-        destinationFC: row['Destination FC'] || row['Destination Fulfillment Center ID'] || '',
-        destinationAddress: row['Ship To Postal Code'] || row['Destination Fulfillment Center Address'] || '',
-        destinationState: destinationState,
-        zipCode: zipCode,
-
-        // Order and ship dates
-        orderDate: row['Order Date'] || row['order date'] || null,
-        shipDate: row['Ship Date'] || row['ship date'] || null,
-
-        // Quantities
-        units: parseInt(row['Total Shipped Qty'] || row['Units'] || 0),
-        pallets: parseInt(row['Total Pallet Quantity'] || row['Pallets'] || 0),
-        volume: parseFloat(row['Cuft'] || row['Volume'] || 0),
-        weight: this.parseWeight(row['Total Weight'] || row['Weight'] || 0), // Use parseWeight helper
-        skus: parseInt(row['Total SKUs'] || 0),
-
-        // Carrier information
-        carrier: row['Carrier'] || row['carrier'] || 'Unknown',
-        shipMethod: row['Ship Method'],
-        freight: parseFloat(row['Amazon Partnered Carrier Cost'] || row['Estimated freight cost ($)'] || 0),
-
-        // Costs
-        placementFees: parseFloat(row['Placement Fees'] || row['Placement service fee'] || 0),
-        estFreight: parseFloat(row['Amazon Partnered Carrier Cost'] || 0),
-        prepFees: parseFloat(row['Prep and Labeling Fees'] || 0),
-
-        // Additional info
-        status: row['Status'],
-        transportMode: row['Transportation option'] || row['transportation option'] || 'SPD',
-        origin: row['Ship From Owner Name']
+        fbaShipmentId: row['FBA Shipment ID'] || '',
+        units: parseInt(row['Total Shipped Qty'] || 0),
+        pallets: parseInt(row['Total Pallets'] || 0),  // ✅ Short name
+        volume,
+        weight,
+        destinationState: stateInfo?.code || 'Unknown',
+        carrier: row['Carrier'] || '',
+        placementFee: parseFloat(row['Chosen Placement Fee'] || 0),  // ✅ SINGULAR
+        freight: parseFloat(row['Amazon Partnered Carrier Cost'] || 0)
       };
-    }).filter(s => s.units > 0 || s.weight > 0); // Filter out empty rows
-
-    console.log(`Valid shipments after filtering: ${shipments.length}`);
-
-    if (shipments.length === 0) {
-      throw new Error('No valid shipment data found. Please check the file format.');
-    }
-
-    // Calculate totals and averages
-    const totalShipments = shipments.length;
-    const totalUnits = shipments.reduce((sum, s) => sum + s.units, 0);
-    const totalPallets = shipments.reduce((sum, s) => sum + s.pallets, 0);
-    const totalVolume = shipments.reduce((sum, s) => sum + s.volume, 0);
-    const totalWeight = shipments.reduce((sum, s) => sum + s.weight, 0);
-    const totalPlacementFees = shipments.reduce((sum, s) => sum + s.placementFee, 0);
-    const totalFreight = shipments.reduce((sum, s) => sum + s.estFreight, 0);
-    const totalPrepFees = shipments.reduce((sum, s) => sum + s.prepFees, 0);
-
-    const avgWeight = totalShipments > 0 ? totalWeight / totalShipments : 0;
-    const avgUnitsPerShipment = totalShipments > 0 ? totalUnits / totalShipments : 0;
-    const avgPalletsPerShipment = totalShipments > 0 ? totalPallets / totalShipments : 0;
-
-    console.log('Totals calculated:', {
-      totalShipments,
-      totalUnits,
-      totalPallets,
-      totalVolume,
-      totalWeight,
-      totalPlacementFees,
-      totalFreight
     });
 
-    console.log('Sample shipment parsed:', shipments[0]);
-    console.log('Total units:', shipments.reduce((sum, s) => sum + s.units, 0));
-    console.log('Total pallets:', shipments.reduce((sum, s) => sum + s.pallets, 0));
-
-    // Extract destination states
-    const stateDistribution = this.extractStateDistribution(shipments);
-
-    // Count unique SKUs
-    const uniqueSKUs = shipments.reduce((sum, s) => sum + s.skus, 0);
-
-    // Calculate current cost per cubic foot
-    const currentCostPerCuft = totalVolume > 0 ? totalFreight / totalVolume : 0;
-
-    // ============================================================================
-    // COST COMPARISON WITH DIFFERENT RATE TYPES
-    // ============================================================================
-
-    const costComparison = await this.calculateCostComparison({
-      shipments,
-      totalUnits,
-      totalPallets,
-      totalVolume,
-      totalWeight,
-      uniqueSKUs,
-      stateDistribution,
-      rateType
-    });
-
-    // ============================================================================
-    // RETURN COMPREHENSIVE ANALYSIS
-    // ============================================================================
-
-    return {
-      totalShipments,
-      totalUnits,
-      totalPallets,
-      avgWeight: parseFloat(avgWeight.toFixed(2)),
-      avgUnitsPerShipment: parseFloat(avgUnitsPerShipment.toFixed(0)),
-      avgPalletsPerShipment: parseFloat(avgPalletsPerShipment.toFixed(2)),
-      analysisMonths: 1,
-
-      // Current costs
-      currentCosts: {
-        totalFreight: parseFloat(totalFreight.toFixed(2)),
-        totalPlacementFees: parseFloat(totalPlacementFees.toFixed(2)),
-        totalPrepFees: parseFloat(totalPrepFees.toFixed(2)),
-        totalCost: parseFloat((totalFreight + totalPlacementFees + totalPrepFees).toFixed(2)),
-        costPerCuft: parseFloat(currentCostPerCuft.toFixed(2)),
-        costPerUnit: totalUnits > 0 ? parseFloat((totalFreight / totalUnits).toFixed(2)) : 0,
-        costPerPallet: totalPallets > 0 ? parseFloat((totalFreight / totalPallets).toFixed(2)) : 0
-      },
-
-      // Proposed costs and savings
-      ...costComparison,
-
-      // Distribution data
-      stateDistribution,
-      topStates: this.getTopStates(stateDistribution, 5),
-
-      // Shipment details
-      transportModes: this.getTransportModeDistribution(shipments),
-      carriers: this.getCarrierDistribution(shipments),
-
-      // Timeline analysis
-      dateRange: this.getDateRange(shipments),
-      avgPrepTime: this.calculateAvgPrepTime(shipments),
-      avgTransitTime: 28, // From Trestle analysis (industry standard)
-
-      // Placement analysis
-      splitShipments: shipments.filter(s => s.placementFee > 0).length,
-      splitShipmentRate: parseFloat((shipments.filter(s => s.placementFee > 0).length / totalShipments * 100).toFixed(1)),
-
-      // Domestic vs International (all domestic for Smash Foods)
-      domesticVsInternational: {
-        domestic: totalShipments,
-        international: 0,
-        domesticPercent: '100%',
-        internationalPercent: '0%'
-      },
-
-      // Raw data for detailed view (first 10 shipments)
-      shipmentDetails: shipments.slice(0, 10)
-    };
+    return this.performShipmentAnalysis(shipments, rateType, 'muscle_mac');
   }
+
+  /**
+ * Common shipment analysis logic
+ */
+static async performShipmentAnalysis(shipments, rateType, formatName) {
+  const totals = {
+    units: shipments.reduce((sum, s) => sum + s.units, 0),
+    pallets: shipments.reduce((sum, s) => sum + s.pallets, 0),
+    volume: shipments.reduce((sum, s) => sum + s.volume, 0),
+    weight: shipments.reduce((sum, s) => sum + s.weight, 0),
+    placementFees: shipments.reduce((sum, s) => sum + s.placementFee, 0),
+    freight: shipments.reduce((sum, s) => sum + s.freight, 0)
+  };
+
+  const currentTotalCost = totals.freight + totals.placementFees;
+
+  // Get active rates
+  const rates = {};
+  if (rateType === 'combined' || rateType === 'prep') {
+    rates.prep = await AmazonRateEnhanced.getActiveRate('prep');
+  }
+  if (rateType === 'combined' || rateType === 'middleMile') {
+    rates.middleMile = await AmazonRateEnhanced.getActiveRate('middleMile');
+  }
+  if (rateType === 'combined') {
+    rates.combined = await AmazonRateEnhanced.getActiveRate('combined');
+  }
+
+  // Calculate proposed costs
+  let proposedCosts = {};
+
+  if (rates.prep && totals.units > 0) {
+    try {
+      proposedCosts.prep = rates.prep.calculatePrepCost({
+        units: totals.units,
+        skus: 24,
+        pallets: totals.pallets,
+        cubicFeet: totals.volume,
+        weight: totals.weight
+      });
+    } catch (err) {
+      console.warn('Prep calc error:', err.message);
+    }
+  }
+
+  if (rates.combined) {
+    try {
+      proposedCosts.combined = rates.combined.calculateComprehensiveCost({
+        units: totals.units,
+        skus: 24,
+        pallets: totals.pallets,
+        cubicFeet: totals.volume,
+        weight: totals.weight,
+        shipmentType: totals.pallets >= 26 ? 'FTL' : 'LTL',
+        shipments: shipments.length,
+        isSplit: true
+      });
+    } catch (err) {
+      console.warn('Combined calc error:', err.message);
+    }
+  }
+
+  // Calculate savings
+  const proposedTotal = proposedCosts.combined?.totalCost || 0;
+  const savingsAmount = currentTotalCost - proposedTotal;
+  const savingsPercent = currentTotalCost > 0 ? (savingsAmount / currentTotalCost) * 100 : 0;
+
+  // Recommendations
+  const recommendations = [];
+  if (savingsAmount > 0) {
+    recommendations.push({
+      type: 'cost_savings',
+      title: 'Cost Savings Opportunity',
+      description: `Save $${savingsAmount.toLocaleString()} (${savingsPercent.toFixed(1)}%)`,
+      impact: savingsAmount > 5000 ? 'high' : 'medium',
+      savings: savingsAmount
+    });
+  }
+
+  // Top states
+  const stateCounts = {};
+  shipments.forEach(s => {
+    const state = s.destinationState || 'Unknown';
+    if (!stateCounts[state]) {
+      stateCounts[state] = { state, count: 0, units: 0, pallets: 0 };
+    }
+    stateCounts[state].count++;
+    stateCounts[state].units += s.units;
+    stateCounts[state].pallets += s.pallets;
+  });
+
+  const topStates = Object.values(stateCounts)
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 10)
+    .map(state => ({
+      ...state,
+      percentage: ((state.count / shipments.length) * 100).toFixed(2)
+    }));
+
+  return {
+    dataFormat: formatName,
+    totalShipments: shipments.length,
+    totalUnits: totals.units,
+    totalPallets: totals.pallets,
+    avgWeight: totals.weight / shipments.length,
+
+    currentCosts: {
+      totalFreight: totals.freight,
+      totalPlacementFees: totals.placementFees,
+      totalCost: currentTotalCost
+    },
+
+    proposedCosts,
+
+    savings: {
+      amount: savingsAmount,
+      percent: savingsPercent,
+      currentTotal: currentTotalCost,
+      proposedTotal
+    },
+
+    recommendations,
+    topStates,
+    avgTransitTime: 28,
+    splitShipments: shipments.length
+  };
+}
 
   /**
    * Calculate cost comparison using different rate structures
