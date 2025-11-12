@@ -6,6 +6,7 @@ import amzprepLogo from './assets/amz-prep-logo-resized.png';
 import { useAuth } from './contexts/AuthContext';
 import amazonLogo from './assets/amazon-logo.png';
 import shopifyLogo from './assets/shopify-logo.png';
+import { SmashFoodsDashboard } from './SmashFoodsDashboardComponents';
 
 
 //const API_URL = 'http://localhost:5000/api';
@@ -372,7 +373,7 @@ const ShippingAnalytics = () => {
 
         setDashboardData(dataWithCodes);
         setCurrentReportId(response.data.reportId);
-        setSuccess(`✅ Amazon ${amazonRateType} file uploaded successfully!`);
+        setSuccess(`Amazon ${amazonRateType} file uploaded successfully!`);
         setActiveView('dashboard');
         fetchReports();
       }
@@ -422,7 +423,7 @@ const ShippingAnalytics = () => {
 
         setDashboardData(dataWithCodes);
         setCurrentReportId(response.data.reportId);
-        setSuccess(`✅ Shopify ${shopifyRateType} file uploaded successfully!`);
+        setSuccess(`Shopify ${shopifyRateType} file uploaded successfully!`);
         setActiveView('dashboard');
         fetchReports();
       }
@@ -481,7 +482,7 @@ const ShippingAnalytics = () => {
             </div>
             </div>
             <h3 className="text-2xl font-bold text-white mb-2">Amazon Upload</h3>
-            <p className="text-gray-400">Muscle Mac & FBA Data</p>
+            <p className="text-gray-400">Amazon FBA Data</p>
           </div>
 
           {/* Rate Type Dropdown */}
@@ -542,7 +543,7 @@ const ShippingAnalytics = () => {
             <ul className="text-xs text-gray-400 space-y-1">
               <li className="flex items-start gap-2">
                 <span className="text-orange-400 mt-0.5">•</span>
-                <span>Muscle Mac CSV/Excel format</span>
+                <span>Smash Foods CSV/Excel format</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-orange-400 mt-0.5">•</span>
@@ -1750,6 +1751,17 @@ const AdminUserManagement = () => {
             Generated on {new Date().toLocaleDateString()} • Analysis Period: {dashboardData.analysisMonths} {dashboardData.analysisMonths > 1 ? 'months' : 'month'}
           </p>
         </div>
+
+        {/* Check if Smash Foods format */}
+
+          {(dashboardData?.metadata?.dataFormat === 'smash_foods_actual' ||
+          dashboardData?.metadata?.dataFormat === 'muscle_mac_actual') ? (
+          <SmashFoodsDashboard data={dashboardData} />
+          ) : (
+          <>
+          </>
+          // standard dashboard
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <MetricCard

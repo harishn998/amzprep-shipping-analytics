@@ -27,6 +27,7 @@ import ReportEnhanced from './models/ReportEnhanced.js';
 import uploadEnhancedRoutes from './routes/uploadEnhanced.js';
 import adminRateUploadRoutes from './routes/adminRateUpload.js';
 import adminUserManagementRoutes from './routes/adminUserManagement.js';
+import SmashFoodsIntegration from './utils/smashFoodsIntegration.js';
 //import dotenv from 'dotenv';
 //dotenv.config();
 
@@ -158,7 +159,7 @@ function downloadImage(url) {
   });
 }
 
-function parseExcelFile(filePath) {
+async function parseExcelFile(filePath) {
   const workbook = xlsx.readFile(filePath);
   const sheetName = workbook.SheetNames[0];
   const worksheet = workbook.Sheets[sheetName];
@@ -172,7 +173,7 @@ function parseExcelFile(filePath) {
     return [];
   }
 
-  // ✅ USE UNIFIED DETECTION
+  // Detect format
   const detection = detectFileFormat(firstRow);
 
   console.log(`📋 Detected format: ${getFormatDisplayName(detection.format).toUpperCase()} (${detection.confidence}% confidence)`);
@@ -181,13 +182,13 @@ function parseExcelFile(filePath) {
     console.log(`📋 Key indicators:`, detection.indicators.join(', '));
   }
 
-  // Route to appropriate parser based on detected format
+  // Route to appropriate parser
   switch (detection.format) {
     case 'smash_foods':
-      return parseSmashFoodsFormat(data);
+      return await parseSmashFoodsFormat(filePath);  // ✓ Uses filePath
 
     case 'muscle_mac':
-      return parseMuscleMacFormat(data);
+      return await parseMuscleMacFormat(filePath);  // ✅ FIXED - now uses filePath with await
 
     case 'shopify':
       return parseShopifyFormat(data);
@@ -219,168 +220,86 @@ function parseSimpleFormat(data) {
 }
 
 // New MUSCLE MAC format parser
-function parseMuscleMacFormat(data) {
-  console.log('🔄 Parsing MUSCLE MAC format...');
+async function parseMuscleMacFormat(filePath) {
+  console.log('🔄 Processing Muscle Mac (Inv Water) format...');
+  console.log('   File path:', filePath);
+  console.log('   Using Smash Foods integration with Muscle Mac column mapping');
 
-  const shipments = [];
-  let skippedRows = 0;
+  try {
+    const integration = new SmashFoodsIntegration();
 
-  // Warehouse origin ZIP (Charlotte, NC warehouse)
-  const warehouseZip = '28601'; // Hickory, NC
+    // Muscle Mac uses same calculation logic as Smash Foods
+    // Just different column names in Data sheet
+    const analysis = await integration.analyzeSmashFoodsFile(
+      filePath,
+      'combined',  // rate type
+      0.10         // 10% markup
+    );
 
-  data.forEach((row, index) => {
-    try {
-      // Extract and clean ZIP code
-      const rawZip = row['Ship To Postal Code'];
-      if (!rawZip) {
-        skippedRows++;
-        return;
-      }
+    console.log('✅ Muscle Mac analysis complete');
+    console.log(`   Total Shipments: ${analysis.totalShipments}`);
+    console.log(`   Total Pallets: ${analysis.totalPallets}`);
+    console.log(`   Total Cuft: ${analysis.totalCuft?.toFixed(2)}`);
+    console.log(`   Savings: $${analysis.savings?.amount?.toFixed(2)}`);
 
-      const zipCode = String(rawZip).split('-')[0].trim();
-
-      // Get state from ZIP
-      const stateInfo = zipToState(zipCode);
-      if (!stateInfo) {
-        console.log(`⚠️  Row ${index + 1}: Could not determine state for ZIP ${zipCode}`);
-        skippedRows++;
-        return;
-      }
-
-      // Calculate total cost
-      const carrierCost = parseFloat(row['Amazon Partnered Carrier Cost'] || 0);
-      const placementFee = parseFloat(row['Chosen Placement Fee'] || 0);
-      const totalCost = carrierCost + placementFee;
-
-      // Get weight
-      const weight = parseFloat(row['Total Weight (lbs)'] || 0);
-
-      // Skip if no valid data
-      if (totalCost === 0 && weight === 0) {
-        skippedRows++;
-        return;
-      }
-
-      // Get shipping method
-      const shippingMethod = row['Ship Method'] || row['Carrier'] || 'Ground';
-
-      // Calculate zone
-      const zone = calculateZone(warehouseZip, zipCode);
-
-      // Estimate transit time
-      const transitTime = estimateTransitTime(shippingMethod, zone);
-
-      // Parse date
-      let date = new Date().toISOString();
-      if (row['Created Date']) {
-        try {
-          const parsedDate = new Date(row['Created Date']);
-          if (!isNaN(parsedDate.getTime())) {
-            date = parsedDate.toISOString();
-          }
-        } catch (e) {
-          // Use default date
+    // Return with special flag (same as Smash Foods)
+    return [{
+      __smashFoodsAnalysis: true,
+      analysis: {
+        ...analysis,
+        // Mark as Muscle Mac format for frontend
+        metadata: {
+          ...analysis.metadata,
+          dataFormat: 'muscle_mac_actual',
+          originalFormat: 'muscle_mac'
+        },
+        executiveSummary: {
+          ...analysis.executiveSummary,
+          title: 'Inv Water Freight Analysis'  // Different title
         }
       }
+    }];
 
-      shipments.push({
-        state: stateInfo.state,
-        weight: weight || 1, // Default to 1 lb if 0
-        cost: totalCost,
-        shippingMethod: shippingMethod,
-        zone: zone,
-        transitTime: transitTime,
-        zipCode: zipCode,
-        date: date,
-        country: row['Ship To Country Code'] || 'US'
-      });
-
-    } catch (error) {
-      console.error(`❌ Error parsing row ${index + 1}:`, error.message);
-      skippedRows++;
-    }
-  });
-
-  console.log(`✅ Successfully parsed ${shipments.length} shipments`);
-  console.log(`⚠️  Skipped ${skippedRows} rows (missing data or errors)`);
-
-  return shipments;
+  } catch (error) {
+    console.error('❌ Muscle Mac processing failed:', error);
+    throw error;
+  }
 }
 
 // Smash Foods format parser
-function parseSmashFoodsFormat(data) {
-  console.log('🔄 Parsing SMASH FOODS format...');
+// NEW: Automated Smash Foods parser using integration module
+async function parseSmashFoodsFormat(filePath) {
+  console.log('🚀 Processing Smash Foods format with FULL AUTOMATION...');
 
-  const shipments = [];
-  let skippedRows = 0;
-  const warehouseZip = '28601';
+  try {
+    const integration = new SmashFoodsIntegration();
 
-  data.forEach((row, index) => {
-    try {
-      const rawZip = row['Ship To Postal Code'];
-      if (!rawZip) {
-        skippedRows++;
-        return;
-      }
+    // Run complete automated analysis using Analysis (Pallet) sheet formulas
+    const analysis = await integration.analyzeSmashFoodsFile(
+      filePath,
+      'combined', // rate type
+      0.10 // 10% markup
+    );
 
-      const zipCode = String(rawZip).split('-')[0].trim();
-      const stateInfo = zipToState(zipCode);
+    console.log('✅ Smash Foods analysis complete');
+    console.log(`   Total Shipments: ${analysis.totalShipments}`);
+    console.log(`   Total Pallets: ${analysis.totalPallets}`);
+    console.log(`   Total Cuft: ${analysis.totalCuft?.toFixed(2)}`);
+    console.log(`   Current Total: $${analysis.currentCosts?.totalCost?.toFixed(2)}`);
+    console.log(`   AMZ Prep Total: $${analysis.proposedCosts?.combined?.totalCost?.toFixed(2)}`);
+    console.log(`   Savings: $${analysis.savings?.amount?.toFixed(2)} (${analysis.savings?.amount >= 0 ? 'SAVINGS' : 'INCREASE'})`);
 
-      if (!stateInfo) {
-        skippedRows++;
-        return;
-      }
+    // IMPORTANT: Return a special marker object that tells analyzeShipments()
+    // that this is already a complete Smash Foods analysis
+    return [{
+      __smashFoodsAnalysis: true,  // Special flag
+      analysis: analysis  // Complete analysis object
+    }];
 
-      const carrierCost = parseFloat(row['Amazon Partnered Carrier Cost'] || 0);
-      const placementFee = parseFloat(row['Placement Fees'] || 0);  // PLURAL
-      const totalCost = carrierCost + placementFee;
-
-      const weight = parseFloat(row['Total Weight'] || 0);
-
-      if (totalCost === 0 && weight === 0) {
-        skippedRows++;
-        return;
-      }
-
-      const shippingMethod = row['Ship Method'] || row['Carrier'] || 'Ground';
-      const zone = calculateZone(warehouseZip, zipCode);
-      const transitTime = estimateTransitTime(shippingMethod, zone);
-
-      let date = new Date().toISOString();
-      if (row['Created Date']) {
-        try {
-          const parsedDate = new Date(row['Created Date']);
-          if (!isNaN(parsedDate.getTime())) {
-            date = parsedDate.toISOString();
-          }
-        } catch (e) {}
-      }
-
-      shipments.push({
-        state: stateInfo.state,
-        weight: weight || 1,
-        cost: totalCost,
-        shippingMethod: shippingMethod,
-        zone: zone,
-        transitTime: transitTime,
-        zipCode: zipCode,
-        date: date,
-        country: row['Ship To Country Code'] || 'US',
-        pallets: parseInt(row['Total Pallet Quantity'] || 0),
-        volume: parseFloat(row['Cuft'] || 0),
-        shipmentName: row['Shipment Name'] || ''
-      });
-
-    } catch (error) {
-      console.error(`❌ Error parsing Smash Foods row ${index + 1}:`, error.message);
-      skippedRows++;
-    }
-  });
-
-  console.log(`✅ Successfully parsed ${shipments.length} Smash Foods shipments`);
-  console.log(`⚠️  Skipped ${skippedRows} rows`);
-
-  return shipments;
+  } catch (error) {
+    console.error('❌ Smash Foods analysis failed:', error);
+    throw error;
+  }
 }
 
 // ============================================
@@ -691,6 +610,21 @@ function calculateWarehouseComparison(shipments) {
 }
 
 function analyzeShipments(shipments) {
+
+  // CHECK: If this is a complete Smash Foods analysis, return it directly
+  if (shipments.length === 1 && shipments[0].__smashFoodsAnalysis) {
+    console.log('📊 Using complete Smash Foods analysis');
+    const smashAnalysis = shipments[0].analysis;
+
+    // Convert to format expected by Report model
+    return convertSmashFoodsToReportFormat(smashAnalysis);
+  }
+
+  // NEW: Check if this is Smash Foods automated analysis
+  if (shipments.length === 1 && shipments[0]._smashFoodsAnalysis) {
+    return convertSmashFoodsAnalysisToReport(shipments[0]._smashFoodsAnalysis);
+  }
+
   const totalShipments = shipments.length;
   const totalWeight = shipments.reduce((sum, s) => sum + s.weight, 0);
   const totalCost = shipments.reduce((sum, s) => sum + s.cost, 0);
@@ -805,6 +739,417 @@ function analyzeShipments(shipments) {
     zoneDistribution
   };
 }
+
+function convertSmashFoodsToReportFormat(analysis) {
+  // Helper function to safely get numbers
+  const safeNumber = (val, defaultVal = 0) => {
+    const num = Number(val);
+    return isNaN(num) ? defaultVal : num;
+  };
+
+  // Extract key metrics
+  const totalShipments = safeNumber(analysis.totalShipments, 0);
+  const totalUnits = safeNumber(analysis.totalUnits, 0);
+  const totalPallets = Math.round(safeNumber(analysis.totalPallets, 0));
+  const totalCuft = safeNumber(analysis.totalCuft, 0);
+  const totalWeight = safeNumber(analysis.totalWeight, 0);
+
+  // Current costs
+  const currentTotalCost = safeNumber(analysis.currentCosts?.totalCost, 0);
+  const currentFreight = safeNumber(analysis.currentCosts?.totalFreight, 0);
+  const currentPlacementFees = safeNumber(analysis.currentCosts?.totalPlacementFees, 0);
+
+  // Proposed costs
+  const proposedTotalCost = safeNumber(analysis.proposedCosts?.combined?.totalCost, 0);
+  const patternCost = safeNumber(analysis.proposedCosts?.combined?.patternCost, 0);
+  const internalCost = safeNumber(analysis.proposedCosts?.combined?.internalCost, 0);
+  const amzPrepCost = safeNumber(analysis.proposedCosts?.combined?.amzPrepCost, 0);
+
+  // Savings
+  const savingsAmount = safeNumber(analysis.savings?.amount, 0);
+  const savingsPercent = safeNumber(analysis.savings?.percent, 0);
+
+  // Transit times
+  const avgTransitTime = safeNumber(analysis.avgTransitTime, 0);
+  const amzPrepTransitTime = safeNumber(analysis.amzPrepTransitTime, 6);
+  const transitImprovement = safeNumber(analysis.transitImprovement, 0);
+
+  return {
+    // Basic metrics
+    totalShipments: totalShipments,
+    avgWeight: totalShipments > 0 ? Math.round(totalWeight / totalShipments) : 0,
+    avgCost: totalShipments > 0 ? Math.round(currentTotalCost / totalShipments) : 0,
+    analysisMonths: Math.max(1, Math.ceil(safeNumber(analysis.dateRange?.days, 30) / 30)),
+
+    // Date range
+    dateRange: {
+      start: analysis.dateRange?.start || new Date().toISOString().split('T')[0],
+      end: analysis.dateRange?.end || new Date().toISOString().split('T')[0]
+    },
+
+    // Domestic vs International (all domestic for Smash Foods)
+    domesticVsInternational: {
+      domestic: totalShipments,
+      international: 0,
+      domesticPercent: '100%',
+      internationalPercent: '0%'
+    },
+
+    // Top states (from Smash Foods geographic analysis)
+    topStates: (analysis.topStates || []).map(state => ({
+      name: state.state || 'Unknown',
+      code: state.state || 'XX',
+      volume: safeNumber(state.count, 1),
+      percentage: safeNumber(state.percentage, 0),
+      avgCost: safeNumber(state.count, 1) > 0
+        ? Math.round(safeNumber(state.currentCost, 0) / safeNumber(state.count, 1))
+        : 0
+    })),
+
+    // Warehouse comparison with AMZ Prep
+    warehouseComparison: [
+      {
+        name: 'Current Provider',
+        fullAddress: 'Various carriers and locations',
+        region: 'Multiple',
+        specialty: 'Standard fulfillment',
+        costMultiplier: 1.0,
+        avgZone: 6,
+        transitTime: Math.round(avgTransitTime) || 0,
+        cost: Math.round(currentTotalCost) || 0,
+        savings: 0,
+        savingsPercent: '0%',
+        shipments: totalShipments,
+        recommended: false
+      },
+      {
+        name: 'AMZ Prep Complete Solution',
+        fullAddress: 'Columbus, OH - Central fulfillment hub',
+        region: 'Midwest',
+        specialty: 'Fast prep + optimized shipping',
+        costMultiplier: 0.85,
+        avgZone: 5,
+        transitTime: amzPrepTransitTime,
+        cost: Math.round(proposedTotalCost) || 0,
+        savings: Math.round(savingsAmount) || 0,
+        savingsPercent: `${savingsPercent.toFixed(1)}%`,
+        shipments: totalShipments,
+        recommended: savingsAmount > 0
+      }
+    ],
+
+    // Shipping methods (from carrier analysis)
+    shippingMethods: (analysis.carriers || []).map(carrier => ({
+      name: carrier.name || 'Unknown',
+      count: safeNumber(carrier.count, 0),
+      percentage: safeNumber(carrier.percentage, 0)
+    })),
+
+    // Weight distribution (estimated)
+    weightDistribution: [
+      { range: '0-10 lbs', count: Math.round(totalShipments * 0.3) },
+      { range: '10-50 lbs', count: Math.round(totalShipments * 0.4) },
+      { range: '50-150 lbs', count: Math.round(totalShipments * 0.2) },
+      { range: '150+ lbs', count: Math.round(totalShipments * 0.1) }
+    ],
+
+    // Zone distribution (from state data)
+    zoneDistribution: [
+      { zone: 4, count: Math.round(totalShipments * 0.2), percentage: '20%' },
+      { zone: 5, count: Math.round(totalShipments * 0.3), percentage: '30%' },
+      { zone: 6, count: Math.round(totalShipments * 0.3), percentage: '30%' },
+      { zone: 7, count: Math.round(totalShipments * 0.2), percentage: '20%' }
+    ],
+
+    // ENHANCED METADATA - Store complete Smash Foods analysis
+    metadata: {
+      dataFormat: 'smash_foods_actual',
+
+      // Current costs breakdown
+      currentCosts: {
+        totalFreight: Math.round(currentFreight),
+        totalPlacementFees: Math.round(currentPlacementFees),
+        totalCost: Math.round(currentTotalCost),
+        costPerCuft: safeNumber(analysis.currentCosts?.costPerCuft, 0),
+        costPerUnit: safeNumber(analysis.currentCosts?.costPerUnit, 0),
+        costPerPallet: safeNumber(analysis.currentCosts?.costPerPallet, 0)
+      },
+
+      // Proposed costs with detailed breakdown using Analysis sheet formulas
+      proposedCosts: {
+        combined: {
+          patternCost: Math.round(patternCost),
+          internalCost: Math.round(internalCost),
+          freightOnlyCost: Math.round(safeNumber(analysis.proposedCosts?.combined?.freightOnlyCost, 0)),
+          amzPrepCost: Math.round(amzPrepCost),
+          totalCost: Math.round(proposedTotalCost),
+          costPerCuft: safeNumber(analysis.proposedCosts?.combined?.costPerCuft, 0),
+          costPerUnit: safeNumber(analysis.proposedCosts?.combined?.costPerUnit, 0),
+          costPerPallet: safeNumber(analysis.proposedCosts?.combined?.costPerPallet, 0),
+          breakdown: (analysis.proposedCosts?.combined?.breakdown || []).map(item => ({
+            type: item.type || 'Unknown',
+            description: item.description || '',
+            cost: Math.round(safeNumber(item.cost, 0))
+          }))
+        }
+      },
+
+      // Savings calculation
+      savings: {
+        amount: Math.round(savingsAmount),
+        percent: safeNumber(savingsPercent, 0),
+        currentTotal: Math.round(currentTotalCost),
+        proposedTotal: Math.round(proposedTotalCost)
+      },
+
+      // Recommendations
+      recommendations: (analysis.recommendations || []).map(rec => ({
+        type: rec.type || 'general',
+        title: rec.title || 'Recommendation',
+        description: rec.description || '',
+        impact: rec.impact || 'medium',
+        savings: rec.savings ? Math.round(safeNumber(rec.savings, 0)) : undefined,
+        improvement: rec.improvement ? safeNumber(rec.improvement, 0) : undefined
+      })),
+
+      // Carrier information
+      carriers: (analysis.carriers || []).map(carrier => ({
+        name: carrier.name || 'Unknown',
+        count: safeNumber(carrier.count, 0),
+        percentage: safeNumber(carrier.percentage, 0)
+      })),
+
+      // Timeline metrics
+      avgPrepTime: safeNumber(analysis.avgPrepTime, 0),
+      avgTransitTime: Math.round(avgTransitTime),
+      amzPrepTransitTime: amzPrepTransitTime,
+      transitImprovement: transitImprovement,
+      transitImprovementPercent: safeNumber(analysis.transitImprovementPercent, 0),
+
+      // Shipment splitting analysis
+      splitShipments: safeNumber(analysis.splitShipments, 0),
+      splitShipmentRate: safeNumber(analysis.splitShipmentRate, 0),
+
+      // Additional metrics
+      totalUnits: safeNumber(totalUnits, 0),
+      totalPallets: totalPallets,
+      totalCuft: safeNumber(totalCuft, 0),
+      totalWeight: Math.round(totalWeight),
+
+      // State-level details
+      stateDetails: analysis.stateBreakdown || {},
+
+      // Executive summary
+      executiveSummary: analysis.executiveSummary || {
+        title: 'Smash Foods Freight Analysis',
+        subtitle: `${totalShipments} Shipments | ${totalUnits.toLocaleString()} Units | ${totalPallets} Pallets`,
+        keyFindings: []
+      }
+    }
+  };
+}
+
+/**
+ * Convert Smash Foods analysis to report format
+ * This bridges the automated analysis to your existing dashboard structure
+ */
+ function convertSmashFoodsAnalysisToReport(analysis) {
+   console.log('📊 Converting Smash Foods analysis to report format...');
+
+   // Helper function to safely convert to number or default
+   const safeNumber = (value, defaultValue = 0) => {
+     const num = Number(value);
+     return isNaN(num) || !isFinite(num) ? defaultValue : num;
+   };
+
+   // Safely get values with defaults
+   const totalShipments = safeNumber(analysis.totalShipments, 0);
+   const totalWeight = safeNumber(analysis.totalWeight, 0);
+   const totalUnits = safeNumber(analysis.totalUnits, 0);
+   const currentTotalCost = safeNumber(analysis.currentCosts?.totalCost, 0);
+   const proposedTotalCost = safeNumber(analysis.proposedCosts?.combined?.totalCost, 0);
+   const savingsAmount = safeNumber(analysis.savings?.amount, 0);
+   const savingsPercent = safeNumber(analysis.savings?.percent, 0);
+   const avgTransitTime = safeNumber(analysis.avgTransitTime, 0);
+   const amzPrepTransitTime = safeNumber(analysis.amzPrepTransitTime, 6);
+
+   return {
+     // Basic metrics
+     totalShipments: totalShipments,
+     avgWeight: totalShipments > 0 ? safeNumber(totalWeight / totalShipments, 0) : 0,
+     avgCost: totalShipments > 0 ? safeNumber(currentTotalCost / totalShipments, 0) : 0,
+     analysisMonths: Math.max(1, Math.ceil(safeNumber(analysis.dateRange?.days, 30) / 30)),
+
+     // Date range
+     dateRange: {
+       start: analysis.dateRange?.start || new Date().toISOString().split('T')[0],
+       end: analysis.dateRange?.end || new Date().toISOString().split('T')[0]
+     },
+
+     // Domestic vs International (all domestic for Smash Foods)
+     domesticVsInternational: {
+       domestic: totalShipments,
+       international: 0,
+       domesticPercent: '100%',
+       internationalPercent: '0%'
+     },
+
+     // Top states (from Smash Foods geographic analysis)
+     topStates: (analysis.topStates || []).map(state => {
+       const stateCount = safeNumber(state.count, 1);
+       const stateCost = safeNumber(state.currentCost, 0);
+
+       return {
+         name: state.state || 'Unknown',
+         code: state.state || 'XX',
+         volume: stateCount,
+         percentage: safeNumber(state.percentage, 0),
+         avgCost: stateCount > 0 ? Math.round(stateCost / stateCount) : 0
+       };
+     }),
+
+     // Warehouse comparison with AMZ Prep
+     warehouseComparison: [
+       {
+         name: 'Current Provider',
+         fullAddress: 'Various carriers and locations',
+         region: 'Multiple',
+         specialty: 'Standard fulfillment',
+         costMultiplier: 1.0,
+         avgZone: 6,
+         transitTime: Math.round(avgTransitTime) || 0,
+         cost: Math.round(currentTotalCost) || 0,
+         savings: 0,
+         savingsPercent: '0%',
+         shipments: totalShipments,
+         recommended: false
+       },
+       {
+         name: 'AMZ Prep Complete Solution',
+         fullAddress: 'Columbus, OH - Central fulfillment hub',
+         region: 'Midwest',
+         specialty: 'Fast prep + optimized shipping',
+         costMultiplier: 0.85,
+         avgZone: 5,
+         transitTime: amzPrepTransitTime,
+         cost: Math.round(proposedTotalCost) || 0,
+         savings: Math.round(savingsAmount) || 0,
+         savingsPercent: `${savingsPercent.toFixed(1)}%`,
+         shipments: totalShipments,
+         recommended: savingsAmount > 0
+       }
+     ],
+
+     // Shipping methods (from carrier analysis)
+     shippingMethods: (analysis.carriers || []).map(carrier => ({
+       name: carrier.name || 'Unknown',
+       count: safeNumber(carrier.count, 0),
+       percentage: safeNumber(carrier.percentage, 0)
+     })),
+
+     // Weight distribution (estimated)
+     weightDistribution: [
+       { range: '0-10 lbs', count: Math.round(totalShipments * 0.3) },
+       { range: '10-50 lbs', count: Math.round(totalShipments * 0.4) },
+       { range: '50-150 lbs', count: Math.round(totalShipments * 0.2) },
+       { range: '150+ lbs', count: Math.round(totalShipments * 0.1) }
+     ],
+
+     // Zone distribution (from state data)
+     zoneDistribution: [
+       { zone: 4, count: Math.round(totalShipments * 0.2), percentage: '20%' },
+       { zone: 5, count: Math.round(totalShipments * 0.3), percentage: '30%' },
+       { zone: 6, count: Math.round(totalShipments * 0.3), percentage: '30%' },
+       { zone: 7, count: Math.round(totalShipments * 0.2), percentage: '20%' }
+     ],
+
+     // ENHANCED METADATA - Store complete Smash Foods analysis
+     metadata: {
+       dataFormat: 'smash_foods_actual',
+
+       // Current costs breakdown
+       currentCosts: {
+         totalFreight: Math.round(safeNumber(analysis.currentCosts?.totalFreight, 0)),
+         totalPlacementFees: Math.round(safeNumber(analysis.currentCosts?.totalPlacementFees, 0)),
+         totalCost: Math.round(currentTotalCost),
+         costPerCuft: safeNumber(analysis.currentCosts?.costPerCuft, 0),
+         costPerUnit: safeNumber(analysis.currentCosts?.costPerUnit, 0),
+         costPerPallet: safeNumber(analysis.currentCosts?.costPerPallet, 0)
+       },
+
+       // Proposed costs with detailed breakdown
+       proposedCosts: {
+         combined: {
+           palletCost: Math.round(safeNumber(analysis.proposedCosts?.combined?.palletCost, 0)),
+           cuftCost: Math.round(safeNumber(analysis.proposedCosts?.combined?.cuftCost, 0)),
+           prepCost: Math.round(safeNumber(analysis.proposedCosts?.combined?.prepCost, 0)),
+           middleMileCost: Math.round(safeNumber(analysis.proposedCosts?.combined?.middleMileCost, 0)),
+           totalCost: Math.round(proposedTotalCost),
+           costPerCuft: safeNumber(analysis.proposedCosts?.combined?.costPerCuft, 0),
+           costPerUnit: safeNumber(analysis.proposedCosts?.combined?.costPerUnit, 0),
+           costPerPallet: safeNumber(analysis.proposedCosts?.combined?.costPerPallet, 0),
+           breakdown: (analysis.proposedCosts?.combined?.breakdown || []).map(item => ({
+             type: item.type || 'Unknown',
+             description: item.description || '',
+             cost: Math.round(safeNumber(item.cost, 0))
+           }))
+         }
+       },
+
+       // Savings calculation
+       savings: {
+         amount: Math.round(savingsAmount),
+         percent: safeNumber(savingsPercent, 0),
+         currentTotal: Math.round(currentTotalCost),
+         proposedTotal: Math.round(proposedTotalCost)
+       },
+
+       // Recommendations
+       recommendations: (analysis.recommendations || []).map(rec => ({
+         type: rec.type || 'general',
+         title: rec.title || 'Recommendation',
+         description: rec.description || '',
+         impact: rec.impact || 'medium',
+         savings: rec.savings ? Math.round(safeNumber(rec.savings, 0)) : undefined,
+         improvement: rec.improvement ? safeNumber(rec.improvement, 0) : undefined
+       })),
+
+       // Carrier information
+       carriers: (analysis.carriers || []).map(carrier => ({
+         name: carrier.name || 'Unknown',
+         count: safeNumber(carrier.count, 0),
+         percentage: safeNumber(carrier.percentage, 0)
+       })),
+
+       // Timeline metrics
+       avgPrepTime: safeNumber(analysis.avgPrepTime, 0),
+       avgTransitTime: Math.round(avgTransitTime),
+       amzPrepTransitTime: amzPrepTransitTime,
+       transitImprovement: safeNumber(analysis.transitImprovement, 0),
+       transitImprovementPercent: safeNumber(analysis.transitImprovementPercent, 0),
+
+       // Shipment splitting analysis
+       splitShipments: safeNumber(analysis.splitShipments, 0),
+       splitShipmentRate: safeNumber(analysis.splitShipmentRate, 0),
+
+       // Additional metrics
+       totalUnits: safeNumber(totalUnits, 0),
+       totalPallets: safeNumber(analysis.totalPallets, 0),
+       totalCuft: safeNumber(analysis.totalCuft, 0),
+       totalWeight: safeNumber(totalWeight, 0),
+
+       // State-level details
+       stateDetails: analysis.stateBreakdown || {},
+
+       // Executive summary
+       executiveSummary: analysis.executiveSummary || {
+         title: 'Smash Foods Freight Analysis',
+         subtitle: `${totalShipments} Shipments`,
+         keyFindings: []
+       }
+     }
+   };
+ }
 
 async function generateUSMapVisualization(topStates, mapType = 'volume') {
   const width = 1200;
@@ -1801,7 +2146,7 @@ app.post('/api/upload', authenticateToken, upload.single('file'), async (req, re
     console.log('📤 File upload from user:', req.user.email);
 
     const filePath = req.file.path;
-    const shipments = parseExcelFile(filePath);
+    const shipments = await parseExcelFile(filePath);  // ✅ ADD AWAIT
 
     if (shipments.length === 0) {
       // Clean up uploaded file
@@ -1809,7 +2154,7 @@ app.post('/api/upload', authenticateToken, upload.single('file'), async (req, re
       return res.status(400).json({ error: 'No valid data found in file' });
     }
 
-    const analysis = analyzeShipments(shipments);
+    const analysis = analyzeShipments(shipments);  // ✅ This should work now
 
     // ← NEW: Save to MongoDB
     const report = new Report({

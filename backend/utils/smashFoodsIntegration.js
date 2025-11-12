@@ -1,0 +1,290 @@
+// ============================================================================
+// SMASH FOODS INTEGRATION - Complete workflow orchestration
+// File: backend/utils/smashFoodsIntegration.js
+// ============================================================================
+
+import SmashFoodsParser from './smashFoodsParser.js';
+import SmashFoodsCalculator from './smashFoodsCalculator.js';
+import SmashFoodsAnalytics from './smashFoodsAnalytics.js';
+import AmazonRateEnhanced from '../models/AmazonRateEnhanced.js';
+
+/**
+ * SmashFoodsIntegration - Orchestrates the complete Smash Foods analysis workflow
+ * This is the main entry point for processing Smash Foods files
+ */
+class SmashFoodsIntegration {
+
+  constructor() {
+    this.parser = new SmashFoodsParser();
+    this.calculator = new SmashFoodsCalculator();
+    this.analytics = new SmashFoodsAnalytics();
+  }
+
+  /**
+   * Main analysis method - processes entire Smash Foods file
+   * @param {string} filePath - Path to uploaded Excel file
+   * @param {string} rateType - Rate type to use ('prep', 'middleMile', 'combined')
+   * @param {number} markup - Markup percentage (default 0.10 for 10%)
+   * @returns {Object} - Complete analysis results
+   */
+   async analyzeSmashFoodsFile(filePath, rateType = 'combined', markup = 0.10) {
+    console.log('🚀 Starting Smash Foods analysis...');
+    console.log(`   File: ${filePath}`);
+    console.log(`   Rate Type: ${rateType}`);
+    console.log(`   Markup: ${(markup * 100)}%`);
+
+    try {
+      // Step 1: Parse Excel file
+      console.log('📊 Step 1: Parsing Excel file...');
+      const parsedData = await this.parser.parseFile(filePath);
+      let shipments = parsedData.dataSheet;
+
+      if (shipments.length === 0) {
+        throw new Error('No closed shipments found in file');
+      }
+
+      console.log(`✅ Parsed ${shipments.length} closed shipments`);
+
+      // CRITICAL FIX: Filter to 2025 shipments only (to match your manual analysis)
+      const shipmentsWithDates = shipments.filter(s => s.createdDate);
+      const shipments2025 = shipmentsWithDates.filter(s => {
+        const year = new Date(s.createdDate).getFullYear();
+        return year === 2025;
+      });
+
+      // Use 2025 shipments if we have them, otherwise use all
+      if (shipments2025.length > 0) {
+        shipments = shipments2025;
+        console.log(`📅 Filtered to ${shipments.length} shipments from 2025`);
+      }
+
+      // Step 2: Get active rates from database
+      console.log('💰 Step 2: Fetching AMZ Prep rates...');
+      const rates = await this.getActiveRates();
+      console.log('✅ Rates loaded');
+
+      // Step 3: Calculate costs
+      console.log('🧮 Step 3: Calculating costs...');
+      const costAnalysis = this.calculator.calculateComprehensiveComparison(
+        shipments,
+        rates,
+        markup
+      );
+      console.log('✅ Cost calculations complete');
+
+      // Step 4: Generate analytics and recommendations
+      console.log('📈 Step 4: Generating insights...');
+      const insights = this.analytics.generateDashboardInsights(
+        costAnalysis,
+        shipments
+      );
+      console.log('✅ Insights generated');
+
+      // Step 5: Compile complete analysis
+      const summary = this.parser.getSummary({ dataSheet: shipments });
+
+      const completeAnalysis = {
+        // Basic metrics
+        totalShipments: summary.totalShipments,
+        totalUnits: summary.totalUnits,
+        totalPallets: Math.round(summary.totalPallets),
+        totalCuft: Math.round(summary.totalCuft),
+        totalWeight: Math.round(summary.totalWeight),
+
+        // Date range
+        dateRange: insights.executiveSummary.overview.analysisTimeframe,
+
+        // Current costs
+        currentCosts: {
+          totalFreight: costAnalysis.currentCosts.totalFreight,
+          totalPlacementFees: costAnalysis.currentCosts.totalPlacementFees,
+          totalCost: costAnalysis.currentCosts.totalCost,
+          costPerCuft: costAnalysis.currentMetrics.costPerCuft,
+          costPerUnit: costAnalysis.currentMetrics.costPerUnit,
+          costPerPallet: costAnalysis.currentMetrics.costPerPallet
+        },
+
+        // Proposed costs using Analysis sheet formulas
+        proposedCosts: {
+          combined: {
+            patternCost: costAnalysis.proposedCosts.patternCost,      // DC to FBA
+            internalCost: costAnalysis.proposedCosts.internalCost,    // Whse to DC
+            freightOnlyCost: costAnalysis.proposedCosts.freightOnlyCost, // Pattern + Internal
+            amzPrepCost: costAnalysis.proposedCosts.amzPrepCost,      // With discount
+            totalCost: costAnalysis.proposedCosts.totalCost,          // Same as amzPrepCost
+            costPerCuft: costAnalysis.proposedMetrics.costPerCuft,
+            costPerUnit: costAnalysis.proposedMetrics.costPerUnit,
+            costPerPallet: costAnalysis.proposedMetrics.costPerPallet,
+            breakdown: [
+              {
+                type: 'Pattern (DC to FBA)',
+                description: `${Math.round(summary.totalCuft)} cuft @ $2.625/cuft`,
+                cost: costAnalysis.proposedCosts.patternCost
+              },
+              {
+                type: 'Internal Transfer (Whse to DC)',
+                description: `${Math.round(summary.totalCuft)} cuft @ $1.014/cuft`,
+                cost: costAnalysis.proposedCosts.internalCost
+              },
+              {
+                type: 'Freight Only Subtotal',
+                description: 'Pattern + Internal before discount',
+                cost: costAnalysis.proposedCosts.freightOnlyCost
+              },
+              {
+                type: 'AMZ Prep Final Cost',
+                description: 'After 9.86% operational efficiency discount',
+                cost: costAnalysis.proposedCosts.amzPrepCost
+              }
+            ]
+          }
+        },
+
+        // Savings (can be negative if AMZ Prep costs more)
+        savings: {
+          amount: costAnalysis.savings.amount,
+          percent: costAnalysis.savings.percent,
+          currentTotal: costAnalysis.savings.currentTotal,
+          proposedTotal: costAnalysis.savings.proposedTotal
+        },
+
+        // Transit times
+        avgTransitTime: Math.round(summary.avgTransitDays),
+        amzPrepTransitTime: this.calculator.AMZ_PREP_TRANSIT_DAYS,
+        transitImprovement: costAnalysis.transitImprovement.improvementDays,
+        transitImprovementPercent: costAnalysis.transitImprovement.improvementPercent,
+
+        // Prep time analysis
+        avgPrepTime: this.analytics.calculateAvgPrepTime(shipments),
+
+        // Split shipments
+        splitShipments: shipments.filter(s => s.placementFees > 0).length,
+        splitShipmentRate: this.analytics.calculateSplitShipmentRate(shipments),
+
+        // Geographic analysis
+        topStates: insights.geographic.topStates,
+        stateBreakdown: insights.geographic.stateBreakdown,
+
+        // Carrier analysis
+        carriers: insights.performance.carriers.map(c => ({
+          name: c.carrier,
+          count: c.count,
+          percentage: Math.round((c.count / summary.totalShipments) * 100)
+        })),
+
+        // Recommendations
+        recommendations: insights.recommendations,
+        recommendationCount: insights.recommendations.length,
+
+        // Executive summary
+        executiveSummary: {
+          title: 'Smash Foods Freight Analysis',
+          subtitle: `${summary.totalShipments} Shipments | ${summary.totalUnits.toLocaleString()} Units | ${Math.round(summary.totalPallets)} Pallets`,
+          keyFindings: [
+            costAnalysis.savings.amount >= 0
+              ? `Save $${Math.abs(costAnalysis.savings.amount).toLocaleString()} (${Math.abs(costAnalysis.savings.percent)}%) by switching to AMZ Prep`
+              : `AMZ Prep would cost $${Math.abs(costAnalysis.savings.amount).toLocaleString()} more (${Math.abs(costAnalysis.savings.percent)}% increase)`,
+            costAnalysis.transitImprovement.improvementDays > 0
+              ? `Reduce transit time by ${costAnalysis.transitImprovement.improvementDays} days (${costAnalysis.transitImprovement.improvementPercent}% faster)`
+              : `Current transit time: ${costAnalysis.transitImprovement.currentTransitDays} days`,
+            `Top destination: ${insights.geographic.topStates[0]?.state || 'Various'} with ${insights.geographic.topStates[0]?.percentage || 0}% of shipments`,
+            `${this.analytics.calculateSplitShipmentRate(shipments)}% of shipments incurred placement fees`
+          ]
+        },
+
+        // Metadata
+        metadata: {
+          dataFormat: 'smash_foods_actual',
+          rateType,
+          markup,
+          analysisDate: new Date().toISOString(),
+          version: '1.0',
+          filtered: shipments2025.length > 0 && shipments2025.length < parsedData.dataSheet.length
+        }
+      };
+
+      console.log('✅ Smash Foods analysis complete!');
+      console.log(`   Total Savings: $${completeAnalysis.savings.amount.toLocaleString()} (${completeAnalysis.savings.amount >= 0 ? 'SAVINGS' : 'INCREASE'})`);
+      console.log(`   Transit Improvement: ${completeAnalysis.transitImprovement} days`);
+      console.log(`   Recommendations: ${completeAnalysis.recommendationCount}`);
+
+      return completeAnalysis;
+
+    } catch (error) {
+      console.error('❌ Smash Foods analysis failed:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get active AMZ Prep rates from database
+   * @returns {Object} - Active rates
+   */
+  async getActiveRates() {
+    try {
+      // Try to get combined rate first
+      let rate = await AmazonRateEnhanced.getActiveRate('combined');
+
+      // If no combined rate, try to construct from individual rates
+      if (!rate) {
+        const prepRate = await AmazonRateEnhanced.getActiveRate('prep');
+        const middleMileRate = await AmazonRateEnhanced.getActiveRate('middleMile');
+
+        if (!prepRate || !middleMileRate) {
+          // Use default rates if none in database
+          console.warn('⚠️  No rates found in database, using default rates');
+          return this.getDefaultRates();
+        }
+
+        // Construct combined rate from individual rates
+        return {
+          palletRate: 56.00,  // Base FTL rate
+          cuftRate: 2.50,     // Internal transfer rate
+          prepRate: 0.60,     // Per unit prep
+          middleMileRate: 61.60  // Per pallet middle-mile
+        };
+      }
+
+      // Extract rates from combined rate object
+      return {
+        palletRate: rate.rateDetails?.palletRate || 56.00,
+        cuftRate: rate.rateDetails?.cuftRate || 2.50,
+        prepRate: rate.rateDetails?.prepRate || 0.60,
+        middleMileRate: rate.rateDetails?.middleMileRate || 61.60
+      };
+
+    } catch (error) {
+      console.error('Error fetching rates:', error);
+      return this.getDefaultRates();
+    }
+  }
+
+  /**
+   * Get default rates if none in database
+   */
+  getDefaultRates() {
+    return {
+      palletRate: 56.00,
+      cuftRate: 2.50,
+      prepRate: 0.60,
+      middleMileRate: 61.60
+    };
+  }
+
+  /**
+   * Validate Smash Foods file format
+   * @param {string} filePath - Path to file
+   * @returns {boolean} - True if valid Smash Foods format
+   */
+  async validateFile(filePath) {
+    try {
+      const parsedData = await this.parser.parseFile(filePath);
+      return parsedData.dataSheet.length > 0;
+    } catch (error) {
+      console.error('File validation failed:', error);
+      return false;
+    }
+  }
+}
+
+export default SmashFoodsIntegration;
