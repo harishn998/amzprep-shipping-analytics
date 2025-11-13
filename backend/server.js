@@ -159,7 +159,7 @@ function downloadImage(url) {
   });
 }
 
-async function parseExcelFile(filePath) {
+async function parseExcelFile(filePath, hazmatFilter = 'all') {
   const workbook = xlsx.readFile(filePath);
   const sheetName = workbook.SheetNames[0];
   const worksheet = workbook.Sheets[sheetName];
@@ -185,10 +185,10 @@ async function parseExcelFile(filePath) {
   // Route to appropriate parser
   switch (detection.format) {
     case 'smash_foods':
-      return await parseSmashFoodsFormat(filePath);  // ✓ Uses filePath
+      return await parseSmashFoodsFormat(filePath, hazmatFilter || 'all');  // ✓ Uses filePath
 
     case 'muscle_mac':
-      return await parseMuscleMacFormat(filePath);  // ✅ FIXED - now uses filePath with await
+      return await parseMuscleMacFormat(filePath, hazmatFilter || 'all');  // ✅ FIXED - now uses filePath with await
 
     case 'shopify':
       return parseShopifyFormat(data);
@@ -220,10 +220,11 @@ function parseSimpleFormat(data) {
 }
 
 // New MUSCLE MAC format parser
-async function parseMuscleMacFormat(filePath) {
+async function parseMuscleMacFormat(filePath, hazmatFilter = 'all') {
   console.log('🔄 Processing Muscle Mac (Inv Water) format...');
   console.log('   File path:', filePath);
   console.log('   Using Smash Foods integration with Muscle Mac column mapping');
+  console.log(`   Hazmat filter: ${hazmatFilter}`);
 
   try {
     const integration = new SmashFoodsIntegration();
@@ -233,7 +234,8 @@ async function parseMuscleMacFormat(filePath) {
     const analysis = await integration.analyzeSmashFoodsFile(
       filePath,
       'combined',  // rate type
-      0.10         // 10% markup
+      0.10,       // 10% markup
+      hazmatFilter // Pass filter here too
     );
 
     console.log('✅ Muscle Mac analysis complete');
@@ -268,8 +270,11 @@ async function parseMuscleMacFormat(filePath) {
 
 // Smash Foods format parser
 // NEW: Automated Smash Foods parser using integration module
-async function parseSmashFoodsFormat(filePath) {
+async function parseSmashFoodsFormat(filePath, hazmatFilter = 'all') {
   console.log('🚀 Processing Smash Foods format with FULL AUTOMATION...');
+  console.log(`   File path: ${filePath}`);
+  console.log(`   Hazmat filter: ${hazmatFilter}`); // NEW
+  console.log('   Using Smash Foods integration');
 
   try {
     const integration = new SmashFoodsIntegration();
@@ -278,13 +283,15 @@ async function parseSmashFoodsFormat(filePath) {
     const analysis = await integration.analyzeSmashFoodsFile(
       filePath,
       'combined', // rate type
-      0.10 // 10% markup
+      0.10, // 10% markup
+      hazmatFilter // NEW PARAMETER
     );
 
     console.log('✅ Smash Foods analysis complete');
     console.log(`   Total Shipments: ${analysis.totalShipments}`);
     console.log(`   Total Pallets: ${analysis.totalPallets}`);
     console.log(`   Total Cuft: ${analysis.totalCuft?.toFixed(2)}`);
+    console.log(`   Hazmat Products: ${analysis.hazmat.products.hazmat}`);
     console.log(`   Current Total: $${analysis.currentCosts?.totalCost?.toFixed(2)}`);
     console.log(`   AMZ Prep Total: $${analysis.proposedCosts?.combined?.totalCost?.toFixed(2)}`);
     console.log(`   Savings: $${analysis.savings?.amount?.toFixed(2)} (${analysis.savings?.amount >= 0 ? 'SAVINGS' : 'INCREASE'})`);
@@ -292,8 +299,16 @@ async function parseSmashFoodsFormat(filePath) {
     // IMPORTANT: Return a special marker object that tells analyzeShipments()
     // that this is already a complete Smash Foods analysis
     return [{
-      __smashFoodsAnalysis: true,  // Special flag
-      analysis: analysis  // Complete analysis object
+      __smashFoodsAnalysis: true,
+      analysis: {
+        ...analysis,
+        metadata: {
+          ...analysis.metadata,
+          dataFormat: 'smash_foods_actual',
+          originalFormat: 'smash_foods',
+          hazmatFilter // Track filter in metadata
+        }
+      }
     }];
 
   } catch (error) {
@@ -861,6 +876,8 @@ function convertSmashFoodsToReportFormat(analysis) {
       { zone: 7, count: Math.round(totalShipments * 0.2), percentage: '20%' }
     ],
 
+    hazmat: analysis.hazmat || null,
+
     // ENHANCED METADATA - Store complete Smash Foods analysis
     metadata: {
       dataFormat: 'smash_foods_actual',
@@ -1062,6 +1079,8 @@ function convertSmashFoodsToReportFormat(analysis) {
        { zone: 6, count: Math.round(totalShipments * 0.3), percentage: '30%' },
        { zone: 7, count: Math.round(totalShipments * 0.2), percentage: '20%' }
      ],
+
+     hazmat: analysis.hazmat || null,
 
      // ENHANCED METADATA - Store complete Smash Foods analysis
      metadata: {
@@ -2146,7 +2165,10 @@ app.post('/api/upload', authenticateToken, upload.single('file'), async (req, re
     console.log('📤 File upload from user:', req.user.email);
 
     const filePath = req.file.path;
-    const shipments = await parseExcelFile(filePath);  // ✅ ADD AWAIT
+    const { hazmatFilter } = req.body; // NEW - Get filter from request
+    const shipments = await parseExcelFile(filePath, hazmatFilter || 'all');
+
+    console.log('🔍 Hazmat filter:', hazmatFilter || 'all'); // NEW
 
     if (shipments.length === 0) {
       // Clean up uploaded file

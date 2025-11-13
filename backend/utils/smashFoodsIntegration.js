@@ -1,16 +1,16 @@
 // ============================================================================
-// SMASH FOODS INTEGRATION - Complete workflow orchestration
+// SMASH FOODS INTEGRATION - WITH HAZMAT ANALYTICS
 // File: backend/utils/smashFoodsIntegration.js
 // ============================================================================
 
 import SmashFoodsParser from './smashFoodsParser.js';
 import SmashFoodsCalculator from './smashFoodsCalculator.js';
 import SmashFoodsAnalytics from './smashFoodsAnalytics.js';
+import HazmatAnalytics from './hazmatAnalytics.js'; // 🆕 ADD THIS IMPORT
 import AmazonRateEnhanced from '../models/AmazonRateEnhanced.js';
 
 /**
- * SmashFoodsIntegration - Orchestrates the complete Smash Foods analysis workflow
- * This is the main entry point for processing Smash Foods files
+ * SmashFoodsIntegration - WITH HAZMAT ANALYSIS SUPPORT
  */
 class SmashFoodsIntegration {
 
@@ -18,23 +18,27 @@ class SmashFoodsIntegration {
     this.parser = new SmashFoodsParser();
     this.calculator = new SmashFoodsCalculator();
     this.analytics = new SmashFoodsAnalytics();
+    this.hazmatAnalytics = new HazmatAnalytics(); // 🆕 ADD THIS
   }
 
   /**
-   * Main analysis method - processes entire Smash Foods file
+   * Main analysis method
+   * 🆕 NOW INCLUDES HAZMAT ANALYSIS
+   *
    * @param {string} filePath - Path to uploaded Excel file
-   * @param {string} rateType - Rate type to use ('prep', 'middleMile', 'combined')
-   * @param {number} markup - Markup percentage (default 0.10 for 10%)
-   * @returns {Object} - Complete analysis results
+   * @param {string} rateType - Rate type
+   * @param {number} markup - Markup percentage
+   * @param {string} hazmatFilter - 'all', 'hazmat', or 'non-hazmat' 🆕 NEW PARAMETER
    */
-   async analyzeSmashFoodsFile(filePath, rateType = 'combined', markup = 0.10) {
+  async analyzeSmashFoodsFile(filePath, rateType = 'combined', markup = 0.10, hazmatFilter = 'all') {
     console.log('🚀 Starting Smash Foods analysis...');
     console.log(`   File: ${filePath}`);
     console.log(`   Rate Type: ${rateType}`);
     console.log(`   Markup: ${(markup * 100)}%`);
+    console.log(`   Hazmat Filter: ${hazmatFilter}`); // 🆕 LOG FILTER
 
     try {
-      // Step 1: Parse Excel file
+      // Step 1: Parse Excel file (NOW INCLUDES HAZMAT CLASSIFICATION)
       console.log('📊 Step 1: Parsing Excel file...');
       const parsedData = await this.parser.parseFile(filePath);
       let shipments = parsedData.dataSheet;
@@ -45,20 +49,33 @@ class SmashFoodsIntegration {
 
       console.log(`✅ Parsed ${shipments.length} closed shipments`);
 
-      // CRITICAL FIX: Filter to 2025 shipments only (to match your manual analysis)
+      // Filter to 2025 shipments
       const shipmentsWithDates = shipments.filter(s => s.createdDate);
       const shipments2025 = shipmentsWithDates.filter(s => {
         const year = new Date(s.createdDate).getFullYear();
         return year === 2025;
       });
 
-      // Use 2025 shipments if we have them, otherwise use all
       if (shipments2025.length > 0) {
         shipments = shipments2025;
         console.log(`📅 Filtered to ${shipments.length} shipments from 2025`);
       }
 
-      // Step 2: Get active rates from database
+      // 🆕 STEP 1.5: APPLY HAZMAT FILTER IF REQUESTED
+      let originalShipmentCount = shipments.length;
+      if (hazmatFilter === 'hazmat') {
+        shipments = shipments.filter(s => s.containsHazmat === true);
+        console.log(`🔍 Filtered to ${shipments.length} HAZMAT shipments (from ${originalShipmentCount} total)`);
+      } else if (hazmatFilter === 'non-hazmat') {
+        shipments = shipments.filter(s => s.containsHazmat === false);
+        console.log(`🔍 Filtered to ${shipments.length} NON-HAZMAT shipments (from ${originalShipmentCount} total)`);
+      }
+
+      if (shipments.length === 0) {
+        throw new Error(`No ${hazmatFilter} shipments found after filtering`);
+      }
+
+      // Step 2: Get rates
       console.log('💰 Step 2: Fetching AMZ Prep rates...');
       const rates = await this.getActiveRates();
       console.log('✅ Rates loaded');
@@ -72,7 +89,7 @@ class SmashFoodsIntegration {
       );
       console.log('✅ Cost calculations complete');
 
-      // Step 4: Generate analytics and recommendations
+      // Step 4: Generate analytics
       console.log('📈 Step 4: Generating insights...');
       const insights = this.analytics.generateDashboardInsights(
         costAnalysis,
@@ -80,8 +97,19 @@ class SmashFoodsIntegration {
       );
       console.log('✅ Insights generated');
 
-      // Step 5: Compile complete analysis
-      const summary = this.parser.getSummary({ dataSheet: shipments });
+      // 🆕 STEP 5: GENERATE HAZMAT ANALYTICS
+      console.log('🔬 Step 5: Generating hazmat analytics...');
+      const hazmatAnalysis = this.hazmatAnalytics.generateHazmatAnalysis(
+        parsedData.hazmatClassification,
+        shipments
+      );
+      console.log('✅ Hazmat analytics complete');
+
+      // Step 6: Compile complete analysis
+      const summary = this.parser.getSummary({
+        dataSheet: shipments,
+        hazmatClassification: parsedData.hazmatClassification
+      });
 
       const completeAnalysis = {
         // Basic metrics
@@ -104,14 +132,14 @@ class SmashFoodsIntegration {
           costPerPallet: costAnalysis.currentMetrics.costPerPallet
         },
 
-        // Proposed costs using Analysis sheet formulas
+        // Proposed costs
         proposedCosts: {
           combined: {
-            patternCost: costAnalysis.proposedCosts.patternCost,      // DC to FBA
-            internalCost: costAnalysis.proposedCosts.internalCost,    // Whse to DC
-            freightOnlyCost: costAnalysis.proposedCosts.freightOnlyCost, // Pattern + Internal
-            amzPrepCost: costAnalysis.proposedCosts.amzPrepCost,      // With discount
-            totalCost: costAnalysis.proposedCosts.totalCost,          // Same as amzPrepCost
+            patternCost: costAnalysis.proposedCosts.patternCost,
+            internalCost: costAnalysis.proposedCosts.internalCost,
+            freightOnlyCost: costAnalysis.proposedCosts.freightOnlyCost,
+            amzPrepCost: costAnalysis.proposedCosts.amzPrepCost,
+            totalCost: costAnalysis.proposedCosts.totalCost,
             costPerCuft: costAnalysis.proposedMetrics.costPerCuft,
             costPerUnit: costAnalysis.proposedMetrics.costPerUnit,
             costPerPallet: costAnalysis.proposedMetrics.costPerPallet,
@@ -140,7 +168,7 @@ class SmashFoodsIntegration {
           }
         },
 
-        // Savings (can be negative if AMZ Prep costs more)
+        // Savings
         savings: {
           amount: costAnalysis.savings.amount,
           percent: costAnalysis.savings.percent,
@@ -154,7 +182,7 @@ class SmashFoodsIntegration {
         transitImprovement: costAnalysis.transitImprovement.improvementDays,
         transitImprovementPercent: costAnalysis.transitImprovement.improvementPercent,
 
-        // Prep time analysis
+        // Prep time
         avgPrepTime: this.analytics.calculateAvgPrepTime(shipments),
 
         // Split shipments
@@ -176,9 +204,42 @@ class SmashFoodsIntegration {
         recommendations: insights.recommendations,
         recommendationCount: insights.recommendations.length,
 
+        // 🆕 HAZMAT ANALYSIS
+        hazmat: {
+          // Product-level metrics
+          products: hazmatAnalysis.products,
+
+          // Type and class breakdown
+          typeBreakdown: hazmatAnalysis.typeBreakdown,
+          dgClassBreakdown: hazmatAnalysis.dgClassBreakdown,
+          confidenceBreakdown: hazmatAnalysis.confidenceBreakdown,
+
+          // Shipment-level metrics
+          shipments: hazmatAnalysis.shipments,
+
+          // Geographic analysis for hazmat
+          geographic: hazmatAnalysis.geographic,
+
+          // Compliance insights
+          compliance: hazmatAnalysis.compliance,
+
+          // Hazmat-specific recommendations
+          recommendations: hazmatAnalysis.recommendations,
+
+          // Pivot data (for charts)
+          pivotData: this.hazmatAnalytics.generateHazmatPivotData(shipments),
+
+          // Full product list (for reference)
+          productList: parsedData.hazmatClassification.hazmat.slice(0, 50) // First 50
+        },
+
         // Executive summary
         executiveSummary: {
-          title: 'Smash Foods Freight Analysis',
+          title: hazmatFilter === 'hazmat'
+            ? 'Hazmat Products Freight Analysis'
+            : hazmatFilter === 'non-hazmat'
+            ? 'Non-Hazmat Products Freight Analysis'
+            : 'Complete Freight Analysis',
           subtitle: `${summary.totalShipments} Shipments | ${summary.totalUnits.toLocaleString()} Units | ${Math.round(summary.totalPallets)} Pallets`,
           keyFindings: [
             costAnalysis.savings.amount >= 0
@@ -188,8 +249,12 @@ class SmashFoodsIntegration {
               ? `Reduce transit time by ${costAnalysis.transitImprovement.improvementDays} days (${costAnalysis.transitImprovement.improvementPercent}% faster)`
               : `Current transit time: ${costAnalysis.transitImprovement.currentTransitDays} days`,
             `Top destination: ${insights.geographic.topStates[0]?.state || 'Various'} with ${insights.geographic.topStates[0]?.percentage || 0}% of shipments`,
-            `${this.analytics.calculateSplitShipmentRate(shipments)}% of shipments incurred placement fees`
-          ]
+            `${this.analytics.calculateSplitShipmentRate(shipments)}% of shipments incurred placement fees`,
+            // 🆕 ADD HAZMAT FINDING
+            hazmatFilter === 'all'
+              ? `${hazmatAnalysis.products.hazmat} hazmat products (${hazmatAnalysis.products.percentHazmat}%) requiring special handling`
+              : null
+          ].filter(Boolean)
         },
 
         // Metadata
@@ -199,13 +264,17 @@ class SmashFoodsIntegration {
           markup,
           analysisDate: new Date().toISOString(),
           version: '1.0',
-          filtered: shipments2025.length > 0 && shipments2025.length < parsedData.dataSheet.length
+          filtered: shipments2025.length > 0 && shipments2025.length < parsedData.dataSheet.length,
+          hazmatFilter, // 🆕 TRACK FILTER APPLIED
+          originalShipmentCount, // 🆕 TRACK ORIGINAL COUNT
+          hasHazmatData: true // 🆕 FLAG THAT HAZMAT DATA IS AVAILABLE
         }
       };
 
       console.log('✅ Smash Foods analysis complete!');
-      console.log(`   Total Savings: $${completeAnalysis.savings.amount.toLocaleString()} (${completeAnalysis.savings.amount >= 0 ? 'SAVINGS' : 'INCREASE'})`);
+      console.log(`   Total Savings: $${completeAnalysis.savings.amount.toLocaleString()}`);
       console.log(`   Transit Improvement: ${completeAnalysis.transitImprovement} days`);
+      console.log(`   Hazmat Products: ${hazmatAnalysis.products.hazmat} (${hazmatAnalysis.products.percentHazmat}%)`);
       console.log(`   Recommendations: ${completeAnalysis.recommendationCount}`);
 
       return completeAnalysis;
@@ -217,35 +286,29 @@ class SmashFoodsIntegration {
   }
 
   /**
-   * Get active AMZ Prep rates from database
-   * @returns {Object} - Active rates
+   * Get active rates - NO CHANGES
    */
   async getActiveRates() {
     try {
-      // Try to get combined rate first
       let rate = await AmazonRateEnhanced.getActiveRate('combined');
 
-      // If no combined rate, try to construct from individual rates
       if (!rate) {
         const prepRate = await AmazonRateEnhanced.getActiveRate('prep');
         const middleMileRate = await AmazonRateEnhanced.getActiveRate('middleMile');
 
         if (!prepRate || !middleMileRate) {
-          // Use default rates if none in database
           console.warn('⚠️  No rates found in database, using default rates');
           return this.getDefaultRates();
         }
 
-        // Construct combined rate from individual rates
         return {
-          palletRate: 56.00,  // Base FTL rate
-          cuftRate: 2.50,     // Internal transfer rate
-          prepRate: 0.60,     // Per unit prep
-          middleMileRate: 61.60  // Per pallet middle-mile
+          palletRate: 56.00,
+          cuftRate: 2.50,
+          prepRate: 0.60,
+          middleMileRate: 61.60
         };
       }
 
-      // Extract rates from combined rate object
       return {
         palletRate: rate.rateDetails?.palletRate || 56.00,
         cuftRate: rate.rateDetails?.cuftRate || 2.50,
@@ -260,7 +323,7 @@ class SmashFoodsIntegration {
   }
 
   /**
-   * Get default rates if none in database
+   * Get default rates - NO CHANGES
    */
   getDefaultRates() {
     return {
@@ -272,9 +335,7 @@ class SmashFoodsIntegration {
   }
 
   /**
-   * Validate Smash Foods file format
-   * @param {string} filePath - Path to file
-   * @returns {boolean} - True if valid Smash Foods format
+   * Validate file - NO CHANGES
    */
   async validateFile(filePath) {
     try {

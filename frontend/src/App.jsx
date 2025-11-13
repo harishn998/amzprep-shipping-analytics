@@ -58,6 +58,7 @@ const ShippingAnalytics = () => {
   const [shopifyFile, setShopifyFile] = useState(null);
   const [shopifyRateType, setShopifyRateType] = useState('orderUpdate');
   const [shopifyLoading, setShopifyLoading] = useState(false);
+  const [hazmatFilter, setHazmatFilter] = useState('all');
 
   useEffect(() => {
     fetchReports();
@@ -92,6 +93,7 @@ const ShippingAnalytics = () => {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('rateType', rateType);
+    formData.append('hazmatFilter', hazmatFilter);
 
     try {
       const response = await axios.post(`${API_URL}/upload`, formData, {
@@ -107,8 +109,19 @@ const ShippingAnalytics = () => {
           topStates: response.data.data.topStates.map(state => ({
             ...state,
             code: state.code || stateNameToCode[state.name] || state.name.substring(0, 2).toUpperCase()
-          }))
+          })),
+          // 🆕 Explicitly include hazmat data
+          hazmat: response.data.data.hazmat || null,
+          // 🆕 Include metadata to ensure it has hazmatFilter info
+          metadata: response.data.data.metadata || {}
         };
+
+        // 🔍 DEBUG LOG - Remove after confirming it works
+        console.log('📊 Dashboard data with hazmat:', {
+          hasHazmat: !!dataWithCodes.hazmat,
+          hazmatProducts: dataWithCodes.hazmat?.products?.hazmat,
+          hazmatTypes: dataWithCodes.hazmat?.typeBreakdown?.length
+        });
 
         setDashboardData(dataWithCodes);
         setCurrentReportId(response.data.reportId);
@@ -368,8 +381,18 @@ const ShippingAnalytics = () => {
           topStates: response.data.data.topStates.map(state => ({
             ...state,
             code: state.code || stateNameToCode[state.name] || state.name.substring(0, 2).toUpperCase()
-          }))
-        };
+          })),
+          // 🆕 Explicitly include hazmat data
+            hazmat: response.data.data.hazmat || null,
+            // 🆕 Include metadata
+            metadata: response.data.data.metadata || {}
+          };
+
+          // 🔍 DEBUG LOG
+          console.log('📊 Amazon upload - Dashboard data:', {
+            hasHazmat: !!dataWithCodes.hazmat,
+            hazmatProducts: dataWithCodes.hazmat?.products?.hazmat
+          });
 
         setDashboardData(dataWithCodes);
         setCurrentReportId(response.data.reportId);
@@ -418,8 +441,18 @@ const ShippingAnalytics = () => {
           topStates: response.data.data.topStates.map(state => ({
             ...state,
             code: state.code || stateNameToCode[state.name] || state.name.substring(0, 2).toUpperCase()
-          }))
-        };
+          })),
+          // 🆕 Explicitly include hazmat data
+            hazmat: response.data.data.hazmat || null,
+            // 🆕 Include metadata
+            metadata: response.data.data.metadata || {}
+          };
+
+          // 🔍 DEBUG LOG
+          console.log('📊 Shopify upload - Dashboard data:', {
+            hasHazmat: !!dataWithCodes.hazmat,
+            hazmatProducts: dataWithCodes.hazmat?.products?.hazmat
+          });
 
         setDashboardData(dataWithCodes);
         setCurrentReportId(response.data.reportId);
@@ -507,6 +540,84 @@ const ShippingAnalytics = () => {
               {amazonRateType === 'fbaShipment' && 'Fulfillment by Amazon shipping'}
               {amazonRateType === 'combined' && 'Complete Solution by Amazon shipping'}
             </p>
+          </div>
+
+          {/* Hazmat Filter Selection */}
+          <div className="hazmat-filter-section" style={{
+            marginTop: '20px',
+            padding: '15px',
+            backgroundColor: '#f8f9fa',
+            borderRadius: '8px',
+            border: '1px solid #dee2e6',
+            marginBottom: '30px'
+          }}>
+            <h4 style={{ marginBottom: '12px', fontSize: '14px', fontWeight: '600' }}>
+              Filter Shipments by Hazmat Status
+            </h4>
+
+            <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap' }}>
+              <label style={{
+                display: 'flex',
+                alignItems: 'center',
+                cursor: 'pointer',
+                fontSize: '14px'
+              }}>
+                <input
+                  type="radio"
+                  name="hazmatFilter"
+                  value="all"
+                  checked={hazmatFilter === 'all'}
+                  onChange={(e) => setHazmatFilter(e.target.value)}
+                  style={{ marginRight: '8px' }}
+                />
+                <span>All Shipments</span>
+              </label>
+
+              <label style={{
+                display: 'flex',
+                alignItems: 'center',
+                cursor: 'pointer',
+                fontSize: '14px'
+              }}>
+                <input
+                  type="radio"
+                  name="hazmatFilter"
+                  value="hazmat"
+                  checked={hazmatFilter === 'hazmat'}
+                  onChange={(e) => setHazmatFilter(e.target.value)}
+                  style={{ marginRight: '8px' }}
+                />
+                <span>Hazmat Only</span>
+              </label>
+
+              <label style={{
+                display: 'flex',
+                alignItems: 'center',
+                cursor: 'pointer',
+                fontSize: '14px'
+              }}>
+                <input
+                  type="radio"
+                  name="hazmatFilter"
+                  value="non-hazmat"
+                  checked={hazmatFilter === 'non-hazmat'}
+                  onChange={(e) => setHazmatFilter(e.target.value)}
+                  style={{ marginRight: '8px' }}
+                />
+                <span>Non-Hazmat Only</span>
+              </label>
+            </div>
+
+            {hazmatFilter !== 'all' && (
+              <p style={{
+                marginTop: '10px',
+                fontSize: '12px',
+                color: '#6c757d',
+                fontStyle: 'italic'
+              }}>
+                ℹ️ Analysis will only include {hazmatFilter === 'hazmat' ? 'hazmat' : 'non-hazmat'} shipments
+              </p>
+            )}
           </div>
 
           {/* File Upload Button */}

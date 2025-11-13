@@ -37,7 +37,7 @@ export const SmashFoodsDashboard = ({ data }) => {
       />
 
       {/* Summary Table Section */}
-      <SmashFoodsSummarySection metadata={metadata} />
+      <SmashFoodsSummarySection metadata={metadata} data={data} />
 
       {/* Analysis Breakdown Section */}
       <SmashFoodsAnalysisSection
@@ -221,55 +221,209 @@ const SmashFoodsCostComparison = ({ currentCosts, proposedCosts, savings }) => {
 /**
  * Summary Section (mirrors Summary Pallet tab)
  */
-const SmashFoodsSummarySection = ({ metadata }) => {
-  return (
-    <div className="bg-gray-800 rounded-lg p-6 mb-6">
-      <h2 className="text-xl font-bold text-white mb-4">Summary Metrics</h2>
+ const SmashFoodsSummarySection = ({ metadata, data }) => {
+   // Debug logging (remove after fixing)
+   console.log('🔍 Hazmat data available?', {
+     hasHazmat: !!data?.hazmat,
+     productsCount: data?.hazmat?.products?.hazmat,
+     typeBreakdownLength: data?.hazmat?.typeBreakdown?.length
+   });
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-gray-700/50 p-4 rounded">
-          <div className="text-sm text-gray-400 mb-1">Cost per Cuft</div>
-          <div className="text-2xl font-bold text-white">
-            ${metadata.currentCosts?.costPerCuft?.toFixed(2)}
-          </div>
-          <div className="text-xs text-green-400 mt-1">
-            → ${metadata.proposedCosts?.combined?.costPerCuft?.toFixed(2)} AMZ Prep
-          </div>
-        </div>
+   return (
+     <div className="bg-gray-800 rounded-lg p-6 mb-6">
+       <h2 className="text-xl font-bold text-white mb-4">Summary Metrics</h2>
 
-        <div className="bg-gray-700/50 p-4 rounded">
-          <div className="text-sm text-gray-400 mb-1">Cost per Unit</div>
-          <div className="text-2xl font-bold text-white">
-            ${metadata.currentCosts?.costPerUnit?.toFixed(2)}
-          </div>
-          <div className="text-xs text-green-400 mt-1">
-            → ${metadata.proposedCosts?.combined?.costPerUnit?.toFixed(2)} AMZ Prep
-          </div>
-        </div>
+       {/* EXISTING SUMMARY CARDS */}
+       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+         <div className="bg-gray-700/50 p-4 rounded">
+           <div className="text-sm text-gray-400 mb-1">Cost per Cuft</div>
+           <div className="text-2xl font-bold text-white">
+             ${metadata.currentCosts?.costPerCuft?.toFixed(2) || '0.00'}
+           </div>
+           <div className="text-xs text-green-400 mt-1">
+             → ${metadata.proposedCosts?.combined?.costPerCuft?.toFixed(2) || '0.00'} AMZ Prep
+           </div>
+         </div>
 
-        <div className="bg-gray-700/50 p-4 rounded">
-          <div className="text-sm text-gray-400 mb-1">Cost per Pallet</div>
-          <div className="text-2xl font-bold text-white">
-            ${metadata.currentCosts?.costPerPallet?.toFixed(2)}
-          </div>
-          <div className="text-xs text-green-400 mt-1">
-            → ${metadata.proposedCosts?.combined?.costPerPallet?.toFixed(2)} AMZ Prep
-          </div>
-        </div>
+         <div className="bg-gray-700/50 p-4 rounded">
+           <div className="text-sm text-gray-400 mb-1">Cost per Unit</div>
+           <div className="text-2xl font-bold text-white">
+             ${metadata.currentCosts?.costPerUnit?.toFixed(2) || '0.00'}
+           </div>
+           <div className="text-xs text-green-400 mt-1">
+             → ${metadata.proposedCosts?.combined?.costPerUnit?.toFixed(2) || '0.00'} AMZ Prep
+           </div>
+         </div>
 
-        <div className="bg-gray-700/50 p-4 rounded">
-          <div className="text-sm text-gray-400 mb-1">Split Shipment Rate</div>
-          <div className="text-2xl font-bold text-orange-400">
-            {metadata.splitShipmentRate}%
-          </div>
-          <div className="text-xs text-gray-400 mt-1">
-            {metadata.splitShipments} of {metadata.totalShipments} shipments
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
+         <div className="bg-gray-700/50 p-4 rounded">
+           <div className="text-sm text-gray-400 mb-1">Cost per Pallet</div>
+           <div className="text-2xl font-bold text-white">
+             ${metadata.currentCosts?.costPerPallet?.toFixed(2) || '0.00'}
+           </div>
+           <div className="text-xs text-green-400 mt-1">
+             → ${metadata.proposedCosts?.combined?.costPerPallet?.toFixed(2) || '0.00'} AMZ Prep
+           </div>
+         </div>
+
+         <div className="bg-gray-700/50 p-4 rounded">
+           <div className="text-sm text-gray-400 mb-1">Split Shipment Rate</div>
+           <div className="text-2xl font-bold text-orange-400">
+             {metadata.splitShipmentRate || 0}%
+           </div>
+           <div className="text-xs text-gray-400 mt-1">
+             {metadata.splitShipments || 0} of {metadata.totalShipments || 0} shipments
+           </div>
+         </div>
+       </div>
+
+       {/* ================================================================ */}
+       {/* HAZMAT ANALYSIS SECTION - 🔥 NEW */}
+       {/* ================================================================ */}
+       {data?.hazmat && data.hazmat.products && (
+         <div className="mt-8">
+           <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
+             <span className="text-2xl">🔥</span>
+             Hazmat & Dangerous Goods Analysis
+           </h2>
+
+           {/* Hazmat Overview Cards */}
+           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+             {/* Card 1: Hazmat Products */}
+             <div className="bg-gradient-to-br from-red-900/40 to-gray-800 p-6 rounded-lg border border-red-500/30">
+               <div className="text-sm text-gray-300 mb-2 font-medium">
+                 Hazmat Products
+               </div>
+               <div className="text-4xl font-bold text-red-400 mb-2">
+                 {data.hazmat.products.hazmat?.toLocaleString() || '0'}
+               </div>
+               <div className="text-sm text-gray-400">
+                 {data.hazmat.products.percentHazmat?.toFixed(1) || '0'}% of total inventory
+               </div>
+             </div>
+
+             {/* Card 2: Hazmat Shipments */}
+             <div className="bg-gradient-to-br from-orange-900/40 to-gray-800 p-6 rounded-lg border border-orange-500/30">
+               <div className="text-sm text-gray-300 mb-2 font-medium">
+                 Hazmat Shipments
+               </div>
+               <div className="text-4xl font-bold text-orange-400 mb-2">
+                 {data.hazmat.shipments?.hazmat?.toLocaleString() || '0'}
+               </div>
+               <div className="text-sm text-gray-400">
+                 {data.hazmat.shipments?.percentHazmat?.toFixed(1) || '0'}% of all shipments
+               </div>
+             </div>
+
+             {/* Card 3: DG Classifications */}
+             <div className="bg-gradient-to-br from-purple-900/40 to-gray-800 p-6 rounded-lg border border-purple-500/30">
+               <div className="text-sm text-gray-300 mb-2 font-medium">
+                 DG Classifications
+               </div>
+               <div className="text-4xl font-bold text-purple-400 mb-2">
+                 {data.hazmat.dgClassBreakdown?.length || 0}
+               </div>
+               <div className="text-sm text-gray-400">
+                 Different dangerous goods classes
+               </div>
+             </div>
+
+             {/* Card 4: Compliance Status */}
+             <div className="bg-gradient-to-br from-green-900/40 to-gray-800 p-6 rounded-lg border border-green-500/30">
+               <div className="text-sm text-gray-300 mb-2 font-medium">
+                 High Confidence
+               </div>
+               <div className="text-4xl font-bold text-green-400 mb-2">
+                 {data.hazmat.confidenceBreakdown?.high || 0}
+               </div>
+               <div className="text-sm text-gray-400">
+                 Verified hazmat classifications
+               </div>
+             </div>
+           </div>
+
+           {/* Hazmat Type Breakdown */}
+           {data.hazmat.typeBreakdown && data.hazmat.typeBreakdown.length > 0 && (
+             <div className="bg-gray-700/50 p-6 rounded-lg mb-6 border border-gray-600/50">
+               <h3 className="text-lg font-bold text-white mb-4">
+                 Hazmat Type Distribution
+               </h3>
+               <div className="space-y-3">
+                 {data.hazmat.typeBreakdown.map((item, index) => (
+                   <div
+                     key={index}
+                     className="flex justify-between items-center p-4 bg-gray-800/70 rounded-lg hover:bg-gray-800 transition-colors"
+                   >
+                     <div className="flex items-center gap-3">
+                       <span className="text-2xl">
+                         {item.type.includes('Aerosol') ? '💨' :
+                          item.type.includes('Flammable') ? '🔥' :
+                          item.type.includes('Battery') ? '🔋' :
+                          item.type.includes('Lithium') ? '🔋' :
+                          item.type.includes('Other Dangerous') ? '⚠️' : '📦'}
+                       </span>
+                       <span className="text-white font-medium">{item.type}</span>
+                     </div>
+                     <div className="text-right">
+                       <div className="text-xl font-bold text-white">
+                         {item.count?.toLocaleString() || 0}
+                       </div>
+                       <div className="text-sm text-gray-400">
+                         {item.percentage?.toFixed(1) || '0'}%
+                       </div>
+                     </div>
+                   </div>
+                 ))}
+               </div>
+             </div>
+           )}
+
+           {/* Compliance Insights */}
+           {data.hazmat.compliance && data.hazmat.compliance.length > 0 && (
+             <div className="bg-gray-700/50 p-6 rounded-lg border border-gray-600/50">
+               <h3 className="text-lg font-bold text-white mb-4">
+                 Compliance & Safety Insights
+               </h3>
+               <div className="space-y-3">
+                 {data.hazmat.compliance.map((insight, index) => (
+                   <div
+                     key={index}
+                     className={`p-4 rounded-lg border-l-4 ${
+                       insight.type === 'error'
+                         ? 'bg-red-900/30 border-red-500 text-red-100'
+                         : insight.type === 'warning'
+                         ? 'bg-yellow-900/30 border-yellow-500 text-yellow-100'
+                         : 'bg-blue-900/30 border-blue-500 text-blue-100'
+                     }`}
+                   >
+                     <div className="font-semibold mb-1 flex items-center gap-2">
+                       <span>
+                         {insight.type === 'error' ? '🚫' :
+                          insight.type === 'warning' ? '⚠️' : 'ℹ️'}
+                       </span>
+                       {insight.title}
+                     </div>
+                     <div className="text-sm opacity-90">
+                       {insight.message}
+                     </div>
+                   </div>
+                 ))}
+               </div>
+             </div>
+           )}
+         </div>
+       )}
+
+       {/* Debug info - remove after confirming it works */}
+       {!data?.hazmat && (
+         <div className="mt-8 p-4 bg-yellow-900/20 border border-yellow-500/30 rounded-lg">
+           <p className="text-yellow-400 text-sm">
+             ⚠️ Hazmat data not available. Check console for details.
+           </p>
+         </div>
+       )}
+     </div>
+   );
+ };
 
 /**
  * Analysis Breakdown (mirrors Analysis Pallet tab formulas)
