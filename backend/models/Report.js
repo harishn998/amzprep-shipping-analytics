@@ -110,7 +110,40 @@ const reportSchema = new mongoose.Schema({
     zone: Number,
     count: Number,
     percentage: String
-  }]
+  }],
+
+  // ============================================================================
+  // ✨ SMASH FOODS METADATA - Rich analysis data
+  // ============================================================================
+  metadata: {
+    type: mongoose.Schema.Types.Mixed,
+    required: false,
+    default: null
+  },
+  // Stores comprehensive Smash Foods analysis:
+  // - dataFormat, totalUnits, totalPallets, totalCuft
+  // - currentCosts (freight, placement, total, perCuft, perUnit, perPallet)
+  // - proposedCosts (pattern, internal, prep, middleMile, total, perCuft, perUnit, perPallet)
+  // - savings (amount, percent, currentTotal, proposedTotal)
+  // - transitImprovement (currentTransitDays, amzPrepTransitDays, improvementDays, improvementPercent)
+  // - stateBreakdown, recommendations, etc.
+
+  // ============================================================================
+  // ✨ HAZMAT DATA
+  // ============================================================================
+  hazmat: {
+    type: mongoose.Schema.Types.Mixed,
+    required: false,
+    default: null
+  }
+  // Stores complete hazmat analysis:
+  // - overview (products, shipments, percentages)
+  // - typeBreakdown (Aerosol, Flammable, etc.)
+  // - geographic (state-by-state hazmat distribution)
+  // - compliance (alerts and warnings)
+  // - shipments (hazmat vs non-hazmat metrics)
+  // - sampleProducts (example hazmat ASINs)
+
 }, {
   timestamps: true  // Automatically adds createdAt and updatedAt
 });
@@ -128,7 +161,9 @@ reportSchema.methods.getSummary = function() {
     uploadDate: this.uploadDate,
     totalShipments: this.totalShipments,
     avgCost: this.avgCost,
-    analysisMonths: this.analysisMonths
+    analysisMonths: this.analysisMonths,
+    hasHazmat: !!this.hazmat,  // Indicate if report includes hazmat data
+    hasMetadata: !!this.metadata  // Indicate if report includes rich metadata
   };
 };
 

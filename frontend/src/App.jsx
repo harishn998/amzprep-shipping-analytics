@@ -938,158 +938,252 @@ const handleDownloadTemplate = () => {
   window.open(url + '?token=' + localStorage.getItem('authToken'), '_blank');
 };
 
-  const USAHeatMap = ({ states, title, dataType = "volume" }) => {
-    const [hoveredState, setHoveredState] = useState(null);
-    const [tooltipContent, setTooltipContent] = useState('');
+const USAHeatMap = ({ states, title, dataType = "volume", hazmatData = null, showHazmat = false }) => {
+  const [hoveredState, setHoveredState] = useState(null);
+  const [tooltipContent, setTooltipContent] = useState('');
+  const [mapMode, setMapMode] = useState('volume'); // 'volume', 'hazmat', 'cost'
 
-    const stateCodeToFIPS = {
-      'AL': '01', 'AK': '02', 'AZ': '04', 'AR': '05', 'CA': '06', 'CO': '08', 'CT': '09',
-      'DE': '10', 'FL': '12', 'GA': '13', 'HI': '15', 'ID': '16', 'IL': '17', 'IN': '18',
-      'IA': '19', 'KS': '20', 'KY': '21', 'LA': '22', 'ME': '23', 'MD': '24', 'MA': '25',
-      'MI': '26', 'MN': '27', 'MS': '28', 'MO': '29', 'MT': '30', 'NE': '31', 'NV': '32',
-      'NH': '33', 'NJ': '34', 'NM': '35', 'NY': '36', 'NC': '37', 'ND': '38', 'OH': '39',
-      'OK': '40', 'OR': '41', 'PA': '42', 'RI': '44', 'SC': '45', 'SD': '46', 'TN': '47',
-      'TX': '48', 'UT': '49', 'VT': '50', 'VA': '51', 'WA': '53', 'WV': '54', 'WI': '55',
-      'WY': '56', 'DC': '11'
-    };
+  const stateCodeToFIPS = {
+    'AL': '01', 'AK': '02', 'AZ': '04', 'AR': '05', 'CA': '06', 'CO': '08', 'CT': '09',
+    'DE': '10', 'FL': '12', 'GA': '13', 'HI': '15', 'ID': '16', 'IL': '17', 'IN': '18',
+    'IA': '19', 'KS': '20', 'KY': '21', 'LA': '22', 'ME': '23', 'MD': '24', 'MA': '25',
+    'MI': '26', 'MN': '27', 'MS': '28', 'MO': '29', 'MT': '30', 'NE': '31', 'NV': '32',
+    'NH': '33', 'NJ': '34', 'NM': '35', 'NY': '36', 'NC': '37', 'ND': '38', 'OH': '39',
+    'OK': '40', 'OR': '41', 'PA': '42', 'RI': '44', 'SC': '45', 'SD': '46', 'TN': '47',
+    'TX': '48', 'UT': '49', 'VT': '50', 'VA': '51', 'WA': '53', 'WV': '54', 'WI': '55',
+    'WY': '56', 'DC': '11'
+  };
 
-    const stateDataMap = {};
-    states.forEach(state => {
-      const code = state.code || stateNameToCode[state.name];
+  // Build state data map
+  const stateDataMap = {};
+  states.forEach(state => {
+    const code = state.code || stateNameToCode[state.name];
+    if (code) {
+      const fipsCode = stateCodeToFIPS[code];
+      if (fipsCode) {
+        stateDataMap[fipsCode] = state;
+      }
+    }
+  });
+
+  // Build hazmat geographic data map if available
+  const hazmatStateMap = {};
+  if (hazmatData && hazmatData.geographic && hazmatData.geographic.states) {
+    hazmatData.geographic.states.forEach(state => {
+      const code = state.state;
       if (code) {
         const fipsCode = stateCodeToFIPS[code];
         if (fipsCode) {
-          stateDataMap[fipsCode] = state;
+          hazmatStateMap[fipsCode] = state;
         }
       }
     });
+  }
 
-    const getColorByPercentage = (percentage) => {
-      if (!percentage || percentage === 0) return '#1a1f2e';
-      if (percentage >= 15) return '#1e40af';
-      if (percentage >= 10) return '#2563eb';
-      if (percentage >= 5) return '#3b82f6';
-      return '#60a5fa';
-    };
+  const getColorByPercentage = (percentage) => {
+    if (!percentage || percentage === 0) return '#1a1f2e';
+    if (percentage >= 15) return '#1e40af';
+    if (percentage >= 10) return '#2563eb';
+    if (percentage >= 5) return '#3b82f6';
+    return '#60a5fa';
+  };
 
-    const getColorByCost = (cost) => {
-      if (!cost) return '#1a1f2e';
-      if (cost >= 16) return '#dc2626';
-      if (cost >= 14) return '#f97316';
-      if (cost >= 12) return '#fbbf24';
-      return '#34d399';
-    };
+  const getColorByCost = (cost) => {
+    if (!cost) return '#1a1f2e';
+    if (cost >= 16) return '#dc2626';
+    if (cost >= 14) return '#f97316';
+    if (cost >= 12) return '#fbbf24';
+    return '#34d399';
+  };
 
-    return (
-      <div className="bg-[#1a1f2e] rounded-xl p-6 border border-gray-800">
-        <h3 className="text-white text-lg font-semibold mb-4 flex items-center gap-2">
+  // New: Hazmat-specific color gradient (red/orange for hazmat density)
+  const getColorByHazmatPercentage = (percentage) => {
+    if (!percentage || percentage === 0) return '#1a1f2e';
+    if (percentage >= 10) return '#dc2626';  // High hazmat - dark red
+    if (percentage >= 5) return '#f97316';   // Medium - orange
+    if (percentage >= 2) return '#fbbf24';   // Low-medium - amber
+    return '#86efac';                        // Very low - light green
+  };
+
+  return (
+    <div className="bg-[#1a1f2e] rounded-xl p-6 border border-gray-800">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-white text-lg font-semibold flex items-center gap-2">
           <MapPin className="text-blue-400" size={20} />
           {title}
         </h3>
 
-        <div className="bg-[#0f1419] p-6 rounded-lg relative">
-          <ComposableMap projection="geoAlbersUsa" className="w-full h-auto">
-            <Geographies geography={geoUrl}>
-              {({ geographies }) =>
-                geographies.map((geo) => {
-                  const fipsCode = geo.id;
-                  const stateData = stateDataMap[fipsCode];
-                  const isHovered = hoveredState === fipsCode;
-
-                  const fillColor = stateData
-                    ? (dataType === "volume" ? getColorByPercentage(stateData.percentage) : getColorByCost(stateData.avgCost))
-                    : '#1a1f2e';
-
-                  return (
-                    <Geography
-                      key={geo.rsmKey}
-                      geography={geo}
-                      fill={fillColor}
-                      stroke="#374151"
-                      strokeWidth={isHovered ? 1.5 : 0.5}
-                      style={{
-                        default: { outline: 'none' },
-                        hover: {
-                          fill: dataType === "volume" ? '#60a5fa' : '#fbbf24',
-                          outline: 'none',
-                          cursor: 'pointer'
-                        },
-                        pressed: { outline: 'none' }
-                      }}
-                      onMouseEnter={() => {
-                        setHoveredState(fipsCode);
-                        if (stateData) {
-                          const content = dataType === "volume"
-                            ? `${stateData.name}: ${stateData.volume.toLocaleString()} shipments (${stateData.percentage}%)`
-                            : `${stateData.name}: Avg Cost $${stateData.avgCost}`;
-                          setTooltipContent(content);
-                        }
-                      }}
-                      onMouseLeave={() => {
-                        setHoveredState(null);
-                        setTooltipContent('');
-                      }}
-                    />
-                  );
-                })
-              }
-            </Geographies>
-          </ComposableMap>
-
-          {tooltipContent && (
-            <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white px-4 py-2 rounded-lg shadow-lg z-10 pointer-events-none whitespace-nowrap">
-              {tooltipContent}
-            </div>
-          )}
-
-          <div className="mt-6 flex items-center flex-wrap gap-4">
-            <span className="text-gray-400 text-sm">
-              {dataType === "volume" ? "Shipping Volume:" : "Average Cost:"}
-            </span>
-            {dataType === "volume" ? (
-              <>
-                <div className="flex items-center gap-2">
-                  <div className="w-6 h-4 rounded" style={{ backgroundColor: '#60a5fa' }}></div>
-                  <span className="text-gray-500 text-xs">Low (1-4%)</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-6 h-4 rounded" style={{ backgroundColor: '#3b82f6' }}></div>
-                  <span className="text-gray-500 text-xs">Medium (5-9%)</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-6 h-4 rounded" style={{ backgroundColor: '#2563eb' }}></div>
-                  <span className="text-gray-500 text-xs">High (10-14%)</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-6 h-4 rounded" style={{ backgroundColor: '#1e40af' }}></div>
-                  <span className="text-gray-500 text-xs">Very High (15%+)</span>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="flex items-center gap-2">
-                  <div className="w-6 h-4 rounded" style={{ backgroundColor: '#34d399' }}></div>
-                  <span className="text-gray-500 text-xs">Low ($0-12)</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-6 h-4 rounded" style={{ backgroundColor: '#fbbf24' }}></div>
-                  <span className="text-gray-500 text-xs">Medium ($12-14)</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-6 h-4 rounded" style={{ backgroundColor: '#f97316' }}></div>
-                  <span className="text-gray-500 text-xs">High ($14-16)</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-6 h-4 rounded" style={{ backgroundColor: '#dc2626' }}></div>
-                  <span className="text-gray-500 text-xs">Very High ($16+)</span>
-                </div>
-              </>
-            )}
+        {/* Map Mode Selector (only show if hazmat data available) */}
+        {hazmatData && (
+          <div className="flex gap-2">
+            <button
+              onClick={() => setMapMode('volume')}
+              className={`px-3 py-1 rounded text-sm font-semibold transition-all ${
+                mapMode === 'volume'
+                  ? 'bg-blue-500 text-white'
+                  : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+              }`}
+            >
+              Volume
+            </button>
+            <button
+              onClick={() => setMapMode('hazmat')}
+              className={`px-3 py-1 rounded text-sm font-semibold transition-all ${
+                mapMode === 'hazmat'
+                  ? 'bg-orange-500 text-white'
+                  : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+              }`}
+            >
+              Hazmat
+            </button>
+            <button
+              onClick={() => setMapMode('cost')}
+              className={`px-3 py-1 rounded text-sm font-semibold transition-all ${
+                mapMode === 'cost'
+                  ? 'bg-green-500 text-white'
+                  : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+              }`}
+            >
+              Cost
+            </button>
           </div>
+        )}
+      </div>
+
+      <div className="bg-[#0f1419] p-6 rounded-lg relative">
+        <ComposableMap projection="geoAlbersUsa" className="w-full h-auto">
+          <Geographies geography={geoUrl}>
+            {({ geographies }) =>
+              geographies.map((geo) => {
+                const fipsCode = geo.id;
+                const stateData = stateDataMap[fipsCode];
+                const hazmatStateData = hazmatStateMap[fipsCode];
+                const isHovered = hoveredState === fipsCode;
+
+                // Determine fill color based on selected mode
+                let fillColor = '#1a1f2e';
+                if (mapMode === 'hazmat' && hazmatStateData) {
+                  fillColor = getColorByHazmatPercentage(hazmatStateData.percentage);
+                } else if (mapMode === 'volume' && stateData) {
+                  fillColor = getColorByPercentage(stateData.percentage);
+                } else if (mapMode === 'cost' && stateData) {
+                  fillColor = getColorByCost(stateData.avgCost);
+                }
+
+                return (
+                  <Geography
+                    key={geo.rsmKey}
+                    geography={geo}
+                    fill={fillColor}
+                    stroke="#374151"
+                    strokeWidth={isHovered ? 1.5 : 0.5}
+                    style={{
+                      default: { outline: 'none' },
+                      hover: {
+                        fill: mapMode === 'hazmat' ? '#fbbf24' : mapMode === 'volume' ? '#60a5fa' : '#34d399',
+                        outline: 'none',
+                        cursor: 'pointer'
+                      },
+                      pressed: { outline: 'none' }
+                    }}
+                    onMouseEnter={() => {
+                      setHoveredState(fipsCode);
+                      if (mapMode === 'hazmat' && hazmatStateData) {
+                        setTooltipContent(
+                          `${hazmatStateData.state}: ${hazmatStateData.count} hazmat shipments (${hazmatStateData.percentage?.toFixed(1)}%) - ${hazmatStateData.units?.toLocaleString()} units`
+                        );
+                      } else if (stateData) {
+                        const content = mapMode === "volume"
+                          ? `${stateData.name}: ${stateData.volume?.toLocaleString()} shipments (${stateData.percentage}%)`
+                          : `${stateData.name}: Avg Cost $${stateData.avgCost}`;
+                        setTooltipContent(content);
+                      }
+                    }}
+                    onMouseLeave={() => {
+                      setHoveredState(null);
+                      setTooltipContent('');
+                    }}
+                  />
+                );
+              })
+            }
+          </Geographies>
+        </ComposableMap>
+
+        {tooltipContent && (
+          <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white px-4 py-2 rounded-lg shadow-lg z-10 pointer-events-none whitespace-nowrap">
+            {tooltipContent}
+          </div>
+        )}
+
+        {/* Legend */}
+        <div className="mt-6 flex items-center flex-wrap gap-4">
+          <span className="text-gray-400 text-sm">
+            {mapMode === 'hazmat' ? 'Hazmat Density:' : mapMode === "volume" ? "Shipping Volume:" : "Average Cost:"}
+          </span>
+          {mapMode === 'hazmat' ? (
+            <>
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-4 rounded" style={{ backgroundColor: '#86efac' }}></div>
+                <span className="text-gray-400 text-xs">Very Low (&lt;2%)</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-4 rounded" style={{ backgroundColor: '#fbbf24' }}></div>
+                <span className="text-gray-400 text-xs">Low (2-5%)</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-4 rounded" style={{ backgroundColor: '#f97316' }}></div>
+                <span className="text-gray-400 text-xs">Medium (5-10%)</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-4 rounded" style={{ backgroundColor: '#dc2626' }}></div>
+                <span className="text-gray-400 text-xs">High (10%+)</span>
+              </div>
+            </>
+          ) : mapMode === "volume" ? (
+            <>
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-4 rounded bg-blue-200"></div>
+                <span className="text-gray-400 text-xs">&lt;5%</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-4 rounded bg-blue-400"></div>
+                <span className="text-gray-400 text-xs">5-10%</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-4 rounded bg-blue-600"></div>
+                <span className="text-gray-400 text-xs">10-15%</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-4 rounded bg-blue-900"></div>
+                <span className="text-gray-400 text-xs">15%+</span>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-4 rounded bg-green-400"></div>
+                <span className="text-gray-400 text-xs">&lt;$12</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-4 rounded bg-yellow-400"></div>
+                <span className="text-gray-400 text-xs">$12-$14</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-4 rounded bg-orange-500"></div>
+                <span className="text-gray-400 text-xs">$14-$16</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-4 rounded bg-red-600"></div>
+                <span className="text-gray-400 text-xs">$16+</span>
+              </div>
+            </>
+          )}
         </div>
       </div>
-    );
-  };
+    </div>
+  );
+};
 
   const AdminRatePanel = () => {
     const rateTypeOptions = [
@@ -1997,12 +2091,12 @@ const AdminUserManagement = () => {
           </div>
 
           <div className="lg:col-span-2">
-            <USAHeatMap states={dashboardData.topStates} title="USA Shipping Heat Map (Volume)" dataType="volume" />
+            <USAHeatMap states={dashboardData.topStates} title="USA Shipping Heat Map (Volume)" dataType="volume" hazmatData={dashboardData.hazmat} />
           </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-1 gap-6">
-          <USAHeatMap states={dashboardData.topStates} title="Average Cost per Order by State" dataType="cost" />
+          <USAHeatMap states={dashboardData.topStates} title="Average Cost per Order by State" dataType="cost" hazmatData={dashboardData.hazmat} />
         </div>
 
         {/* Warehouse Location Network */}

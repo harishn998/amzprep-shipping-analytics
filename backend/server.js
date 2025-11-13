@@ -1591,91 +1591,370 @@ async function generatePDF(data, outputPath) {
 
       yPos += 25;
 
-      // Key Metrics Boxes
-      const boxWidth = 170;
-      const boxHeight = 75;
-      const boxGap = 10;
-
-      // Box 1
-      doc.roundedRect(40, yPos, boxWidth, boxHeight, 8)
-        .lineWidth(2).fillAndStroke('#1a1f2e', '#3b82f6');
-
-      doc.fontSize(9).fillColor('#94a3b8').font('Helvetica-Bold');
-      doc.text('TOTAL SHIPMENTS', 50, yPos + 14, {
-        width: boxWidth - 20,
-        align: 'center',
-        lineBreak: false
-      });
-
+      // ✨ Define variables that will be used throughout
       const totalShipments = parseInt(data.totalShipments) || 0;
-      doc.fontSize(28).fillColor('#60a5fa').font('Helvetica-Bold');
-      doc.text(totalShipments.toLocaleString(), 50, yPos + 32, {
-        width: boxWidth - 20,
-        align: 'center',
-        lineBreak: false
-      });
-
       const analysisMonths = parseInt(data.analysisMonths) || 1;
-      doc.fontSize(7).fillColor('#64748b').font('Helvetica');
-      doc.text(`${analysisMonths} month analysis`, 50, yPos + 60, {
-        width: boxWidth - 20,
-        align: 'center',
-        lineBreak: false
-      });
 
-      // Box 2
-      const box2X = 40 + boxWidth + boxGap;
-      doc.roundedRect(box2X, yPos, boxWidth, boxHeight, 8)
-        .lineWidth(2).fillAndStroke('#1a1f2e', '#34d399');
+      // ✨ Check if we have rich Smash Foods metadata
+      const hasMetadata = data.metadata && data.metadata.dataFormat === 'smash_foods_actual';
 
-      doc.fontSize(9).fillColor('#94a3b8').font('Helvetica-Bold');
-      doc.text('AVG COST/SHIPMENT', box2X + 10, yPos + 14, {
-        width: boxWidth - 20,
-        align: 'center',
-        lineBreak: false
-      });
+      if (hasMetadata) {
+        // ========== RICH SMASH FOODS METRICS (4 BOXES) ==========
+        const boxWidth = 130;
+        const boxHeight = 70;
+        const boxGap = 8;
+        const meta = data.metadata;
 
-      doc.fontSize(28).fillColor('#34d399').font('Helvetica-Bold');
-      doc.text(`$${safeNumber(data.avgCost, 2)}`, box2X + 10, yPos + 32, {
-        width: boxWidth - 20,
-        align: 'center',
-        lineBreak: false
-      });
+        // Box 1: Total Shipments with Units
+        doc.roundedRect(40, yPos, boxWidth, boxHeight, 8)
+          .lineWidth(2).fillAndStroke('#1a1f2e', '#3b82f6');
 
-      doc.fontSize(7).fillColor('#64748b').font('Helvetica');
-      doc.text('Per shipment', box2X + 10, yPos + 60, {
-        width: boxWidth - 20,
-        align: 'center',
-        lineBreak: false
-      });
+        doc.fontSize(8).fillColor('#94a3b8').font('Helvetica-Bold');
+        doc.text('TOTAL SHIPMENTS', 50, yPos + 12, {
+          width: boxWidth - 20,
+          align: 'center',
+          lineBreak: false
+        });
 
-      // Box 3
-      const box3X = box2X + boxWidth + boxGap;
-      doc.roundedRect(box3X, yPos, boxWidth, boxHeight, 8)
-        .lineWidth(2).fillAndStroke('#1a1f2e', '#a78bfa');
+        doc.fontSize(24).fillColor('#60a5fa').font('Helvetica-Bold');
+        doc.text(totalShipments.toLocaleString(), 50, yPos + 28, {
+          width: boxWidth - 20,
+          align: 'center',
+          lineBreak: false
+        });
 
-      doc.fontSize(9).fillColor('#94a3b8').font('Helvetica-Bold');
-      doc.text('AVG WEIGHT', box3X + 10, yPos + 14, {
-        width: boxWidth - 20,
-        align: 'center',
-        lineBreak: false
-      });
+        doc.fontSize(7).fillColor('#64748b').font('Helvetica');
+        doc.text(`${(meta.totalUnits || 0).toLocaleString()} units`, 50, yPos + 54, {
+          width: boxWidth - 20,
+          align: 'center',
+          lineBreak: false
+        });
 
-      doc.fontSize(28).fillColor('#a78bfa').font('Helvetica-Bold');
-      doc.text(`${safeNumber(data.avgWeight, 1)}`, box3X + 10, yPos + 32, {
-        width: boxWidth - 20,
-        align: 'center',
-        lineBreak: false
-      });
+        // Box 2: Total Pallets with Cuft
+        const box2X = 40 + boxWidth + boxGap;
+        doc.roundedRect(box2X, yPos, boxWidth, boxHeight, 8)
+          .lineWidth(2).fillAndStroke('#1a1f2e', '#a78bfa');
 
-      doc.fontSize(7).fillColor('#64748b').font('Helvetica');
-      doc.text('pounds (lbs)', box3X + 10, yPos + 60, {
-        width: boxWidth - 20,
-        align: 'center',
-        lineBreak: false
-      });
+        doc.fontSize(8).fillColor('#94a3b8').font('Helvetica-Bold');
+        doc.text('TOTAL PALLETS', box2X + 10, yPos + 12, {
+          width: boxWidth - 20,
+          align: 'center',
+          lineBreak: false
+        });
 
-      yPos += boxHeight + 18;
+        doc.fontSize(24).fillColor('#a78bfa').font('Helvetica-Bold');
+        doc.text((meta.totalPallets || 0).toString(), box2X + 10, yPos + 28, {
+          width: boxWidth - 20,
+          align: 'center',
+          lineBreak: false
+        });
+
+        doc.fontSize(7).fillColor('#64748b').font('Helvetica');
+        doc.text(`${safeNumber(meta.totalCuft, 2)} cuft`, box2X + 10, yPos + 54, {
+          width: boxWidth - 20,
+          align: 'center',
+          lineBreak: false
+        });
+
+        // Box 3: Potential Savings
+        const box3X = box2X + boxWidth + boxGap;
+        const savings = meta.savings || {};
+        const isSavings = (savings.amount || 0) > 0;
+        const savingsColor = isSavings ? '#34d399' : '#ef4444';
+
+        doc.roundedRect(box3X, yPos, boxWidth, boxHeight, 8)
+          .lineWidth(2).fillAndStroke('#1a1f2e', savingsColor);
+
+        doc.fontSize(8).fillColor('#94a3b8').font('Helvetica-Bold');
+        doc.text(isSavings ? 'POTENTIAL SAVINGS' : 'ADDITIONAL COST', box3X + 10, yPos + 12, {
+          width: boxWidth - 20,
+          align: 'center',
+          lineBreak: false
+        });
+
+        doc.fontSize(20).fillColor(savingsColor).font('Helvetica-Bold');
+        const savingsAmount = Math.abs(savings.amount || 0);
+        doc.text(`$${savingsAmount.toLocaleString()}`, box3X + 10, yPos + 28, {
+          width: boxWidth - 20,
+          align: 'center',
+          lineBreak: false
+        });
+
+        doc.fontSize(7).fillColor('#64748b').font('Helvetica');
+        const savingsPercent = safeNumber(Math.abs(savings.percent || 0), 1);
+        doc.text(`${savingsPercent}% ${isSavings ? 'savings' : 'increase'}`,
+          box3X + 10, yPos + 54, {
+          width: boxWidth - 20,
+          align: 'center',
+          lineBreak: false
+        });
+
+        // Box 4: Transit Time
+        const box4X = box3X + boxWidth + boxGap;
+        doc.roundedRect(box4X, yPos, boxWidth, boxHeight, 8)
+          .lineWidth(2).fillAndStroke('#1a1f2e', '#fbbf24');
+
+        doc.fontSize(8).fillColor('#94a3b8').font('Helvetica-Bold');
+        doc.text('TRANSIT TIME', box4X + 10, yPos + 12, {
+          width: boxWidth - 20,
+          align: 'center',
+          lineBreak: false
+        });
+
+        const currentTransit = meta.avgTransitTime || meta.transitImprovement?.currentTransitDays || 0;
+        const amzTransit = meta.amzPrepTransitTime || meta.transitImprovement?.amzPrepTransitDays || 0;
+        const improvement = Math.abs(meta.transitImprovement?.improvementDays || (currentTransit - amzTransit) || 0);
+
+        doc.fontSize(18).fillColor('#fbbf24').font('Helvetica-Bold');
+        doc.text(`${currentTransit} → ${amzTransit} days`, box4X + 10, yPos + 28, {
+          width: boxWidth - 20,
+          align: 'center',
+          lineBreak: false
+        });
+
+        doc.fontSize(7).fillColor('#34d399').font('Helvetica');
+        doc.text(`-${improvement} days faster`, box4X + 10, yPos + 54, {
+          width: boxWidth - 20,
+          align: 'center',
+          lineBreak: false
+        });
+
+        yPos += boxHeight + 18;
+
+        // ========== COST COMPARISON SECTION ==========
+        doc.fontSize(14).fillColor('#ffffff').font('Helvetica-Bold');
+        doc.text('Cost Comparison Analysis', 40, yPos, { lineBreak: false });
+
+        yPos += 20;
+
+        const compBoxW = (pageWidth - 110) / 3;
+        const compBoxH = 95;
+        const compGap = 10;
+
+        // Current Provider Box
+        doc.roundedRect(40, yPos, compBoxW, compBoxH, 8)
+          .lineWidth(1).fillAndStroke('#1a1f2e', '#334155');
+
+        doc.fontSize(10).fillColor('#ffffff').font('Helvetica-Bold');
+        doc.text('Current Provider', 50, yPos + 10, {
+          width: compBoxW - 20,
+          align: 'center',
+          lineBreak: false
+        });
+
+        const current = meta.currentCosts || {};
+        const currentFreight = parseInt(current.totalFreight || 0);
+        const currentPlacement = parseInt(current.totalPlacementFees || 0);
+        const currentTotal = parseInt(current.totalCost || 0);
+
+        doc.fontSize(8).fillColor('#94a3b8').font('Helvetica');
+        doc.text('Freight:', 50, yPos + 28, { lineBreak: false });
+        doc.fillColor('#e2e8f0');
+        doc.text(`$${currentFreight.toLocaleString()}`, 50 + compBoxW - 90, yPos + 28, {
+          width: 70,
+          align: 'right',
+          lineBreak: false
+        });
+
+        doc.fillColor('#94a3b8');
+        doc.text('Placement Fees:', 50, yPos + 42, { lineBreak: false });
+        doc.fillColor('#e2e8f0');
+        doc.text(`$${currentPlacement.toLocaleString()}`, 50 + compBoxW - 90, yPos + 42, {
+          width: 70,
+          align: 'right',
+          lineBreak: false
+        });
+
+        doc.moveTo(50, yPos + 56).lineTo(40 + compBoxW - 10, yPos + 56)
+          .strokeColor('#475569').lineWidth(1).stroke();
+
+        doc.fontSize(9).fillColor('#ffffff').font('Helvetica-Bold');
+        doc.text('Total:', 50, yPos + 62, { lineBreak: false });
+        doc.text(`$${currentTotal.toLocaleString()}`, 50 + compBoxW - 90, yPos + 62, {
+          width: 70,
+          align: 'right',
+          lineBreak: false
+        });
+
+        // AMZ Prep Solution Box
+        const box2CompX = 40 + compBoxW + compGap;
+        doc.roundedRect(box2CompX, yPos, compBoxW, compBoxH, 8)
+          .lineWidth(2).fillAndStroke('#1a1f2e', '#3b82f6');
+
+        doc.fontSize(10).fillColor('#ffffff').font('Helvetica-Bold');
+        doc.text('AMZ Prep Solution', box2CompX + 10, yPos + 10, {
+          width: compBoxW - 20,
+          align: 'center',
+          lineBreak: false
+        });
+
+        const proposed = meta.proposedCosts?.combined || {};
+        const patternCost = parseInt(proposed.patternCost || 0);
+        const internalCost = parseInt(proposed.internalCost || 0);
+        const proposedTotal = parseInt(proposed.totalCost || 0);
+
+        doc.fontSize(8).fillColor('#94a3b8').font('Helvetica');
+        doc.text('Pattern (DC→FBA):', box2CompX + 10, yPos + 28, { lineBreak: false });
+        doc.fillColor('#60a5fa');
+        doc.text(`$${patternCost.toLocaleString()}`, box2CompX + compBoxW - 80, yPos + 28, {
+          width: 60,
+          align: 'right',
+          lineBreak: false
+        });
+
+        doc.fillColor('#94a3b8');
+        doc.text('Internal (Whse→DC):', box2CompX + 10, yPos + 42, { lineBreak: false });
+        doc.fillColor('#60a5fa');
+        doc.text(`$${internalCost.toLocaleString()}`, box2CompX + compBoxW - 80, yPos + 42, {
+          width: 60,
+          align: 'right',
+          lineBreak: false
+        });
+
+        doc.fillColor('#94a3b8').fontSize(7);
+        doc.text('After 9.86% discount:', box2CompX + 10, yPos + 52, { lineBreak: false });
+        doc.fillColor('#34d399').fontSize(8);
+        doc.text(`$${proposedTotal.toLocaleString()}`, box2CompX + compBoxW - 80, yPos + 52, {
+          width: 60,
+          align: 'right',
+          lineBreak: false
+        });
+
+        doc.moveTo(box2CompX + 10, yPos + 62).lineTo(box2CompX + compBoxW - 10, yPos + 62)
+          .strokeColor('#3b82f6').lineWidth(1).stroke();
+
+        doc.fontSize(9).fillColor('#ffffff').font('Helvetica-Bold');
+        doc.text('Total:', box2CompX + 10, yPos + 68, { lineBreak: false });
+        doc.fillColor('#60a5fa');
+        doc.text(`$${proposedTotal.toLocaleString()}`, box2CompX + compBoxW - 80, yPos + 68, {
+          width: 60,
+          align: 'right',
+          lineBreak: false
+        });
+
+        // Your Savings Box
+        const box3CompX = box2CompX + compBoxW + compGap;
+        const savingsBoxColor = isSavings ? '#34d399' : '#ef4444';
+        const savingsBoxBg = isSavings ? '#064e3b' : '#7f1d1d';
+
+        doc.roundedRect(box3CompX, yPos, compBoxW, compBoxH, 8)
+          .lineWidth(2).fillAndStroke(savingsBoxBg, savingsBoxColor);
+
+        doc.fontSize(10).fillColor('#ffffff').font('Helvetica-Bold');
+        doc.text('Your Savings', box3CompX + 10, yPos + 10, {
+          width: compBoxW - 20,
+          align: 'center',
+          lineBreak: false
+        });
+
+        doc.fontSize(28).fillColor(savingsBoxColor).font('Helvetica-Bold');
+        doc.text(`$${savingsAmount.toLocaleString()}`, box3CompX + 10, yPos + 32, {
+          width: compBoxW - 20,
+          align: 'center',
+          lineBreak: false
+        });
+
+        doc.fontSize(18).fillColor(savingsBoxColor).font('Helvetica-Bold');
+        doc.text(`${savingsPercent}%`, box3CompX + 10, yPos + 62, {
+          width: compBoxW - 20,
+          align: 'center',
+          lineBreak: false
+        });
+
+        doc.fontSize(7).fillColor('#94a3b8').font('Helvetica');
+        doc.text('Potential savings', box3CompX + 10, yPos + 82, {
+          width: compBoxW - 20,
+          align: 'center',
+          lineBreak: false
+        });
+
+        yPos += compBoxH + 18;
+
+      } else {
+        // ========== FALLBACK: ORIGINAL 3 BOXES (for non-Smash Foods data) ==========
+        const boxWidth = 170;
+        const boxHeight = 75;
+        const boxGap = 10;
+
+        // Box 1: Total Shipments
+        doc.roundedRect(40, yPos, boxWidth, boxHeight, 8)
+          .lineWidth(2).fillAndStroke('#1a1f2e', '#3b82f6');
+
+        doc.fontSize(9).fillColor('#94a3b8').font('Helvetica-Bold');
+        doc.text('TOTAL SHIPMENTS', 50, yPos + 14, {
+          width: boxWidth - 20,
+          align: 'center',
+          lineBreak: false
+        });
+
+        doc.fontSize(28).fillColor('#60a5fa').font('Helvetica-Bold');
+        doc.text(totalShipments.toLocaleString(), 50, yPos + 32, {
+          width: boxWidth - 20,
+          align: 'center',
+          lineBreak: false
+        });
+
+        doc.fontSize(7).fillColor('#64748b').font('Helvetica');
+        doc.text(`${analysisMonths} month analysis`, 50, yPos + 60, {
+          width: boxWidth - 20,
+          align: 'center',
+          lineBreak: false
+        });
+
+        // Box 2: Avg Cost
+        const box2X = 40 + boxWidth + boxGap;
+        doc.roundedRect(box2X, yPos, boxWidth, boxHeight, 8)
+          .lineWidth(2).fillAndStroke('#1a1f2e', '#34d399');
+
+        doc.fontSize(9).fillColor('#94a3b8').font('Helvetica-Bold');
+        doc.text('AVG COST/SHIPMENT', box2X + 10, yPos + 14, {
+          width: boxWidth - 20,
+          align: 'center',
+          lineBreak: false
+        });
+
+        doc.fontSize(28).fillColor('#34d399').font('Helvetica-Bold');
+        doc.text(`$${safeNumber(data.avgCost, 2)}`, box2X + 10, yPos + 32, {
+          width: boxWidth - 20,
+          align: 'center',
+          lineBreak: false
+        });
+
+        doc.fontSize(7).fillColor('#64748b').font('Helvetica');
+        doc.text('Per shipment', box2X + 10, yPos + 60, {
+          width: boxWidth - 20,
+          align: 'center',
+          lineBreak: false
+        });
+
+        // Box 3: Avg Weight
+        const box3X = box2X + boxWidth + boxGap;
+        doc.roundedRect(box3X, yPos, boxWidth, boxHeight, 8)
+          .lineWidth(2).fillAndStroke('#1a1f2e', '#a78bfa');
+
+        doc.fontSize(9).fillColor('#94a3b8').font('Helvetica-Bold');
+        doc.text('AVG WEIGHT', box3X + 10, yPos + 14, {
+          width: boxWidth - 20,
+          align: 'center',
+          lineBreak: false
+        });
+
+        doc.fontSize(28).fillColor('#a78bfa').font('Helvetica-Bold');
+        doc.text(`${safeNumber(data.avgWeight, 1)}`, box3X + 10, yPos + 32, {
+          width: boxWidth - 20,
+          align: 'center',
+          lineBreak: false
+        });
+
+        doc.fontSize(7).fillColor('#64748b').font('Helvetica');
+        doc.text('pounds (lbs)', box3X + 10, yPos + 60, {
+          width: boxWidth - 20,
+          align: 'center',
+          lineBreak: false
+        });
+
+        yPos += boxHeight + 18;
+      }
 
       // Recommendation Banner
       const recommended = data.warehouseComparison.find(w => w.recommended);
@@ -2040,6 +2319,274 @@ async function generatePDF(data, outputPath) {
 
       addFooter();
 
+      // ============================================================================
+// CORRECTED HAZMAT PDF SECTION - Add after Page 2 in generatePDF()
+// Location: After addFooter() on page 2, BEFORE doc.end()
+// ============================================================================
+
+// ========== PAGE 3: HAZMAT ANALYSIS ==========
+if (data.hazmat && data.hazmat.overview) {
+  doc.addPage();
+  doc.rect(0, 0, pageWidth, pageHeight).fill('#0a0e1a');
+
+  let hazmatY = 40;
+
+  // Page Title
+  doc.fontSize(18).fillColor('#ffffff').font('Helvetica-Bold');
+  doc.text('Hazmat Analysis & Compliance', 40, hazmatY, { lineBreak: false });
+
+  hazmatY += 32;
+
+  // Overview Section with Dark Theme
+  doc.roundedRect(40, hazmatY, pageWidth - 80, 100, 8)
+    .lineWidth(1).fillAndStroke('#1a1f2e', '#f97316');
+
+  doc.fontSize(12).fillColor('#ffffff').font('Helvetica-Bold');
+  doc.text('Hazmat Overview', 60, hazmatY + 12, { lineBreak: false });
+
+  const overview = data.hazmat.overview;
+
+  // Left column
+  doc.fontSize(8).fillColor('#94a3b8').font('Helvetica');
+  doc.text('Total Products:', 60, hazmatY + 32, { lineBreak: false });
+  doc.fontSize(10).fillColor('#ffffff').font('Helvetica-Bold');
+  doc.text((overview.totalProducts || 0).toLocaleString(), 60, hazmatY + 44, { lineBreak: false });
+
+  doc.fontSize(8).fillColor('#94a3b8').font('Helvetica');
+  doc.text('Hazmat Products:', 60, hazmatY + 60, { lineBreak: false });
+  doc.fontSize(10).fillColor('#f97316').font('Helvetica-Bold');
+  doc.text(`${overview.totalHazmatProducts || 0} (${safeNumber(overview.hazmatPercentage, 1)}%)`, 60, hazmatY + 72, { lineBreak: false });
+
+  // Middle column
+  doc.fontSize(8).fillColor('#94a3b8').font('Helvetica');
+  doc.text('Shipments Analyzed:', 220, hazmatY + 32, { lineBreak: false });
+  doc.fontSize(10).fillColor('#ffffff').font('Helvetica-Bold');
+  doc.text((overview.shipmentsAnalyzed || 0).toLocaleString(), 220, hazmatY + 44, { lineBreak: false });
+
+  doc.fontSize(8).fillColor('#94a3b8').font('Helvetica');
+  doc.text('Hazmat Shipments:', 220, hazmatY + 60, { lineBreak: false });
+  doc.fontSize(10).fillColor('#f97316').font('Helvetica-Bold');
+  doc.text(`${overview.totalHazmatShipments || 0} (${safeNumber(overview.shipmentHazmatPercentage, 1)}%)`, 220, hazmatY + 72, { lineBreak: false });
+
+  // Right column
+  doc.fontSize(8).fillColor('#94a3b8').font('Helvetica');
+  doc.text('Non-Hazmat Products:', 380, hazmatY + 32, { lineBreak: false });
+  doc.fontSize(10).fillColor('#34d399').font('Helvetica-Bold');
+  doc.text((overview.totalNonHazmatProducts || 0).toLocaleString(), 380, hazmatY + 44, { lineBreak: false });
+
+  doc.fontSize(8).fillColor('#94a3b8').font('Helvetica');
+  doc.text('Non-Hazmat Shipments:', 380, hazmatY + 60, { lineBreak: false });
+  doc.fontSize(10).fillColor('#34d399').font('Helvetica-Bold');
+  doc.text((overview.totalNonHazmatShipments || 0).toLocaleString(), 380, hazmatY + 72, { lineBreak: false });
+
+  hazmatY += 115;
+
+  // Type Breakdown Section
+  if (data.hazmat.typeBreakdown && data.hazmat.typeBreakdown.length > 0) {
+    doc.fontSize(14).fillColor('#ffffff').font('Helvetica-Bold');
+    doc.text('Hazmat Type Distribution', 40, hazmatY, { lineBreak: false });
+
+    hazmatY += 22;
+
+    data.hazmat.typeBreakdown.slice(0, 5).forEach((type) => {
+      doc.roundedRect(40, hazmatY, pageWidth - 80, 26, 5)
+        .lineWidth(1).fillAndStroke('#1a1f2e', '#334155');
+
+      doc.fontSize(9).fillColor('#ffffff').font('Helvetica-Bold');
+      doc.text(type.type || 'Unknown', 50, hazmatY + 9, { lineBreak: false });
+
+      doc.fontSize(9).fillColor('#f97316').font('Helvetica-Bold');
+      doc.text(`${type.count || 0} products`, 250, hazmatY + 9, { lineBreak: false });
+
+      doc.fontSize(9).fillColor('#94a3b8').font('Helvetica');
+      doc.text(`${safeNumber(type.percentage, 1)}%`, 380, hazmatY + 9, { lineBreak: false });
+
+      // Progress bar
+      const barWidth = 120;
+      const fillWidth = (parseFloat(type.percentage) / 100) * barWidth;
+
+      doc.roundedRect(450, hazmatY + 8, barWidth, 10, 5).fill('#0f172a');
+      if (fillWidth > 0) {
+        doc.roundedRect(450, hazmatY + 8, fillWidth, 10, 5).fill('#f97316');
+      }
+
+      hazmatY += 32;
+    });
+  }
+
+  // Geographic Distribution
+  if (data.hazmat.geographic && data.hazmat.geographic.topStates && data.hazmat.geographic.topStates.length > 0) {
+    hazmatY += 8;
+
+    doc.fontSize(14).fillColor('#ffffff').font('Helvetica-Bold');
+    doc.text('Top Hazmat States', 40, hazmatY, { lineBreak: false });
+
+    hazmatY += 22;
+
+    // Table Header
+    doc.roundedRect(40, hazmatY, pageWidth - 80, 20, 5).fill('#1e293b');
+
+    doc.fontSize(8).fillColor('#94a3b8').font('Helvetica-Bold');
+    doc.text('State', 50, hazmatY + 7, { width: 60, lineBreak: false });
+    doc.text('Shipments', 150, hazmatY + 7, { width: 80, align: 'center', lineBreak: false });
+    doc.text('Units', 250, hazmatY + 7, { width: 80, align: 'center', lineBreak: false });
+    doc.text('Cu.Ft', 350, hazmatY + 7, { width: 80, align: 'center', lineBreak: false });
+    doc.text('% of Total', 450, hazmatY + 7, { width: 80, align: 'center', lineBreak: false });
+
+    hazmatY += 20;
+
+    // Table Rows
+    data.hazmat.geographic.topStates.slice(0, 7).forEach((state, idx) => {
+      const rowColor = idx % 2 === 0 ? '#1a1f2e' : '#0f172a';
+
+      doc.roundedRect(40, hazmatY, pageWidth - 80, 18, 3).fill(rowColor);
+
+      doc.fontSize(8).fillColor('#e2e8f0').font('Helvetica');
+      doc.text(state.state || 'N/A', 50, hazmatY + 6, { width: 60, lineBreak: false });
+
+      doc.fontSize(8).fillColor('#cbd5e1').font('Helvetica');
+      doc.text((state.count || 0).toString(), 150, hazmatY + 6, { width: 80, align: 'center', lineBreak: false });
+      doc.text((state.units || 0).toLocaleString(), 250, hazmatY + 6, { width: 80, align: 'center', lineBreak: false });
+      doc.text(safeNumber(state.cuft, 1), 350, hazmatY + 6, { width: 80, align: 'center', lineBreak: false });
+
+      doc.fontSize(8).fillColor('#f97316').font('Helvetica-Bold');
+      doc.text(`${safeNumber(state.percentage, 1)}%`, 450, hazmatY + 6, { width: 80, align: 'center', lineBreak: false });
+
+      hazmatY += 18;
+    });
+  }
+
+  addFooter();
+
+  // ========== PAGE 4: COMPLIANCE & METRICS ==========
+  if ((data.hazmat.compliance && data.hazmat.compliance.length > 0) ||
+      (data.hazmat.shipments && data.hazmat.shipments.hazmatMetrics)) {
+
+    doc.addPage();
+    doc.rect(0, 0, pageWidth, pageHeight).fill('#0a0e1a');
+
+    let compY = 40;
+
+    // Compliance Section
+    if (data.hazmat.compliance && data.hazmat.compliance.length > 0) {
+      doc.fontSize(18).fillColor('#ffffff').font('Helvetica-Bold');
+      doc.text('Compliance Alerts & Recommendations', 40, compY, { lineBreak: false });
+
+      compY += 28;
+
+      data.hazmat.compliance.slice(0, 5).forEach((alert) => {
+        const iconMap = { error: '❌', warning: '⚠️', info: 'ℹ️' };
+        const icon = iconMap[alert.type] || '•';
+
+        const colorMap = {
+          error: '#dc2626',
+          warning: '#f97316',
+          info: '#3b82f6'
+        };
+        const borderColor = colorMap[alert.type] || '#334155';
+
+        doc.roundedRect(40, compY, pageWidth - 80, 60, 8)
+          .lineWidth(2).fillAndStroke('#1a1f2e', borderColor);
+
+        doc.fontSize(11).fillColor('#ffffff').font('Helvetica-Bold');
+        doc.text(`${icon} ${alert.title || 'Alert'}`, 60, compY + 12, {
+          width: pageWidth - 120,
+          lineBreak: false
+        });
+
+        doc.fontSize(8).fillColor('#cbd5e1').font('Helvetica');
+        doc.text(alert.message || '', 60, compY + 28, {
+          width: pageWidth - 120,
+          lineGap: 1.2
+        });
+
+        compY += 68;
+      });
+
+      compY += 10;
+    }
+
+    // Metrics Comparison
+    if (data.hazmat.shipments && data.hazmat.shipments.hazmatMetrics) {
+      doc.fontSize(14).fillColor('#ffffff').font('Helvetica-Bold');
+      doc.text('Hazmat vs Non-Hazmat Metrics', 40, compY, { lineBreak: false });
+
+      compY += 22;
+
+      const hMetrics = data.hazmat.shipments.hazmatMetrics || {};
+      const nhMetrics = data.hazmat.shipments.nonHazmatMetrics || {};
+
+      // Table Header
+      doc.roundedRect(40, compY, pageWidth - 80, 24, 5).fill('#1e293b');
+
+      doc.fontSize(9).fillColor('#94a3b8').font('Helvetica-Bold');
+      doc.text('Metric', 50, compY + 9, { width: 120, lineBreak: false });
+      doc.text('Hazmat Shipments', 200, compY + 9, { width: 150, align: 'center', lineBreak: false });
+      doc.text('Non-Hazmat Shipments', 370, compY + 9, { width: 150, align: 'center', lineBreak: false });
+
+      compY += 24;
+
+      // Rows
+      const metricsRows = [
+        { label: 'Avg Units', hazmat: safeNumber(hMetrics.avgUnits, 0), nonHazmat: safeNumber(nhMetrics.avgUnits, 0) },
+        { label: 'Avg Pallets', hazmat: safeNumber(hMetrics.avgPallets, 2), nonHazmat: safeNumber(nhMetrics.avgPallets, 2) },
+        { label: 'Avg Cu.Ft', hazmat: safeNumber(hMetrics.avgCuft, 1), nonHazmat: safeNumber(nhMetrics.avgCuft, 1) },
+        { label: 'Avg Cost', hazmat: `$${safeNumber(hMetrics.avgCost, 2)}`, nonHazmat: `$${safeNumber(nhMetrics.avgCost, 2)}` }
+      ];
+
+      metricsRows.forEach((row, idx) => {
+        const rowColor = idx % 2 === 0 ? '#1a1f2e' : '#0f172a';
+
+        doc.roundedRect(40, compY, pageWidth - 80, 22, 3).fill(rowColor);
+
+        doc.fontSize(9).fillColor('#e2e8f0').font('Helvetica');
+        doc.text(row.label, 50, compY + 8, { width: 120, lineBreak: false });
+
+        doc.fontSize(9).fillColor('#f97316').font('Helvetica-Bold');
+        doc.text(row.hazmat, 200, compY + 8, { width: 150, align: 'center', lineBreak: false });
+
+        doc.fontSize(9).fillColor('#34d399').font('Helvetica-Bold');
+        doc.text(row.nonHazmat, 370, compY + 8, { width: 150, align: 'center', lineBreak: false });
+
+        compY += 22;
+      });
+
+      compY += 15;
+    }
+
+    // Sample Products
+    if (data.hazmat.sampleProducts && data.hazmat.sampleProducts.length > 0) {
+      doc.fontSize(14).fillColor('#ffffff').font('Helvetica-Bold');
+      doc.text('Sample Hazmat Products', 40, compY, { lineBreak: false });
+
+      compY += 22;
+
+      data.hazmat.sampleProducts.slice(0, 5).forEach((product) => {
+        doc.roundedRect(40, compY, pageWidth - 80, 32, 5)
+          .lineWidth(1).fillAndStroke('#1a1f2e', '#334155');
+
+        doc.fontSize(8).fillColor('#94a3b8').font('Helvetica');
+        doc.text('ASIN:', 50, compY + 8, { lineBreak: false });
+
+        doc.fontSize(8).fillColor('#ffffff').font('Helvetica-Bold');
+        doc.text(product.asin || 'Unknown', 80, compY + 8, { lineBreak: false });
+
+        const prodName = (product.productName || 'Unknown Product').substring(0, 45);
+        doc.fontSize(8).fillColor('#cbd5e1').font('Helvetica');
+        doc.text(prodName, 50, compY + 19, { width: pageWidth - 100, lineBreak: false });
+
+        doc.fontSize(7).fillColor('#94a3b8').font('Helvetica');
+        const typeText = `Type: ${product.type || 'N/A'} | Storage: ${product.storageType || 'N/A'} | Confidence: ${product.confidence || 'medium'}`;
+        doc.text(typeText, 200, compY + 8, { width: 300, lineBreak: false });
+
+        compY += 36;
+      });
+    }
+
+    addFooter();
+  }
+}
+
       doc.end();
 
       stream.on('finish', () => {
@@ -2329,6 +2876,48 @@ app.get('/api/export/pdf/:id', authenticateToken, async (req, res) => {
 
     // Remove MongoDB specific fields before PDF generation
     const { _id, userId, userEmail, __v, createdAt, updatedAt, ...reportData } = report;
+
+    // ✅ DEBUG: Check if hazmat data exists
+    console.log('\n' + '='.repeat(60));
+    console.log('📄 PDF EXPORT DATA CHECK');
+    console.log('='.repeat(60));
+    console.log('Report ID:', reportId);
+    console.log('Report Filename:', report.filename);
+    console.log('Total Shipments:', reportData.totalShipments);
+    console.log('\n🔥 HAZMAT DATA STATUS:');
+    console.log('Has hazmat field:', !!reportData.hazmat);
+
+    if (reportData.hazmat) {
+      console.log('✅ Hazmat data IS present');
+      console.log('\n📊 Hazmat Overview:');
+      if (reportData.hazmat.overview) {
+        console.log('  - Total Products:', reportData.hazmat.overview.totalProducts);
+        console.log('  - Hazmat Products:', reportData.hazmat.overview.totalHazmatProducts,
+          `(${reportData.hazmat.overview.hazmatPercentage}%)`);
+        console.log('  - Hazmat Shipments:', reportData.hazmat.overview.totalHazmatShipments,
+          `(${reportData.hazmat.overview.shipmentHazmatPercentage}%)`);
+      } else {
+        console.log('  ⚠️  Overview missing');
+      }
+
+      console.log('\n📋 Hazmat Details:');
+      console.log('  - Type Breakdown:', reportData.hazmat.typeBreakdown?.length || 0, 'types');
+      console.log('  - Geographic Data:', reportData.hazmat.geographic?.topStates?.length || 0, 'states');
+      console.log('  - Compliance Alerts:', reportData.hazmat.compliance?.length || 0, 'alerts');
+      console.log('  - Sample Products:', reportData.hazmat.sampleProducts?.length || 0, 'products');
+
+      console.log('\n✨ PDF will include 4 pages (2 normal + 2 hazmat pages)');
+    } else {
+      console.log('❌ Hazmat data is MISSING!');
+      console.log('\n⚠️  PDF will only have 2 pages (no hazmat section)');
+      console.log('\n🔍 Available report keys:', Object.keys(reportData).slice(0, 20).join(', '));
+      console.log('\n💡 To fix:');
+      console.log('   1. Verify SmashFoodsIntegration returns hazmat data');
+      console.log('   2. Check Report model schema includes hazmat field');
+      console.log('   3. Re-upload file to save with hazmat data');
+    }
+
+    console.log('='.repeat(60) + '\n');
 
     await generatePDF(reportData, pdfPath);
 
