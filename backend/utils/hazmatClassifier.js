@@ -1,20 +1,22 @@
 // ============================================================================
-// HAZMAT CLASSIFIER - Amazon Dangerous Goods Classification
+// HAZMAT CLASSIFIER - FIXED VERSION WITH ACCURATE DETECTION
 // File: backend/utils/hazmatClassifier.js
 // ============================================================================
 
 /**
- * HazmatClassifier - Classifies products as hazmat/dangerous goods based on
- * Amazon Seller Central rules and storage tab indicators
+ * HazmatClassifier - FIXED VERSION
  *
- * References:
- * - Amazon Hazmat Guide: https://sellercentral.amazon.com/help/hub/reference/external/G63ZD2BUDXF28WEC
- * - Dangerous Goods ID: https://sellercentral.amazon.com/help/hub/reference/external/G201003400
+ * KEY CHANGES:
+ * 1. Uses Hazmat sheet as source of truth when available
+ * 2. Falls back to dangerous_goods_storage_type in Storage sheet
+ * 3. Uses Placement sheet "Hazmat" column
+ * 4. Improved ASIN-to-shipment mapping
+ * 5. More accurate classification logic
  */
 class HazmatClassifier {
 
   constructor() {
-    // Hazmat keywords for product name analysis
+    // Hazmat keywords for product name analysis (LOW PRIORITY)
     this.hazmatKeywords = [
       'aerosol', 'spray', 'flammable', 'perfume', 'cologne', 'fragrance',
       'alcohol', 'battery', 'lithium', 'compressed', 'oxidizer', 'corrosive',
@@ -25,53 +27,103 @@ class HazmatClassifier {
     this.dgCategories = {
       'aerosol': {
         class: 'Division 2.1',
-        name: 'Flammable Aerosols',
+        name: 'Aerosol',
+        description: 'Pressurized containers with flammable propellants'
+      },
+      'aerosols': {
+        class: 'Division 2.1',
+        name: 'Aerosol',
         description: 'Pressurized containers with flammable propellants'
       },
       'flammable': {
         class: 'Class 3',
-        name: 'Flammable Liquids',
+        name: 'Flammable Liquid',
         description: 'Liquids with flash point below 140°F'
       },
       'flammable liquid': {
         class: 'Class 3',
-        name: 'Flammable Liquids',
+        name: 'Flammable Liquid',
         description: 'Liquids with flash point below 140°F'
       },
       'flammable solid': {
         class: 'Class 4',
-        name: 'Flammable Solids',
+        name: 'Flammable Solid',
         description: 'Solids that can ignite easily'
       },
       'oxidizer': {
         class: 'Class 5',
-        name: 'Oxidizing Substances',
+        name: 'Oxidizing Substance',
         description: 'Substances that can cause or enhance combustion'
       },
       'corrosive': {
         class: 'Class 8',
-        name: 'Corrosive Materials',
+        name: 'Corrosive Material',
         description: 'Materials that can corrode metals or damage skin'
       },
       'battery': {
         class: 'Class 9',
-        name: 'Lithium Batteries',
+        name: 'Lithium Battery',
         description: 'Lithium metal or lithium ion batteries'
       },
       'lithium': {
         class: 'Class 9',
-        name: 'Lithium Batteries',
+        name: 'Lithium Battery',
         description: 'Lithium metal or lithium ion batteries'
       }
     };
   }
 
   /**
-   * Classify a single product as hazmat or non-hazmat
-   * @param {Object} storageItem - Item from Storage sheet
-   * @returns {Object} - Classification result
+   * NEW: Build hazmat reference from Hazmat sheet (if available)
+   * This is the MOST ACCURATE source
    */
-  classifyProduct(storageItem) {
+  buildHazmatReferenceFromHazmatSheet(hazmatSheetData) {
+    if (!hazmatSheetData || hazmatSheetData.length === 0) {
+      console.log('⚠️  No Hazmat sheet data provided');
+      return new Map();
+    }
+
+    console.log(`🔬 Building hazmat reference from Hazmat sheet (${hazmatSheetData.length} entries)`);
+
+    const hazmatReference = new Map();
+
+    hazmatSheetData.forEach(item => {
+      if (item.asin) {
+        hazmatReference.set(item.asin, {
+          isHazmat: true,
+          type: this.normalizeStorageType(item.storage_type || item.storageType),
+          source: 'hazmat_sheet',
+          confidence: 'high',
+          productName: item.product_name || item.productName || ''
+        });
+      }
+    });
+
+    console.log(`✅ Hazmat reference built: ${hazmatReference.size} ASINs`);
+    return hazmatReference;
+  }
+
+  /**
+   * NEW: Normalize storage type to standard names
+   */
+  normalizeStorageType(storageType) {
+    if (!storageType) return null;
+
+    const normalized = String(storageType).toLowerCase().trim();
+
+    if (normalized.includes('aerosol')) return 'Aerosol';
+    if (normalized.includes('flammable')) return 'Flammable Liquid';
+    if (normalized.includes('corrosive')) return 'Corrosive';
+    if (normalized.includes('oxidizer')) return 'Oxidizer';
+    if (normalized.includes('battery') || normalized.includes('lithium')) return 'Lithium Battery';
+
+    return storageType; // Return as-is if not recognized
+  }
+
+  /**
+   * IMPROVED: Classify a single product with reference data
+   */
+  classifyProduct(storageItem, hazmatReference = null) {
     const classification = {
       asin: storageItem.asin || '',
       fnsku: storageItem.fnsku || '',
@@ -88,7 +140,27 @@ class HazmatClassifier {
     let confidenceScore = 0;
 
     // ========================================================================
-    // RULE 1: Check explicit Hazmat field (HIGHEST PRIORITY)
+    // RULE 1: Check hazmat reference (HIGHEST PRIORITY - if available)
+    // ========================================================================
+    if (hazmatReference && storageItem.asin && hazmatReference.has(storageItem.asin)) {
+      const refData = hazmatReference.get(storageItem.asin);
+      classification.isHazmat = true;
+      classification.hazmatType = refData.type;
+      classification.storageType = refData.type;
+      classification.confidence = 'high';
+      classification.reasons.push('Listed in Hazmat reference sheet');
+      confidenceScore = 100;
+
+      // Get DG class info
+      const dgInfo = this.categorizeDangerousGoods(refData.type);
+      classification.dangerousGoodsClass = dgInfo.class;
+      classification.dangerousGoodsName = dgInfo.name;
+
+      return classification; // Early return - we have definitive answer
+    }
+
+    // ========================================================================
+    // RULE 2: Check explicit Hazmat field
     // ========================================================================
     if (storageItem.Hazmat) {
       const hazmatValue = String(storageItem.Hazmat).trim().toLowerCase();
@@ -100,21 +172,22 @@ class HazmatClassifier {
     }
 
     // ========================================================================
-    // RULE 2: Check dangerous_goods_storage_type (HIGH PRIORITY)
+    // RULE 3: Check dangerous_goods_storage_type (HIGH PRIORITY)
     // ========================================================================
     if (storageItem.dangerous_goods_storage_type) {
-      const dgType = String(storageItem.dangerous_goods_storage_type).trim().toLowerCase();
+      const dgType = String(storageItem.dangerous_goods_storage_type).trim();
 
       // Only consider as hazmat if dgType is meaningful
       if (dgType &&
-          dgType !== 'none' &&
-          dgType !== 'n/a' &&
+          dgType !== '--' &&
+          dgType !== 'None' &&
+          dgType !== 'N/A' &&
           dgType !== 'not applicable' &&
           dgType !== '') {
 
         classification.isHazmat = true;
-        classification.storageType = storageItem.dangerous_goods_storage_type;
-        classification.reasons.push(`DG Storage Type: ${classification.storageType}`);
+        classification.storageType = this.normalizeStorageType(dgType);
+        classification.reasons.push(`DG Storage Type: ${dgType}`);
         confidenceScore += 40;
 
         // Determine DG class and name
@@ -126,7 +199,7 @@ class HazmatClassifier {
     }
 
     // ========================================================================
-    // RULE 3: Check product_size_tier for hazmat indicators
+    // RULE 4: Check product_size_tier for hazmat indicators
     // ========================================================================
     if (storageItem.product_size_tier) {
       const sizeTier = String(storageItem.product_size_tier).toLowerCase();
@@ -147,18 +220,19 @@ class HazmatClassifier {
     }
 
     // ========================================================================
-    // RULE 4: Product name keyword analysis (MEDIUM PRIORITY)
+    // RULE 5: Product name keyword analysis (LOWEST PRIORITY)
+    // Only use if no other indicators found
     // ========================================================================
-    if (storageItem.product_name) {
+    if (confidenceScore < 30 && storageItem.product_name) {
       const productName = String(storageItem.product_name).toLowerCase();
 
       for (const keyword of this.hazmatKeywords) {
         if (productName.includes(keyword)) {
-          classification.isHazmat = true;
-          classification.hazmatType = classification.hazmatType || this.getHazmatTypeFromKeyword(keyword);
+          // Don't automatically classify as hazmat based on keywords
+          // Just flag for review
           classification.reasons.push(`Product name contains: "${keyword}"`);
-          confidenceScore += 10;
-          break; // Only count first keyword match
+          confidenceScore += 5;
+          break;
         }
       }
     }
@@ -181,7 +255,7 @@ class HazmatClassifier {
    * Categorize dangerous goods and return class/name
    */
   categorizeDangerousGoods(storageType) {
-    const type = storageType.toLowerCase();
+    const type = String(storageType).toLowerCase();
 
     for (const [keyword, info] of Object.entries(this.dgCategories)) {
       if (type.includes(keyword)) {
@@ -219,13 +293,14 @@ class HazmatClassifier {
   }
 
   /**
-   * Classify all products from storage sheet
-   * @param {Array} storageData - Array of items from Storage sheet
-   * @returns {Object} - Complete classification results
+   * IMPROVED: Classify all products with hazmat reference
    */
-  classifyAllProducts(storageData) {
+  classifyAllProducts(storageData, hazmatReference = null) {
     console.log('🔍 Starting hazmat classification...');
     console.log(`   Total products to classify: ${storageData.length}`);
+    if (hazmatReference) {
+      console.log(`   Using hazmat reference with ${hazmatReference.size} known hazmat ASINs`);
+    }
 
     const results = {
       total: storageData.length,
@@ -254,7 +329,7 @@ class HazmatClassifier {
         return;
       }
 
-      const classification = this.classifyProduct(item);
+      const classification = this.classifyProduct(item, hazmatReference);
 
       if (classification.isHazmat) {
         results.hazmat.push({
@@ -299,8 +374,6 @@ class HazmatClassifier {
 
   /**
    * Create ASIN → Hazmat lookup map
-   * @param {Object} hazmatClassification - Result from classifyAllProducts
-   * @returns {Map} - Map of ASIN → classification object
    */
   createHazmatLookupMap(hazmatClassification) {
     const lookupMap = new Map();
@@ -312,7 +385,8 @@ class HazmatClassifier {
           isHazmat: true,
           type: item.classification.hazmatType,
           storageType: item.classification.storageType,
-          dgClass: item.classification.dangerousGoodsClass
+          dgClass: item.classification.dangerousGoodsClass,
+          confidence: item.classification.confidence
         });
       }
     });
@@ -324,51 +398,93 @@ class HazmatClassifier {
           isHazmat: false,
           type: null,
           storageType: null,
-          dgClass: null
+          dgClass: null,
+          confidence: 'high'
         });
       }
     });
 
+    console.log(`📋 Hazmat lookup map created: ${lookupMap.size} ASINs`);
     return lookupMap;
   }
 
   /**
-   * Enrich shipments with hazmat information
-   * @param {Array} shipments - Parsed shipment data
-   * @param {Map} hazmatLookupMap - ASIN → hazmat info map
-   * @returns {Array} - Enriched shipments with hazmat flags
+   * NEW: Enhanced shipment enrichment with accurate hazmat detection
    */
-  enrichShipmentsWithHazmat(shipments, hazmatLookupMap) {
+  enrichShipmentsWithHazmat(shipments, hazmatLookupMap, placementData) {
     console.log('🔗 Enriching shipments with hazmat data...');
 
-    return shipments.map(shipment => {
-      // Determine if shipment contains any hazmat products
-      // This requires checking ASINs associated with the shipment
+    // Build ASIN-to-shipment mapping from placement data
+    const shipmentAsinMap = new Map();
 
-      // For now, we'll use a simple heuristic:
-      // Check if shipment name/ID appears in hazmat product list
-      // This is a placeholder - actual implementation depends on data structure
+    if (placementData && placementData.length > 0) {
+      placementData.forEach(item => {
+        const shipmentId = item.fbaShipmentID || item.fba_shipment_id;
+        const asin = item.asin;
 
-      const enriched = {
+        if (shipmentId && asin) {
+          if (!shipmentAsinMap.has(shipmentId)) {
+            shipmentAsinMap.set(shipmentId, new Set());
+          }
+          shipmentAsinMap.get(shipmentId).add(asin);
+        }
+      });
+
+      console.log(`   Found ASINs for ${shipmentAsinMap.size} shipments`);
+    } else {
+      console.warn('   ⚠️  No placement data provided - hazmat detection may be incomplete');
+    }
+
+    // Enrich each shipment
+    const enrichedShipments = shipments.map(shipment => {
+      const shipmentAsins = shipmentAsinMap.get(shipment.fbaShipmentID) || new Set();
+
+      let containsHazmat = false;
+      let hazmatTypes = new Set();
+      let hazmatCount = 0;
+      let nonHazmatCount = 0;
+      let unknownCount = 0;
+
+      shipmentAsins.forEach(asin => {
+        const hazmatInfo = hazmatLookupMap.get(asin);
+
+        if (hazmatInfo) {
+          if (hazmatInfo.isHazmat) {
+            containsHazmat = true;
+            hazmatCount++;
+            if (hazmatInfo.type) {
+              hazmatTypes.add(hazmatInfo.type);
+            }
+          } else {
+            nonHazmatCount++;
+          }
+        } else {
+          unknownCount++;
+        }
+      });
+
+      return {
         ...shipment,
-        containsHazmat: false,
-        hazmatProducts: [],
-        hazmatTypes: new Set()
+        containsHazmat,
+        hazmatProductCount: hazmatCount,
+        nonHazmatProductCount: nonHazmatCount,
+        unknownProductCount: unknownCount,
+        hazmatTypes: Array.from(hazmatTypes),
+        totalAsins: shipmentAsins.size,
+        hazmatPercentage: shipmentAsins.size > 0
+          ? Math.round((hazmatCount / shipmentAsins.size) * 100)
+          : 0
       };
-
-      // TODO: Implement actual ASIN matching logic here
-      // This depends on how ASINs are stored in your Data sheet
-      // You may need to parse ASIN columns or match through Placement sheet
-
-      return enriched;
     });
+
+    const hazmatShipmentCount = enrichedShipments.filter(s => s.containsHazmat).length;
+    console.log(`✅ Enrichment complete: ${hazmatShipmentCount} shipments contain hazmat products`);
+
+    return enrichedShipments;
   }
 
   /**
    * Filter shipments by hazmat status
-   * @param {Array} shipments - All shipments
-   * @param {String} filterType - 'all', 'hazmat', or 'non-hazmat'
-   * @returns {Array} - Filtered shipments
    */
   filterShipmentsByHazmat(shipments, filterType) {
     if (filterType === 'all') {
@@ -388,15 +504,13 @@ class HazmatClassifier {
 
   /**
    * Generate hazmat summary statistics
-   * @param {Array} shipments - Enriched shipments
-   * @returns {Object} - Summary statistics
    */
   generateHazmatSummary(shipments) {
     const summary = {
       totalShipments: shipments.length,
       hazmatShipments: 0,
       nonHazmatShipments: 0,
-      noDataShipments: 0,
+      mixedShipments: 0,
       percentHazmat: 0,
       byType: {},
       byDGClass: {}
@@ -406,19 +520,24 @@ class HazmatClassifier {
       if (shipment.containsHazmat) {
         summary.hazmatShipments++;
 
+        // Check if mixed (has both hazmat and non-hazmat)
+        if (shipment.nonHazmatProductCount > 0) {
+          summary.mixedShipments++;
+        }
+
         // Count types
-        shipment.hazmatTypes.forEach(type => {
-          summary.byType[type] = (summary.byType[type] || 0) + 1;
-        });
-      } else if (shipment.containsHazmat === false) {
-        summary.nonHazmatShipments++;
+        if (shipment.hazmatTypes) {
+          shipment.hazmatTypes.forEach(type => {
+            summary.byType[type] = (summary.byType[type] || 0) + 1;
+          });
+        }
       } else {
-        summary.noDataShipments++;
+        summary.nonHazmatShipments++;
       }
     });
 
     summary.percentHazmat = summary.totalShipments > 0
-      ? ((summary.hazmatShipments / summary.totalShipments) * 100).toFixed(2)
+      ? parseFloat(((summary.hazmatShipments / summary.totalShipments) * 100).toFixed(2))
       : 0;
 
     return summary;
