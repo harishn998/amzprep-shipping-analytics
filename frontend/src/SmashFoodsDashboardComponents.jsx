@@ -39,15 +39,18 @@ export const SmashFoodsDashboard = ({ data }) => {
       {/* Summary Table Section */}
       <SmashFoodsSummarySection metadata={metadata} data={data} />
 
-      {/* Analysis Breakdown Section */}
-      <SmashFoodsAnalysisSection
-        proposedCosts={proposedCosts}
-        totalCuft={metadata.totalCuft}
-        totalPallets={metadata.totalPallets}
-      />
+      {/* Side-by-Side Grid for Analysis + Geographic */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        {/* Analysis Breakdown Section */}
+        <SmashFoodsAnalysisSection
+          proposedCosts={proposedCosts}
+          totalCuft={metadata.totalCuft}
+          totalPallets={metadata.totalPallets}
+        />
 
-      {/* Geographic Analysis */}
-      <SmashFoodsGeographicAnalysis topStates={data.topStates || []} />
+        {/* Geographic Analysis */}
+        <SmashFoodsGeographicAnalysis topStates={data.topStates || []} />
+      </div>
 
       {/* Recommendations */}
       <SmashFoodsRecommendations recommendations={metadata.recommendations || []} />
@@ -282,7 +285,7 @@ const SmashFoodsCostComparison = ({ currentCosts, proposedCosts, savings }) => {
        {data?.hazmat && data.hazmat.products && (
          <div className="mt-8">
            <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
-             <span className="text-2xl">🔥</span>
+             <span className="text-2xl"></span>
              Hazmat & Dangerous Goods Analysis
            </h2>
 

@@ -7,6 +7,7 @@ import { useAuth } from './contexts/AuthContext';
 import amazonLogo from './assets/amazon-logo.png';
 import shopifyLogo from './assets/shopify-logo.png';
 import { SmashFoodsDashboard } from './SmashFoodsDashboardComponents';
+import { ProcessingModal } from './ProcessingModal';
 
 
 //const API_URL = 'http://localhost:5000/api';
@@ -59,6 +60,16 @@ const ShippingAnalytics = () => {
   const [shopifyRateType, setShopifyRateType] = useState('orderUpdate');
   const [shopifyLoading, setShopifyLoading] = useState(false);
   const [hazmatFilter, setHazmatFilter] = useState('all');
+  const [processingModalOpen, setProcessingModalOpen] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [processedShipments, setProcessedShipments] = useState(0);
+  const [totalShipments, setTotalShipments] = useState(0);
+  const [processingStats, setProcessingStats] = useState({
+    avgCostPerUnit: 0,
+    totalUnits: 0,
+    totalShippingCost: 0,
+    totalPlacementFees: 0
+  });
 
   useEffect(() => {
     fetchReports();
@@ -82,69 +93,113 @@ const ShippingAnalytics = () => {
   };
 
   const handleFileUpload = async (event) => {
-    const file = event.target.files[0];
-    if (!file) return;
+  const file = event.target.files[0];
+  if (!file) return;
 
-    setUploadedFile(file);
-    setLoading(true);
-    setError(null);
-    setSuccess(null);
+  setUploadedFile(file);
+  setLoading(true);
+  setError(null);
+  setSuccess(null);
 
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('rateType', rateType);
-    formData.append('hazmatFilter', hazmatFilter);
+  // 🆕 Open processing modal
+  setProcessingModalOpen(true);
+  setUploadProgress(0);
+  setProcessedShipments(0);
+  setTotalShipments(0);
 
-    try {
-      const response = await axios.post(`${API_URL}/upload`, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-          ...getAuthHeader()
-       },
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('rateType', rateType);
+  formData.append('hazmatFilter', hazmatFilter);
+
+  try {
+    // Simulate initial progress
+    setUploadProgress(10);
+
+    const response = await axios.post(`${API_URL}/upload`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+        ...getAuthHeader()
+      },
+      // 🆕 Track upload progress
+      onUploadProgress: (progressEvent) => {
+        const percentCompleted = Math.round((progressEvent.loaded * 50) / progressEvent.total);
+        setUploadProgress(percentCompleted);
+      }
+    });
+
+    // Simulate processing steps
+    setUploadProgress(60);
+
+    if (response.data.success) {
+      // Extract stats for the modal
+      const data = response.data.data;
+      const metadata = data.metadata || {};
+
+      // 🆕 Update processing stats
+      setTotalShipments(data.totalShipments || 0);
+      setProcessedShipments(data.totalShipments || 0);
+      setProcessingStats({
+        avgCostPerUnit: metadata.currentMetrics?.costPerUnit || 0,
+        totalUnits: metadata.totalUnits || 0,
+        totalShippingCost: metadata.currentCosts?.totalFreight || 0,
+        totalPlacementFees: metadata.currentCosts?.totalPlacementFees || 0
       });
 
-      if (response.data.success) {
-        const dataWithCodes = {
-          ...response.data.data,
-          topStates: response.data.data.topStates.map(state => ({
-            ...state,
-            code: state.code || stateNameToCode[state.name] || state.name.substring(0, 2).toUpperCase()
-          })),
-          // 🆕 Explicitly include hazmat data
-          hazmat: response.data.data.hazmat || null,
-          // 🆕 Include metadata to ensure it has hazmatFilter info
-          metadata: response.data.data.metadata || {}
-        };
+      setUploadProgress(80);
 
-        // 🔍 DEBUG LOG - Remove after confirming it works
-        console.log('📊 Dashboard data with hazmat:', {
-          hasHazmat: !!dataWithCodes.hazmat,
-          hazmatProducts: dataWithCodes.hazmat?.products?.hazmat,
-          hazmatTypes: dataWithCodes.hazmat?.typeBreakdown?.length
-        });
+      // Prepare data with state codes
+      const dataWithCodes = {
+        ...data,
+        topStates: data.topStates.map(state => ({
+          ...state,
+          code: state.code || stateNameToCode[state.name] || state.name.substring(0, 2).toUpperCase()
+        })),
+        hazmat: data.hazmat || null,
+        metadata: metadata
+      };
 
-        setDashboardData(dataWithCodes);
-        setCurrentReportId(response.data.reportId);
+      setUploadProgress(95);
+
+      // Debug log
+      console.log('📊 Dashboard data with hazmat:', {
+        hasHazmat: !!dataWithCodes.hazmat,
+        hazmatProducts: dataWithCodes.hazmat?.products?.hazmat,
+        hazmatTypes: dataWithCodes.hazmat?.typeBreakdown?.length
+      });
+
+      setDashboardData(dataWithCodes);
+      setCurrentReportId(response.data.reportId);
+
+      setUploadProgress(100);
+
+      // 🆕 Close modal after a brief delay to show 100%
+      setTimeout(() => {
+        setProcessingModalOpen(false);
         setSuccess('File uploaded and processed successfully!');
         setActiveView('dashboard');
         fetchReports();
-      }
-    } catch (err) {
-      // Handle authentication errors
-      if (err.response?.status === 401 || err.response?.status === 403) {
-        setError('Your session has expired. Please login again.');
-        logout();
-        setTimeout(() => {
-          window.location.href = '/login';
-        }, 2000);
-        return;
-      }
-
-      setError(err.response?.data?.error || 'Error uploading file. Please try again.');
-    } finally {
-      setLoading(false);
+      }, 500);
     }
-  };
+  } catch (err) {
+    // Close modal on error
+    setProcessingModalOpen(false);
+
+    // Handle authentication errors
+    if (err.response?.status === 401 || err.response?.status === 403) {
+      setError('Your session has expired. Please login again.');
+      logout();
+      setTimeout(() => {
+        window.location.href = '/login';
+      }, 2000);
+      return;
+    }
+
+    setError(err.response?.data?.error || 'Error uploading file. Please try again.');
+  } finally {
+    setLoading(false);
+  }
+};
 
   const exportToPDF = async () => {
     if (!currentReportId) {
@@ -164,7 +219,7 @@ const ShippingAnalytics = () => {
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `AmzPrep-Analytics-Report-${currentReportId}.pdf`);
+      link.setAttribute('download', `AMZ-Prep-Analytics-Report-${currentReportId}.pdf`);
       document.body.appendChild(link);
       link.click();
       link.parentNode.removeChild(link);
@@ -251,7 +306,7 @@ const ShippingAnalytics = () => {
         <div className="flex items-center gap-3">
         <img
           src={amzprepLogo}
-          alt="AmzPrep Logo"
+          alt="AMZ Prep Logo"
           className="h-10 w-auto object-contain"
           />
           <div>
@@ -362,45 +417,90 @@ const ShippingAnalytics = () => {
     setError(null);
     setSuccess(null);
 
+    // 🆕 Open processing modal
+    setProcessingModalOpen(true);
+    setUploadProgress(0);
+    setProcessedShipments(0);
+    setTotalShipments(0);
+
     const formData = new FormData();
     formData.append('file', file);
     formData.append('uploadType', 'amazon');
     formData.append('rateType', amazonRateType);
 
     try {
+      // Simulate initial progress
+      setUploadProgress(10);
+
       const response = await axios.post(`${API_URL}/upload`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
           ...getAuthHeader()
         },
+        // 🆕 Track upload progress
+        onUploadProgress: (progressEvent) => {
+          const percentCompleted = Math.round((progressEvent.loaded * 50) / progressEvent.total);
+          setUploadProgress(percentCompleted);
+        }
       });
 
+      // Simulate processing steps
+      setUploadProgress(60);
+
       if (response.data.success) {
+        // Extract stats for the modal
+        const data = response.data.data;
+        const metadata = data.metadata || {};
+
+        // 🆕 Update processing stats
+        setTotalShipments(data.totalShipments || 0);
+        setProcessedShipments(data.totalShipments || 0);
+        setProcessingStats({
+          avgCostPerUnit: metadata.currentMetrics?.costPerUnit || 0,
+          totalUnits: metadata.totalUnits || 0,
+          totalShippingCost: metadata.currentCosts?.totalFreight || 0,
+          totalPlacementFees: metadata.currentCosts?.totalPlacementFees || 0
+        });
+
+        setUploadProgress(80);
+
         const dataWithCodes = {
-          ...response.data.data,
-          topStates: response.data.data.topStates.map(state => ({
+          ...data,
+          topStates: data.topStates.map(state => ({
             ...state,
             code: state.code || stateNameToCode[state.name] || state.name.substring(0, 2).toUpperCase()
           })),
           // 🆕 Explicitly include hazmat data
-            hazmat: response.data.data.hazmat || null,
-            // 🆕 Include metadata
-            metadata: response.data.data.metadata || {}
-          };
+          hazmat: data.hazmat || null,
+          // 🆕 Include metadata
+          metadata: metadata
+        };
 
-          // 🔍 DEBUG LOG
-          console.log('📊 Amazon upload - Dashboard data:', {
-            hasHazmat: !!dataWithCodes.hazmat,
-            hazmatProducts: dataWithCodes.hazmat?.products?.hazmat
-          });
+        setUploadProgress(95);
+
+        // 🔍 DEBUG LOG
+        console.log('📊 Amazon upload - Dashboard data:', {
+          hasHazmat: !!dataWithCodes.hazmat,
+          hazmatProducts: dataWithCodes.hazmat?.products?.hazmat
+        });
 
         setDashboardData(dataWithCodes);
         setCurrentReportId(response.data.reportId);
-        setSuccess(`Amazon ${amazonRateType} file uploaded successfully!`);
-        setActiveView('dashboard');
-        fetchReports();
+
+        setUploadProgress(100);
+
+        // 🆕 Close modal after a brief delay to show 100%
+        setTimeout(() => {
+          setProcessingModalOpen(false);
+          setSuccess(`Amazon ${amazonRateType} file uploaded successfully!`);
+          setActiveView('dashboard');
+          fetchReports();
+        }, 500);
       }
     } catch (err) {
+      // Close modal on error
+      setProcessingModalOpen(false);
+
       if (err.response?.status === 401 || err.response?.status === 403) {
         setError('Your session has expired. Please login again.');
         logout();
@@ -422,45 +522,90 @@ const ShippingAnalytics = () => {
     setError(null);
     setSuccess(null);
 
+    // 🆕 Open processing modal
+    setProcessingModalOpen(true);
+    setUploadProgress(0);
+    setProcessedShipments(0);
+    setTotalShipments(0);
+
     const formData = new FormData();
     formData.append('file', file);
     formData.append('uploadType', 'shopify');
     formData.append('rateType', shopifyRateType);
 
     try {
+      // Simulate initial progress
+      setUploadProgress(10);
+
       const response = await axios.post(`${API_URL}/upload`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
           ...getAuthHeader()
         },
+        // 🆕 Track upload progress
+        onUploadProgress: (progressEvent) => {
+          const percentCompleted = Math.round((progressEvent.loaded * 50) / progressEvent.total);
+          setUploadProgress(percentCompleted);
+        }
       });
 
+      // Simulate processing steps
+      setUploadProgress(60);
+
       if (response.data.success) {
+        // Extract stats for the modal
+        const data = response.data.data;
+        const metadata = data.metadata || {};
+
+        // 🆕 Update processing stats
+        setTotalShipments(data.totalShipments || 0);
+        setProcessedShipments(data.totalShipments || 0);
+        setProcessingStats({
+          avgCostPerUnit: metadata.currentMetrics?.costPerUnit || 0,
+          totalUnits: metadata.totalUnits || 0,
+          totalShippingCost: metadata.currentCosts?.totalFreight || 0,
+          totalPlacementFees: metadata.currentCosts?.totalPlacementFees || 0
+        });
+
+        setUploadProgress(80);
+
         const dataWithCodes = {
-          ...response.data.data,
-          topStates: response.data.data.topStates.map(state => ({
+          ...data,
+          topStates: data.topStates.map(state => ({
             ...state,
             code: state.code || stateNameToCode[state.name] || state.name.substring(0, 2).toUpperCase()
           })),
           // 🆕 Explicitly include hazmat data
-            hazmat: response.data.data.hazmat || null,
-            // 🆕 Include metadata
-            metadata: response.data.data.metadata || {}
-          };
+          hazmat: data.hazmat || null,
+          // 🆕 Include metadata
+          metadata: metadata
+        };
 
-          // 🔍 DEBUG LOG
-          console.log('📊 Shopify upload - Dashboard data:', {
-            hasHazmat: !!dataWithCodes.hazmat,
-            hazmatProducts: dataWithCodes.hazmat?.products?.hazmat
-          });
+        setUploadProgress(95);
+
+        // 🔍 DEBUG LOG
+        console.log('📊 Shopify upload - Dashboard data:', {
+          hasHazmat: !!dataWithCodes.hazmat,
+          hazmatProducts: dataWithCodes.hazmat?.products?.hazmat
+        });
 
         setDashboardData(dataWithCodes);
         setCurrentReportId(response.data.reportId);
-        setSuccess(`Shopify ${shopifyRateType} file uploaded successfully!`);
-        setActiveView('dashboard');
-        fetchReports();
+
+        setUploadProgress(100);
+
+        // 🆕 Close modal after a brief delay to show 100%
+        setTimeout(() => {
+          setProcessingModalOpen(false);
+          setSuccess(`Shopify ${shopifyRateType} file uploaded successfully!`);
+          setActiveView('dashboard');
+          fetchReports();
+        }, 500);
       }
     } catch (err) {
+      // Close modal on error
+      setProcessingModalOpen(false);
+
       if (err.response?.status === 401 || err.response?.status === 403) {
         setError('Your session has expired. Please login again.');
         logout();
@@ -1691,7 +1836,7 @@ const WarehouseLocationMap = ({ warehouses }) => (
   <div className="bg-[#1a1f2e] rounded-xl p-6 border border-gray-800">
     <h3 className="text-white text-xl font-semibold mb-6 flex items-center gap-2">
       <MapPin className="text-blue-400" size={24} />
-      DTC Warehouse Network
+      Warehouse Network Optimization
     </h3>
 
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -2107,7 +2252,7 @@ const AdminUserManagement = () => {
         <div className="bg-[#1a1f2e] rounded-xl p-6 border border-gray-800">
           <div className="flex items-center gap-2 mb-6">
             <TruckIcon className="text-blue-400" size={24} />
-            <h3 className="text-white text-xl font-semibold">Warehouse Comparison</h3>
+            <h3 className="text-white text-xl font-semibold">Warehouse Comparison (Estd)</h3>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -2209,6 +2354,15 @@ const AdminUserManagement = () => {
   };
 
   return (
+    <>
+    <ProcessingModal
+      isOpen={processingModalOpen}
+      progress={uploadProgress}
+      processedCount={processedShipments}
+      totalCount={totalShipments}
+      stats={processingStats}
+    />
+
     <div className="min-h-screen bg-[#0f1419]">
       <style>{`
         @keyframes fadeIn {
@@ -2257,6 +2411,7 @@ const AdminUserManagement = () => {
       </div>
     )}
     </div>
+    </>
   );
 };
 
