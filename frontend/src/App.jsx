@@ -1154,7 +1154,7 @@ const USAHeatMap = ({ states, title, dataType = "volume", hazmatData = null, sho
     <div className="bg-[#1a1f2e] rounded-xl p-6 border border-gray-800">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-white text-lg font-semibold flex items-center gap-2">
-          <MapPin className="text-blue-400" size={20} />
+          <MapPin className="text-brand-blue" size={20} />
           {title}
         </h3>
 
@@ -1342,7 +1342,7 @@ const USAHeatMap = ({ states, title, dataType = "volume", hazmatData = null, sho
       <div className="flex items-center justify-between mb-6">
         <div>
           <h3 className="text-white text-2xl font-bold mb-2 flex items-center gap-2">
-            <Settings className="text-blue-400" size={28} />
+            <Settings className="text-brand-blue" size={28} />
             Admin Rate Management
           </h3>
           <p className="text-gray-400">Upload Excel files with rate configurations</p>
@@ -1592,7 +1592,7 @@ const USAHeatMap = ({ states, title, dataType = "volume", hazmatData = null, sho
             <div className="absolute inset-0 bg-gradient-to-br from-blue-500/0 to-blue-500/20 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
             <div className="relative z-10">
               <div className="bg-blue-500/20 w-16 h-16 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
-                <BarChart3 size={32} className="text-blue-400" />
+                <BarChart3 size={32} className="text-brand-blue" />
               </div>
               <h3 className="text-xl font-bold text-white mb-3">Advanced Analytics</h3>
               <p className="text-gray-400 leading-relaxed">
@@ -1606,7 +1606,7 @@ const USAHeatMap = ({ states, title, dataType = "volume", hazmatData = null, sho
             <div className="absolute inset-0 bg-gradient-to-br from-blue-600/0 to-blue-600/20 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
             <div className="relative z-10">
               <div className="bg-blue-600/20 w-16 h-16 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
-                <TruckIcon size={32} className="text-blue-400" />
+                <TruckIcon size={32} className="text-brand-blue" />
               </div>
               <h3 className="text-xl font-bold text-white mb-3">Warehouse Optimization</h3>
               <p className="text-gray-400 leading-relaxed">
@@ -1620,7 +1620,7 @@ const USAHeatMap = ({ states, title, dataType = "volume", hazmatData = null, sho
             <div className="absolute inset-0 bg-gradient-to-br from-blue-700/0 to-blue-700/20 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
             <div className="relative z-10">
               <div className="bg-blue-700/20 w-16 h-16 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
-                <MapPin size={32} className="text-blue-400" />
+                <MapPin size={32} className="text-brand-blue" />
               </div>
               <h3 className="text-xl font-bold text-white mb-3">Geographic Insights</h3>
               <p className="text-gray-400 leading-relaxed">
@@ -1835,7 +1835,7 @@ const USAHeatMap = ({ states, title, dataType = "volume", hazmatData = null, sho
 const WarehouseLocationMap = ({ warehouses }) => (
   <div className="bg-[#1a1f2e] rounded-xl p-6 border border-gray-800">
     <h3 className="text-white text-xl font-semibold mb-6 flex items-center gap-2">
-      <MapPin className="text-blue-400" size={24} />
+      <MapPin className="text-brand-blue" size={24} />
       Warehouse Network Optimization
     </h3>
 
@@ -1849,7 +1849,7 @@ const WarehouseLocationMap = ({ warehouses }) => (
           >
             <div className="flex items-start gap-3">
               <div className="bg-blue-500/20 p-2 rounded-lg flex-shrink-0">
-                <MapPin size={20} className="text-blue-400" />
+                <MapPin size={20} className="text-brand-blue" />
               </div>
               <div className="flex-1 min-w-0">
                 <h4 className="text-white font-bold text-sm mb-1">{wh.name}</h4>
@@ -1857,7 +1857,7 @@ const WarehouseLocationMap = ({ warehouses }) => (
                   {wh.fullAddress}
                 </p>
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-xs bg-blue-500/20 text-blue-400 px-2 py-1 rounded">
+                  <span className="text-xs bg-blue-500/20 text-brand-blue px-2 py-1 rounded">
                     {wh.region}
                   </span>
                   {wh.specialty && (
@@ -1882,13 +1882,13 @@ const ReportsPanel = () => {
     <div className="bg-[#1a1f2e] rounded-xl p-6 border border-gray-800">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-white text-lg font-semibold flex items-center gap-2">
-          <FileText className="text-blue-400" size={20} />
+          <FileText className="text-brand-blue" size={20} />
           Your Reports ({reports.length})
         </h3>
         {reports.length > 5 && (
           <button
             onClick={() => setShowAllReports(!showAllReports)}
-            className="text-blue-400 hover:text-blue-300 text-sm font-semibold"
+            className="text-brand-blue hover:text-blue-300 text-sm font-semibold"
           >
             {showAllReports ? 'Show Less' : `Show All (${reports.length})`}
           </button>
@@ -1948,7 +1948,7 @@ const ReportsPanel = () => {
                     <button
                       onClick={() => loadReport(report.id)}
                       disabled={loading}
-                      className="text-blue-400 hover:text-blue-300 text-sm font-semibold px-3 py-1 rounded hover:bg-blue-500/10 transition-colors disabled:opacity-50"
+                      className="text-brand-blue hover:text-blue-300 text-sm font-semibold px-3 py-1 rounded hover:bg-blue-500/10 transition-colors disabled:opacity-50"
                     >
                       Load
                     </button>
@@ -2227,7 +2227,7 @@ const AdminUserManagement = () => {
                 <div key={idx} className="flex items-center justify-between py-2 border-b border-gray-800 last:border-0">
                   <span className="text-gray-300">{state.name}</span>
                   <div className="flex items-center gap-4">
-                    <span className="text-blue-400 font-bold text-lg">{state.percentage}%</span>
+                    <span className="text-brand-blue font-bold text-lg">{state.percentage}%</span>
                     <span className="text-gray-500 text-sm">${state.avgCost}</span>
                   </div>
                 </div>
@@ -2251,7 +2251,7 @@ const AdminUserManagement = () => {
 
         <div className="bg-[#1a1f2e] rounded-xl p-6 border border-gray-800">
           <div className="flex items-center gap-2 mb-6">
-            <TruckIcon className="text-blue-400" size={24} />
+            <TruckIcon className="text-brand-blue" size={24} />
             <h3 className="text-white text-xl font-semibold">Warehouse Comparison (Estd)</h3>
           </div>
           <div className="overflow-x-auto">
@@ -2295,7 +2295,7 @@ const AdminUserManagement = () => {
                           <span>{wh.fullAddress}</span>
                         </div>
                         {wh.region && (
-                          <span className="text-xs text-blue-400 font-medium">
+                          <span className="text-xs text-brand-blue font-medium">
                             {wh.region}
                           </span>
                         )}

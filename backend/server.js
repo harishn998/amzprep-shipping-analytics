@@ -28,6 +28,7 @@ import uploadEnhancedRoutes from './routes/uploadEnhanced.js';
 import adminRateUploadRoutes from './routes/adminRateUpload.js';
 import adminUserManagementRoutes from './routes/adminUserManagement.js';
 import SmashFoodsIntegration from './utils/smashFoodsIntegration.js';
+import AmazonEnhancementLayer from './utils/amazonEnhancementLayer.js';
 //import dotenv from 'dotenv';
 //dotenv.config();
 
@@ -160,7 +161,12 @@ function downloadImage(url) {
 }
 
 async function parseExcelFile(filePath, hazmatFilter = 'all') {
-  const workbook = xlsx.readFile(filePath);
+  // ✨ NEW: Enhancement Layer
+  const enhancer = new AmazonEnhancementLayer();
+  const enhancedFilePath = await enhancer.enhanceIfNeeded(filePath);
+
+  // Now use the enhanced file path
+  const workbook = xlsx.readFile(enhancedFilePath);
   const sheetName = workbook.SheetNames[0];
   const worksheet = workbook.Sheets[sheetName];
   const data = xlsx.utils.sheet_to_json(worksheet);
@@ -173,7 +179,7 @@ async function parseExcelFile(filePath, hazmatFilter = 'all') {
     return [];
   }
 
-  // Detect format
+  // Detect format (this should now detect Smash Foods for enhanced files!)
   const detection = detectFileFormat(firstRow);
 
   console.log(`📋 Detected format: ${getFormatDisplayName(detection.format).toUpperCase()} (${detection.confidence}% confidence)`);
@@ -185,10 +191,10 @@ async function parseExcelFile(filePath, hazmatFilter = 'all') {
   // Route to appropriate parser
   switch (detection.format) {
     case 'smash_foods':
-      return await parseSmashFoodsFormat(filePath, hazmatFilter || 'all');  // ✓ Uses filePath
+      return await parseSmashFoodsFormat(enhancedFilePath, hazmatFilter || 'all');  // ✓ Use enhanced path
 
     case 'muscle_mac':
-      return await parseMuscleMacFormat(filePath, hazmatFilter || 'all');  // ✅ FIXED - now uses filePath with await
+      return await parseMuscleMacFormat(enhancedFilePath, hazmatFilter || 'all');  // ✓ Use enhanced path
 
     case 'shopify':
       return parseShopifyFormat(data);
@@ -2741,13 +2747,21 @@ app.post('/api/upload', authenticateToken, upload.single('file'), async (req, re
 
     // Clean up uploaded file after processing
     setTimeout(() => {
-      try {
-        fs.unlinkSync(filePath);
-        console.log('🗑️  Cleaned up uploaded file:', req.file.filename);
-      } catch (err) {
-        console.error('Error cleaning up file:', err);
+    try {
+      // Clean up original file
+      fs.unlinkSync(filePath);
+      console.log('🗑️  Cleaned up uploaded file:', req.file.filename);
+
+      // Clean up enhanced file if it exists
+      const enhancedPath = filePath.replace('.xlsx', '_enhanced.xlsx');
+      if (fs.existsSync(enhancedPath)) {
+        fs.unlinkSync(enhancedPath);
+        console.log('🗑️  Cleaned up enhanced file');
       }
-    }, 5000);
+    } catch (err) {
+      console.error('Error cleaning up files:', err);
+    }
+  }, 5000);
 
     res.json({
       success: true,

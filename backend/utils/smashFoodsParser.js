@@ -26,7 +26,7 @@ class SmashFoodsParser {
    * Main parsing method - parses entire Excel file
    * NOW WITH ENHANCED HAZMAT DETECTION
    */
-  async parseFile(filePath) {
+   async parseFile(filePath) {
     console.log('📊 Parsing Smash Foods file:', filePath);
 
     const workbook = XLSX.readFile(filePath);
@@ -45,10 +45,10 @@ class SmashFoodsParser {
       placementSheet: this.parsePlacementSheet(workbook.Sheets['Placement']),
       storageSheet: this.parseStorageSheet(workbook.Sheets['Storage']),
       fbaZoningSheet: this.parseFBAZoningSheet(workbook.Sheets['FBA Zoning']),
-      hazmatSheet: null // Will be populated if available
+      hazmatSheet: null
     };
 
-    // 🆕 PARSE HAZMAT SHEET IF AVAILABLE
+    // Parse Hazmat sheet if available
     if (workbook.SheetNames.includes('Hazmat')) {
       console.log('🔬 Found dedicated Hazmat sheet - parsing...');
       parsedData.hazmatSheet = this.parseHazmatSheet(workbook.Sheets['Hazmat']);
@@ -57,14 +57,35 @@ class SmashFoodsParser {
       console.log('⚠️  No Hazmat sheet found - will rely on Storage sheet detection');
     }
 
+    console.log(`📋 Initial Data sheet rows: ${parsedData.dataSheet.length}`);
+
     // Filter to CLOSED shipments only
     parsedData.dataSheet = parsedData.dataSheet.filter(row =>
       row.status && row.status.toUpperCase() === 'CLOSED'
     );
 
-    console.log(`✅ Parsed ${parsedData.dataSheet.length} CLOSED shipments`);
+    console.log(`✅ After CLOSED filter: ${parsedData.dataSheet.length} rows`);
 
-    // 🆕 BUILD HAZMAT REFERENCE (if Hazmat sheet exists)
+    // 🆕 V3 FIX: DEDUPLICATE BY FBA SHIPMENT ID
+    const rowsBeforeDedup = parsedData.dataSheet.length;
+
+    const uniqueShipments = new Map();
+    parsedData.dataSheet.forEach(shipment => {
+      const id = shipment.fbaShipmentID;
+      if (id && !uniqueShipments.has(id)) {
+        uniqueShipments.set(id, shipment);
+      }
+    });
+
+    parsedData.dataSheet = Array.from(uniqueShipments.values());
+
+    const rowsAfterDedup = parsedData.dataSheet.length;
+    const duplicatesRemoved = rowsBeforeDedup - rowsAfterDedup;
+
+    console.log(`✅ After deduplication: ${rowsAfterDedup} unique shipments`);
+    console.log(`   (Removed ${duplicatesRemoved} duplicate rows)`);
+
+    // Build hazmat reference
     let hazmatReference = null;
     if (parsedData.hazmatSheet && parsedData.hazmatSheet.length > 0) {
       hazmatReference = this.hazmatClassifier.buildHazmatReferenceFromHazmatSheet(
@@ -72,14 +93,14 @@ class SmashFoodsParser {
       );
     }
 
-    // 🆕 PERFORM HAZMAT CLASSIFICATION WITH REFERENCE
+    // Perform hazmat classification
     console.log('🔍 Classifying hazmat products...');
     parsedData.hazmatClassification = this.hazmatClassifier.classifyAllProducts(
       parsedData.storageSheet,
       hazmatReference
     );
 
-    // 🆕 CREATE ASIN LOOKUP MAP
+    // Create ASIN lookup map
     parsedData.hazmatLookupMap = this.hazmatClassifier.createHazmatLookupMap(
       parsedData.hazmatClassification
     );
@@ -249,7 +270,7 @@ class SmashFoodsParser {
     // STEP 2: Enrich each shipment with merged data + ACCURATE HAZMAT INFO
     const enrichedShipments = dataSheet.map(shipment => {
       const cuftFromPlacement = placementCuftMap[shipment.fbaShipmentID] || 0;
-      let actualCuft = cuftFromPlacement > 0 ? cuftFromPlacement : shipment.cuftFromDataSheet;
+      let actualCuft = shipment.cuftFromDataSheet > 0 ? shipment.cuftFromDataSheet : cuftFromPlacement;
 
       if (!actualCuft || actualCuft === 0 || isNaN(actualCuft)) {
         actualCuft = shipment.units * 0.26;

@@ -71,7 +71,7 @@ const SmashFoodsKeyMetrics = ({ data, metadata }) => {
       <div className="bg-gray-800 p-6 rounded-lg">
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-gray-400 text-sm font-medium">Total Shipments</h3>
-          <Package className="text-blue-400" size={20} />
+          <Package className="text-brand-blue" size={20} />
         </div>
         <div className="text-3xl font-bold text-white">{data.totalShipments}</div>
         <div className="text-sm text-gray-400 mt-1">
@@ -191,7 +191,7 @@ const SmashFoodsCostComparison = ({ currentCosts, proposedCosts, savings }) => {
             <div className="border-t border-blue-500/30 pt-2 mt-2">
               <div className="flex justify-between">
                 <span className="text-white font-semibold">Total:</span>
-                <span className="text-xl font-bold text-blue-400">
+                <span className="text-xl font-bold text-brand-blue">
                   ${proposedCosts.totalCost?.toLocaleString()}
                 </span>
               </div>
@@ -292,7 +292,7 @@ const SmashFoodsCostComparison = ({ currentCosts, proposedCosts, savings }) => {
            {/* Hazmat Overview Cards */}
            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
              {/* Card 1: Hazmat Products */}
-             <div className="bg-gradient-to-br from-red-900/40 to-gray-800 p-6 rounded-lg border border-red-500/30">
+             <div className="bg-gradient-to-br bg-gray-700/50 to-gray-800 p-6 rounded-lg">
                <div className="text-sm text-gray-300 mb-2 font-medium">
                  Hazmat Products
                </div>
@@ -305,7 +305,7 @@ const SmashFoodsCostComparison = ({ currentCosts, proposedCosts, savings }) => {
              </div>
 
              {/* Card 2: Hazmat Shipments */}
-             <div className="bg-gradient-to-br from-orange-900/40 to-gray-800 p-6 rounded-lg border border-orange-500/30">
+             <div className="bg-gradient-to-br bg-gray-700/50 to-gray-800 p-6 rounded-lg">
                <div className="text-sm text-gray-300 mb-2 font-medium">
                  Hazmat Shipments
                </div>
@@ -318,7 +318,7 @@ const SmashFoodsCostComparison = ({ currentCosts, proposedCosts, savings }) => {
              </div>
 
              {/* Card 3: DG Classifications */}
-             <div className="bg-gradient-to-br from-purple-900/40 to-gray-800 p-6 rounded-lg border border-purple-500/30">
+             <div className="bg-gradient-to-br bg-gray-700/50 to-gray-800 p-6 rounded-lg">
                <div className="text-sm text-gray-300 mb-2 font-medium">
                  DG Classifications
                </div>
@@ -331,7 +331,7 @@ const SmashFoodsCostComparison = ({ currentCosts, proposedCosts, savings }) => {
              </div>
 
              {/* Card 4: Compliance Status */}
-             <div className="bg-gradient-to-br from-green-900/40 to-gray-800 p-6 rounded-lg border border-green-500/30">
+             <div className="bg-gradient-to-br bg-gray-700/50 to-gray-800 p-6 rounded-lg">
                <div className="text-sm text-gray-300 mb-2 font-medium">
                  High Confidence
                </div>
@@ -449,7 +449,7 @@ const SmashFoodsAnalysisSection = ({ proposedCosts, totalCuft, totalPallets }) =
                 <p className="text-sm text-gray-400">{item.description}</p>
               </div>
               <div className="text-right">
-                <div className="text-xl font-bold text-blue-400">
+                <div className="text-xl font-bold text-brand-blue">
                   ${item.cost?.toLocaleString()}
                 </div>
               </div>
@@ -484,7 +484,7 @@ const SmashFoodsGeographicAnalysis = ({ topStates }) => {
         {topStates.slice(0, 5).map((state, index) => (
           <div key={index} className="flex items-center justify-between p-3 bg-gray-700/50 rounded">
             <div className="flex items-center space-x-3">
-              <MapPin className="text-blue-400" size={20} />
+              <MapPin className="text-brand-blue" size={20} />
               <div>
                 <div className="text-white font-medium">{state.name}</div>
                 <div className="text-sm text-gray-400">
@@ -522,7 +522,7 @@ const SmashFoodsRecommendations = ({ recommendations }) => {
 
   return (
     <div className="bg-gray-800 rounded-lg p-6 mb-6">
-      <h2 className="text-xl font-bold text-white mb-4">Key Recommendations</h2>
+      <h2 className="text-xl font-bold text-white mb-4">AMZ Prep Recommendations</h2>
 
       <div className="space-y-4">
         {recommendations.map((rec, index) => (
@@ -540,7 +540,7 @@ const SmashFoodsRecommendations = ({ recommendations }) => {
               </div>
             )}
             {rec.improvement && (
-              <div className="text-sm text-blue-400">
+              <div className="text-sm text-green-400">
                 Improvement: {rec.improvement} days faster
               </div>
             )}

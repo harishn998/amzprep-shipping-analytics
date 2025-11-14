@@ -22,3 +22,8 @@ img {
 .overflow-hidden {
   border-radius: 1.5rem;
 }
+
+.text-brand-blue {
+  --tw-text-opacity: 1;
+  color: #00A8FF;
+}

@@ -56,7 +56,7 @@ class SmashFoodsIntegration {
       console.log(`      - Shipments: ${hazmatShipments.length} contain hazmat (${((hazmatShipments.length/shipments.length)*100).toFixed(1)}%)`);
 
       // Filter to 2025 shipments
-      const shipmentsWithDates = shipments.filter(s => s.createdDate);
+      /*const shipmentsWithDates = shipments.filter(s => s.createdDate);
       const shipments2025 = shipmentsWithDates.filter(s => {
         const year = new Date(s.createdDate).getFullYear();
         return year === 2025;
@@ -65,7 +65,28 @@ class SmashFoodsIntegration {
       if (shipments2025.length > 0) {
         shipments = shipments2025;
         console.log(`📅 Filtered to ${shipments.length} shipments from 2025`);
-      }
+      }*/
+
+      // Filter to current year
+      const currentYear = new Date().getFullYear();
+      const filteredByDate = shipments.filter(s => {
+        if (!s.createdDate) return false;
+        const year = new Date(s.createdDate).getFullYear();
+        return year === currentYear;
+      });
+
+      // Filter to US shipments only (exclude Canadian postal codes)
+      const usShipments = filteredByDate.filter(s => {
+        const zip = String(s.shipFromZip || '').trim();
+        if (!zip) return true;
+
+        // Canadian postal codes start with letters
+        const isCanadian = /^[A-Z]/i.test(zip);
+        return !isCanadian; // Keep US shipments only
+      });
+
+      shipments = usShipments;
+      console.log(`✅ Filtered: ${shipments.length} shipments (${currentYear}, US only)`);
 
       // 🆕 APPLY HAZMAT FILTER
       let originalShipmentCount = shipments.length;
