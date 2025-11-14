@@ -6,6 +6,7 @@
 
 import React from 'react';
 import { Loader2, Clock, Package, DollarSign, MapPin } from 'lucide-react';
+import amzprepLogo from './assets/amzprep_white_logo.png';
 
 /**
  * Enterprise-level processing modal
@@ -39,7 +40,7 @@ export const ProcessingModal = ({
           <div className="flex items-center gap-4">
             <div className="bg-white/10 p-3 rounded-lg backdrop-blur-sm">
               <img
-                src="/src/assets/amzprep_white_logo.png"
+                src={amzprepLogo}
                 alt="AMZ Prep"
                 className="h-8 w-auto"
               />
