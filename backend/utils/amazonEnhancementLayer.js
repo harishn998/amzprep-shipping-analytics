@@ -1,37 +1,35 @@
 // ============================================================================
-// AMAZON MULTI-SHEET ENHANCEMENT LAYER - FIXED V2
+// AMAZON ENHANCEMENT LAYER - FIXED V3
 // File: backend/utils/amazonEnhancementLayer.js
 //
-// CRITICAL FIX: Calculate cuft from Placement sheet (FNSKU + quantity per item)
-// instead of trying to guess from Data sheet
+// FIX: Only enhance if truly needed, skip if Placement has enough data
 // ============================================================================
 
 import xlsx from 'xlsx';
 import path from 'path';
 
 /**
- * AmazonEnhancementLayer - FIXED VERSION 2
+ * AmazonEnhancementLayer - V3 FIX
  *
- * KEY FIX:
- * - Calculate cuft by joining Placement sheet (FNSKU + quantity) with Storage (item_volume)
- * - Aggregate cuft per shipment ID from Placement sheet
- * - This gives accurate per-shipment cuft values
+ * KEY CHANGES:
+ * - Check if Placement sheet has sufficient data
+ * - Skip enhancement if Placement already has cuft values
+ * - Only enhance if truly missing critical columns
  */
 class AmazonEnhancementLayer {
 
   constructor() {
-    this.CUFT_PER_PALLET = 67; // Standard pallet size
+    this.CUFT_PER_PALLET = 67;
   }
 
   /**
-   * Main entry point - enhance file if needed
+   * Main entry point - SMARTER enhancement logic
    */
   async enhanceIfNeeded(filePath) {
     console.log('🔍 Checking if file needs enhancement...');
 
     const workbook = xlsx.readFile(filePath);
 
-    // Check if Data sheet exists
     if (!workbook.Sheets['Data']) {
       console.log('❌ No Data sheet found - cannot enhance');
       return filePath;
@@ -48,6 +46,17 @@ class AmazonEnhancementLayer {
       return filePath;
     }
 
+    // V3 FIX: Check if Placement has cuft data
+    if (workbook.Sheets['Placement']) {
+      const placementHasCuft = this.checkPlacementHasCuft(workbook.Sheets['Placement']);
+
+      if (placementHasCuft) {
+        console.log('✅ Placement sheet has cuft data - skipping enhancement');
+        console.log('   Parser will calculate from Placement sheet directly');
+        return filePath;
+      }
+    }
+
     console.log('🔧 Enhancement required:', needsEnhancement.missingColumns.join(', '));
 
     // Perform enhancement
@@ -55,6 +64,35 @@ class AmazonEnhancementLayer {
 
     console.log('✅ Enhancement complete:', enhancedFilePath);
     return enhancedFilePath;
+  }
+
+  /**
+   * V3 NEW: Check if Placement sheet has cuft data
+   */
+  checkPlacementHasCuft(placementSheet) {
+    const data = xlsx.utils.sheet_to_json(placementSheet);
+
+    if (data.length === 0) return false;
+
+    // Check if "Total Cuft" column exists and has values
+    const hasTotalCuftColumn = Object.keys(data[0]).some(h =>
+      h.toLowerCase().includes('total cuft') || h.toLowerCase() === 'cuft'
+    );
+
+    if (!hasTotalCuftColumn) return false;
+
+    // Check if at least 10% of rows have cuft values > 0
+    let rowsWithCuft = 0;
+    data.forEach(row => {
+      const cuft = parseFloat(row['Total Cuft'] || row['Cuft'] || row['total cuft'] || 0);
+      if (cuft > 0) rowsWithCuft++;
+    });
+
+    const percentageWithCuft = (rowsWithCuft / data.length) * 100;
+
+    console.log(`   Placement sheet check: ${rowsWithCuft}/${data.length} rows have cuft (${percentageWithCuft.toFixed(1)}%)`);
+
+    return percentageWithCuft >= 10; // If 10%+ rows have cuft, consider it sufficient
   }
 
   /**
@@ -82,8 +120,10 @@ class AmazonEnhancementLayer {
     const headersLower = headers.map(h => String(h).toLowerCase());
 
     const hasCuft = headersLower.includes('cuft');
-    const hasPlacementFees = headersLower.includes('placement fees');
-    const hasTotalPalletQty = headersLower.includes('total pallet quantity');
+    const hasPlacementFees = headersLower.includes('placement fees') ||
+                             headersLower.includes('chosen placement fee');
+    const hasTotalPalletQty = headersLower.includes('total pallet quantity') ||
+                              headersLower.includes('total pallets');
 
     const missingColumns = [];
     if (!hasCuft) missingColumns.push('Cuft');
@@ -100,13 +140,11 @@ class AmazonEnhancementLayer {
   }
 
   /**
-   * Enhance the file by adding missing columns
-   * 🔧 FIXED: Use Placement sheet to calculate cuft
+   * Enhance the file - same as before
    */
   async enhanceFile(workbook, originalFilePath, needsEnhancement) {
     console.log('📊 Starting file enhancement...');
 
-    // Load all sheets as JSON
     const dataRows = xlsx.utils.sheet_to_json(workbook.Sheets['Data']);
     const storageRows = workbook.Sheets['Storage']
       ? xlsx.utils.sheet_to_json(workbook.Sheets['Storage'])
@@ -119,39 +157,31 @@ class AmazonEnhancementLayer {
     console.log(`📦 Storage rows: ${storageRows.length}`);
     console.log(`💰 Placement rows: ${placementRows.length}`);
 
-    // Build lookup maps
     const storageLookup = this.buildStorageLookup(storageRows);
     const placementByShipmentID = this.buildPlacementLookup(placementRows);
-
-    // 🆕 BUILD CUFT LOOKUP FROM PLACEMENT (this is the key fix!)
     const cuftByShipmentID = this.buildCuftLookupFromPlacement(placementRows, storageLookup);
 
     console.log(`🔍 Storage lookup map: ${Object.keys(storageLookup).length} unique FNSKUs`);
     console.log(`🔍 Placement lookup map: ${Object.keys(placementByShipmentID).length} unique shipment IDs`);
     console.log(`🔍 Cuft lookup map: ${Object.keys(cuftByShipmentID).length} unique shipment IDs`);
 
-    // Enhance each data row
     const enhancedData = dataRows.map((row, index) => {
       const enhanced = { ...row };
       const shipmentID = row['FBA Shipment ID'];
 
-      // Add Cuft if missing (from Placement-based calculation)
       if (needsEnhancement.missingColumns.includes('Cuft')) {
         enhanced['Cuft'] = cuftByShipmentID[shipmentID] || 0;
       }
 
-      // Add Placement Fees if missing
       if (needsEnhancement.missingColumns.includes('Placement Fees')) {
         enhanced['Placement Fees'] = placementByShipmentID[shipmentID]?.totalFee || 0;
       }
 
-      // Add Total Pallet Quantity if missing
       if (needsEnhancement.missingColumns.includes('Total Pallet Quantity')) {
         const cuft = enhanced['Cuft'] || 0;
         enhanced['Total Pallet Quantity'] = cuft / this.CUFT_PER_PALLET;
       }
 
-      // Log first few rows for verification
       if (index < 3) {
         console.log(`Row ${index + 1} enhanced:`, {
           shipmentID: row['FBA Shipment ID'],
@@ -164,7 +194,6 @@ class AmazonEnhancementLayer {
       return enhanced;
     });
 
-    // Calculate totals for verification
     const totalCuft = enhancedData.reduce((sum, row) => sum + (row['Cuft'] || 0), 0);
     const totalPlacementFees = enhancedData.reduce((sum, row) => sum + (row['Placement Fees'] || 0), 0);
     const totalPallets = enhancedData.reduce((sum, row) => sum + (row['Total Pallet Quantity'] || 0), 0);
@@ -174,10 +203,8 @@ class AmazonEnhancementLayer {
     console.log(`   Total Placement Fees: $${totalPlacementFees.toFixed(2)}`);
     console.log(`   Total Pallets: ${totalPallets.toFixed(2)}`);
 
-    // Replace Data sheet with enhanced data
     workbook.Sheets['Data'] = xlsx.utils.json_to_sheet(enhancedData);
 
-    // Save enhanced workbook
     const enhancedFilePath = originalFilePath.replace('.xlsx', '_enhanced.xlsx');
     xlsx.writeFile(workbook, enhancedFilePath);
 
@@ -186,9 +213,6 @@ class AmazonEnhancementLayer {
     return enhancedFilePath;
   }
 
-  /**
-   * Build storage lookup map: FNSKU -> item data
-   */
   buildStorageLookup(storageRows) {
     const lookup = {};
 
@@ -196,23 +220,15 @@ class AmazonEnhancementLayer {
       const fnsku = row['fnsku'] || row['FNSKU'];
       if (!fnsku) return;
 
-      // Get item volume (cuft) from storage
       let itemVolume = 0;
 
-      // Try to get pre-calculated item_volume
       if (row['item_volume']) {
         itemVolume = parseFloat(row['item_volume']) || 0;
-      }
-      // Or calculate from dimensions
-      else if (row['longest_side'] && row['median_side'] && row['shortest_side']) {
+      } else if (row['longest_side'] && row['median_side'] && row['shortest_side']) {
         const longest = parseFloat(row['longest_side']) || 0;
         const median = parseFloat(row['median_side']) || 0;
         const shortest = parseFloat(row['shortest_side']) || 0;
-
-        // Calculate cubic inches
         const cubicInches = longest * median * shortest;
-
-        // Convert to cubic feet (1728 cubic inches = 1 cubic foot)
         itemVolume = cubicInches / 1728;
       }
 
@@ -228,10 +244,6 @@ class AmazonEnhancementLayer {
     return lookup;
   }
 
-  /**
-   * 🆕 NEW: Build cuft lookup from Placement sheet
-   * This is the CORRECT way to calculate cuft per shipment
-   */
   buildCuftLookupFromPlacement(placementRows, storageLookup) {
     const cuftByShipment = {};
 
@@ -242,14 +254,11 @@ class AmazonEnhancementLayer {
 
       if (!shipmentID || !fnsku || quantity === 0) return;
 
-      // Look up item volume for this FNSKU
       const storageInfo = storageLookup[fnsku];
       if (!storageInfo || !storageInfo.itemVolume) return;
 
-      // Calculate cuft for this line item
       const lineCuft = storageInfo.itemVolume * quantity;
 
-      // Aggregate to shipment
       if (!cuftByShipment[shipmentID]) {
         cuftByShipment[shipmentID] = 0;
       }
@@ -260,9 +269,6 @@ class AmazonEnhancementLayer {
     return cuftByShipment;
   }
 
-  /**
-   * Build placement lookup map: FBA Shipment ID -> placement fees
-   */
   buildPlacementLookup(placementRows) {
     const lookup = {};
 
@@ -270,10 +276,8 @@ class AmazonEnhancementLayer {
       const shipmentID = row['FBA shipment ID'] || row['FBA Shipment ID'];
       if (!shipmentID) return;
 
-      // Get placement fee for this item
       let fee = 0;
 
-      // Try different possible column names
       if (row['Total fee']) {
         fee = parseFloat(row['Total fee']) || 0;
       } else if (row['Fee per unit']) {
@@ -288,7 +292,6 @@ class AmazonEnhancementLayer {
         fee = parseFloat(row['Total FBA inbound placement service fee charge']) || 0;
       }
 
-      // Aggregate fees for same shipment ID
       if (!lookup[shipmentID]) {
         lookup[shipmentID] = {
           totalFee: 0,

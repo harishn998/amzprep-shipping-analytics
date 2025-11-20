@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Upload, BarChart3, Package, DollarSign, Download, Settings, LogOut, AlertCircle, CheckCircle, MapPin, FileText, TruckIcon, ShoppingCart, Users, X } from 'lucide-react';
+import { Upload, BarChart3, Package, DollarSign, Download, Settings, LogOut, AlertCircle, CheckCircle, MapPin, FileText, TruckIcon, ShoppingCart, Users, X, Menu, ChevronLeft, ChevronRight, Search, Bell, Zap, Activity, TrendingUp } from 'lucide-react';
 import axios from 'axios';
 import { ComposableMap, Geographies, Geography } from 'react-simple-maps';
-import amzprepLogo from './assets/amz-prep-logo-resized.png';
+import amzprepLogo from './assets/amzprep_white_logo.png';
 import { useAuth } from './contexts/AuthContext';
 import amazonLogo from './assets/amazon-logo.png';
 import shopifyLogo from './assets/shopify-logo.png';
 import { SmashFoodsDashboard } from './SmashFoodsDashboardComponents';
 import { ProcessingModal } from './ProcessingModal';
+import { ShippingScorecard } from './ShippingScorecard';
 
 
 //const API_URL = 'http://localhost:5000/api';
@@ -70,6 +71,8 @@ const ShippingAnalytics = () => {
     totalShippingCost: 0,
     totalPlacementFees: 0
   });
+  const [viewType, setViewType] = useState('scorecard');
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   useEffect(() => {
     fetchReports();
@@ -300,101 +303,255 @@ const ShippingAnalytics = () => {
   }
 };
 
-  const Header = () => (
-    <header className="bg-[#1a1f2e] border-b border-gray-800 px-6 py-4 flex items-center justify-between sticky top-0 z-50">
-      <div className="flex items-center gap-4">
-        <div className="flex items-center gap-3">
-        <img
-          src={amzprepLogo}
-          alt="AMZ Prep Logo"
-          className="h-10 w-auto object-contain"
-          />
-          <div>
-            <h1 className="text-white font-bold text-lg">AMZ Prep</h1>
-            <p className="text-gray-400 text-xs">Shipping Analytics</p>
+const PremiumSidebar = () => (
+  <div className={`fixed left-0 top-0 h-full transition-all duration-500 ease-in-out z-50 ${
+    sidebarCollapsed ? 'w-20' : 'w-80'
+  }`}>
+    {/* Glassmorphism Background with Gradient */}
+    <div className="absolute inset-0 bg-gradient-to-br from-[#0B1426] via-[#0F1C3A] to-[#1A2847] backdrop-blur-xl">
+      <div className="absolute inset-0 bg-gradient-to-r from-[#00A8FF]/5 via-transparent to-[#00A8FF]/5"></div>
+      <div className="absolute inset-0 border-r border-[#00A8FF]/20"></div>
+    </div>
+
+    {/* Content */}
+    <div className="relative flex flex-col h-full">
+      {/* Header Section - Premium Logo Area */}
+      <div className="p-6 border-b border-[#00A8FF]/10">
+        <div className="flex items-center gap-4">
+          {/* Logo with Glow Effect */}
+          <div className="relative group">
+            <div className="absolute inset-0 bg-[#00A8FF]/20 rounded-xl blur-lg group-hover:bg-[#00A8FF]/30 transition-all duration-300"></div>
+            <div className="relative bg-gradient-to-br from-[#00A8FF]/10 to-[#00A8FF]/20 p-3 rounded-xl border border-[#00A8FF]/30">
+              <img
+                src={amzprepLogo}
+                alt="AMZ Prep"
+                className="h-8 w-auto object-contain filter drop-shadow-lg"
+              />
+            </div>
           </div>
         </div>
       </div>
 
-      {/* THIS IS THE NEW PART - User Info & Logout */}
-      <div className="flex items-center gap-4">
+      {/* User Profile Section - Enhanced */}
+      {!sidebarCollapsed && (
+        <div className="p-6 border-b border-[#00A8FF]/10">
+          <div className="relative group">
+            {/* Background Glow */}
+            <div className="absolute inset-0 bg-gradient-to-r from-[#00A8FF]/5 to-transparent rounded-2xl blur-sm group-hover:from-[#00A8FF]/10 transition-all duration-300"></div>
 
-        {/* User Profile Section */}
-        <div className="flex items-center gap-3 bg-[#0f1419] px-4 py-2 rounded-lg border border-gray-700">
-          {user.picture && (
-            <img
-              src={user.picture}
-              alt={user.name}
-              className="w-8 h-8 rounded-full border-2 border-blue-500"
-            />
-          )}
-          <div className="text-sm">
-            <div className="text-white font-medium">{user.name}</div>
-            <div className="text-gray-400 text-xs">{user.email}</div>
+            <div className="relative bg-gradient-to-r from-[#1A2847]/80 to-[#0F1C3A]/80 backdrop-blur-sm p-4 rounded-2xl border border-[#00A8FF]/20 hover:border-[#00A8FF]/40 transition-all duration-300">
+              <div className="flex items-center gap-4">
+                {/* Avatar with Status Ring */}
+                <div className="relative">
+                  <div className="absolute inset-0 bg-gradient-to-r from-[#00A8FF] to-[#0080FF] rounded-full blur-sm"></div>
+                  {user.picture ? (
+                    <img
+                      src={user.picture}
+                      alt={user.name}
+                      className="relative w-12 h-12 rounded-full border-2 border-[#00A8FF]/50 object-cover"
+                    />
+                  ) : (
+                    <div className="relative w-12 h-12 rounded-full bg-gradient-to-br from-[#00A8FF] to-[#0080FF] flex items-center justify-center text-white font-bold text-lg">
+                      {user.name?.charAt(0)?.toUpperCase() || 'U'}
+                    </div>
+                  )}
+                  {/* Status Indicator */}
+                  <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-400 rounded-full border-2 border-[#1A2847]"></div>
+                </div>
+
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-white font-semibold text-sm truncate">{user.name}</h3>
+                  <p className="text-[#00A8FF]/70 text-xs truncate">{user.email}</p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full"></div>
+                    <span className="text-emerald-400 text-xs font-medium">Online</span>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
+      )}
 
-        {/* Upload New Button (existing) */}
-        <button
-          onClick={() => setActiveView('upload')}
-          className="text-gray-400 hover:text-white transition-colors flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-[#242936]"
-        >
-          <Upload size={20} />
-          <span className="text-sm">Upload New</span>
-        </button>
+      {/* Navigation Menu - Premium Design */}
+      <div className="flex-1 p-6 space-y-2">
 
-        {/* Admin Users Button - ADD THIS */}
-            {user?.role === 'admin' && (
-              <button
+        {/* Navigation Items */}
+        <div className="space-y-2">
+          <NavItem
+            icon={BarChart3}
+            label="Dashboard"
+            active={activeView === 'dashboard'}
+            onClick={() => setActiveView('dashboard')}
+            collapsed={sidebarCollapsed}
+          />
+          <NavItem
+            icon={Upload}
+            label="Upload Data"
+            active={activeView === 'upload'}
+            onClick={() => setActiveView('upload')}
+            collapsed={sidebarCollapsed}
+            badge="2"
+          />
+
+          {/* Divider */}
+          <div className="h-px bg-gradient-to-r from-transparent via-[#00A8FF]/20 to-transparent my-4"></div>
+
+          {/* Admin Section */}
+          {user?.role === 'admin' && (
+            <>
+              <div className={`${sidebarCollapsed ? 'hidden' : 'block'} mb-3`}>
+                <p className="text-[#00A8FF]/60 text-xs font-medium uppercase tracking-wider px-4">Administration</p>
+              </div>
+              <NavItem
+                icon={Users}
+                label="Manage Users"
+                active={false}
                 onClick={() => setShowUserManagement(!showUserManagement)}
-                className="text-gray-300 hover:text-white flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-700 transition-all"
-                title="Manage Users"
-              >
-                <Users size={20} />
-                <span className="hidden md:inline">Users</span>
-              </button>
-        )}
+                collapsed={sidebarCollapsed}
+              />
+              <NavItem
+                icon={Settings}
+                label="Settings"
+                active={false}
+                onClick={() => {}}
+                collapsed={sidebarCollapsed}
+              />
+            </>
+          )}
+        </div>
+      </div>
 
-        {/* Settings Button (existing) */}
-        <button className="text-gray-400 hover:text-white transition-colors p-2 rounded-lg hover:bg-[#242936]">
-          <Settings size={20} />
-        </button>
-
-        {/* NEW: Logout Button */}
+      {/* Bottom Section */}
+      <div className="p-6 border-t border-[#00A8FF]/10 space-y-3">
+        {/* Logout Button */}
         <button
           onClick={() => {
             logout();
             window.location.href = '/login';
           }}
-          className="text-gray-400 hover:text-red-400 transition-colors p-2 rounded-lg hover:bg-[#242936]"
-          title="Logout"
+          className="group relative w-full flex items-center gap-3 p-3 rounded-xl transition-all duration-300 hover:bg-red-500/10 border border-transparent hover:border-red-500/30"
         >
-          <LogOut size={20} />
+          <div className="bg-red-500/20 p-2 rounded-lg group-hover:bg-red-500/30 transition-all duration-300">
+            <LogOut size={16} className="text-red-400" />
+          </div>
+          {!sidebarCollapsed && (
+            <span className="text-red-400 font-medium">Logout</span>
+          )}
+        </button>
+
+        {/* Collapse Toggle */}
+        <button
+          onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+          className="group relative w-full flex items-center justify-center p-3 rounded-xl transition-all duration-300 hover:bg-[#00A8FF]/10 border border-[#00A8FF]/20 hover:border-[#00A8FF]/40"
+        >
+          <div className="bg-[#00A8FF]/20 p-2 rounded-lg group-hover:bg-[#00A8FF]/30 transition-all duration-300">
+            {sidebarCollapsed ? (
+              <ChevronRight size={16} className="text-[#00A8FF]" />
+            ) : (
+              <ChevronLeft size={16} className="text-[#00A8FF]" />
+            )}
+          </div>
         </button>
       </div>
-    </header>
-  );
+    </div>
+  </div>
+);
 
-  const Alert = ({ type, message, onClose }) => {
-    const isError = type === 'error';
-    return (
-      <div className={`rounded-lg p-4 mb-6 flex items-start gap-3 animate-fadeIn ${
-        isError ? 'bg-red-500/10 border border-red-500/50' : 'bg-green-500/10 border border-green-500/50'
+const NavItem = ({ icon: Icon, label, active, onClick, collapsed, badge }) => (
+  <button
+    onClick={onClick}
+    className={`group relative w-full flex items-center gap-4 p-4 rounded-2xl transition-all duration-300 ${
+      active
+        ? 'bg-gradient-to-r from-[#00A8FF]/20 via-[#00A8FF]/10 to-transparent border-[#00A8FF]/40 text-white shadow-lg shadow-[#00A8FF]/20'
+        : 'hover:bg-gradient-to-r hover:from-[#00A8FF]/5 hover:to-transparent hover:border-[#00A8FF]/20 text-[#00A8FF]/70 hover:text-white'
+    } border ${active ? 'border-[#00A8FF]/40' : 'border-transparent'}`}
+  >
+    {/* Background Glow Effect */}
+    {active && (
+      <div className="absolute inset-0 bg-gradient-to-r from-[#00A8FF]/10 to-transparent rounded-2xl blur-sm"></div>
+    )}
+
+    <div className="relative flex items-center gap-4 w-full">
+      {/* Icon with Background */}
+      <div className={`relative p-2 rounded-xl transition-all duration-300 ${
+        active
+          ? 'bg-[#00A8FF]/20 shadow-lg shadow-[#00A8FF]/20'
+          : 'bg-[#00A8FF]/5 group-hover:bg-[#00A8FF]/15'
+      }`}>
+        <Icon size={18} className={`${active ? 'text-[#00A8FF]' : 'text-[#00A8FF]/70 group-hover:text-[#00A8FF]'} transition-colors duration-300`} />
+      </div>
+
+      {!collapsed && (
+        <div className="flex items-center justify-between flex-1">
+          <span className={`font-medium text-sm transition-colors duration-300 ${
+            active ? 'text-white' : 'text-[#00A8FF]/70 group-hover:text-white'
+          }`}>
+            {label}
+          </span>
+
+          {badge && (
+            <div className={`px-2 py-1 rounded-full text-xs font-bold transition-all duration-300 ${
+              active
+                ? 'bg-[#00A8FF] text-white shadow-lg shadow-[#00A8FF]/30'
+                : 'bg-[#00A8FF]/20 text-[#00A8FF] group-hover:bg-[#00A8FF]/30'
+            }`}>
+              {badge}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  </button>
+);
+
+// REPLACE your existing Alert component with:
+const PremiumAlert = ({ type, message, onClose }) => {
+const isError = type === 'error';
+const baseClasses = "relative rounded-2xl p-6 mb-8 animate-slideIn border backdrop-blur-sm";
+const typeClasses = isError
+  ? "bg-gradient-to-r from-red-500/10 via-red-500/5 to-transparent border-red-500/30 shadow-xl shadow-red-500/10"
+  : "bg-gradient-to-r from-[#00A8FF]/10 via-[#00A8FF]/5 to-transparent border-[#00A8FF]/30 shadow-xl shadow-[#00A8FF]/10";
+
+return (
+  <div className={`${baseClasses} ${typeClasses}`}>
+    {/* Background Glow */}
+    <div className={`absolute inset-0 rounded-2xl blur-sm ${
+      isError ? 'bg-gradient-to-r from-red-500/5 to-transparent' : 'bg-gradient-to-r from-[#00A8FF]/5 to-transparent'
+    }`}></div>
+
+    <div className="relative flex items-start gap-4">
+      <div className={`p-3 rounded-xl ${
+        isError ? 'bg-red-500/20' : 'bg-[#00A8FF]/20'
       }`}>
         {isError ? (
-          <AlertCircle className="text-red-500 flex-shrink-0" size={20} />
+          <AlertCircle className="text-red-400" size={24} />
         ) : (
-          <CheckCircle className="text-green-500 flex-shrink-0" size={20} />
-        )}
-        <div className={`flex-1 ${isError ? 'text-red-400' : 'text-green-400'}`}>
-          {message}
-        </div>
-        {onClose && (
-          <button onClick={onClose} className="text-gray-400 hover:text-white text-xl leading-none">×</button>
+          <CheckCircle className="text-[#00A8FF]" size={24} />
         )}
       </div>
-    );
-  };
+
+      <div className="flex-1">
+        <p className={`font-medium text-lg ${isError ? 'text-red-100' : 'text-[#00A8FF]'}`}>
+          {isError ? 'Error' : 'Success'}
+        </p>
+        <p className="text-white/80 mt-1">{message}</p>
+      </div>
+
+      {onClose && (
+        <button
+          onClick={onClose}
+          className="p-2 rounded-lg hover:bg-white/10 transition-colors duration-200 text-white/60 hover:text-white"
+        >
+          <X size={20} />
+        </button>
+      )}
+    </div>
+  </div>
+);
+};
+
+const Alert = PremiumAlert;
 
   const UploadView = () => {
   // State for Amazon upload
@@ -618,7 +775,7 @@ const ShippingAnalytics = () => {
   };
 
   return (
-    <div className="min-h-[calc(100vh-200px)] p-6">
+    <div className="min-h-[calc(100vh-200px)] p-8">
     {/* Show admin panel only for admin users */}
     {user?.role === 'admin' && <AdminRatePanel />}
 
@@ -631,14 +788,14 @@ const ShippingAnalytics = () => {
       </div>
 
       {/* Alerts */}
-      {error && <Alert type="error" message={error} onClose={() => setError(null)} />}
+      {error && <PremiumAlert type="error" message={error} onClose={() => setError(null)} />}
       {success && <Alert type="success" message={success} onClose={() => setSuccess(null)} />}
 
       {/* Dual Column Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 max-w-7xl mx-auto">
 
         {/* ============== AMAZON UPLOAD CARD ============== */}
-        <div className="bg-[#1a1f2e] rounded-xl p-8 border border-orange-500/30 hover:border-orange-400/60 transition-all shadow-2xl hover:shadow-orange-500/20">
+        <div className="bg-[#1a1f2e] rounded-2xl p-8 border border-brand-blue/30 hover:border-brand-blue/60 transition-all shadow-2xl hover:shadow-brand-blue/20">
 
           {/* Amazon Logo & Header */}
           <div className="text-center mb-6">
@@ -774,7 +931,7 @@ const ShippingAnalytics = () => {
               disabled={amazonLoading}
               className="hidden"
             />
-            <span className={`w-full bg-gradient-to-r from-orange-500 to-orange-700 hover:from-orange-600 hover:to-orange-800 text-white px-6 py-4 rounded-lg cursor-pointer flex items-center justify-center gap-3 transition-all transform hover:scale-105 shadow-lg font-semibold ${
+            <span className={`w-full bg-gradient-to-r from-brand-blue to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-6 py-4 rounded-lg cursor-pointer flex items-center justify-center gap-3 transition-all transform hover:scale-105 shadow-lg font-semibold ${
               amazonLoading ? 'opacity-50 cursor-not-allowed' : ''
             }`}>
               <Upload size={20} />
@@ -786,7 +943,7 @@ const ShippingAnalytics = () => {
           {amazonFile && (
             <div className="mt-4 text-sm text-gray-400 bg-[#0f1419] p-4 rounded-lg border border-gray-800">
               <FileText className="inline mr-2" size={16} />
-              <span className="text-orange-400 font-semibold">{amazonFile.name}</span>
+              <span className="text-brand-blue font-semibold">{amazonFile.name}</span>
             </div>
           )}
 
@@ -827,7 +984,7 @@ const ShippingAnalytics = () => {
                     <span className="text-white truncate flex-1">{report.filename}</span>
                     <button
                       onClick={() => loadReport(report.id)}
-                      className="text-orange-500 hover:text-orange-400 font-semibold ml-2"
+                      className="text-orange-500 hover:text-brand-blue font-semibold ml-2"
                     >
                       View
                     </button>
@@ -841,7 +998,7 @@ const ShippingAnalytics = () => {
         </div>
 
         {/* ============== SHOPIFY UPLOAD CARD ============== */}
-        <div className="bg-[#1a1f2e] rounded-xl p-8 border border-green-500/30 hover:border-green-400/60 transition-all shadow-2xl hover:shadow-green-500/20">
+        <div className="bg-[#1a1f2e] rounded-2xl p-8 border border-brand-blue/30 hover:border-brand-blue/60 transition-all shadow-2xl hover:shadow-brand-blue/20">
 
           {/* Shopify Logo & Header */}
           <div className="text-center mb-6">
@@ -895,7 +1052,7 @@ const ShippingAnalytics = () => {
               disabled={shopifyLoading}
               className="hidden"
             />
-            <span className={`w-full bg-gradient-to-r from-green-500 to-green-700 hover:from-green-600 hover:to-green-800 text-white px-6 py-4 rounded-lg cursor-pointer flex items-center justify-center gap-3 transition-all transform hover:scale-105 shadow-lg font-semibold ${
+            <span className={`w-full bg-gradient-to-r from-brand-blue to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-6 py-4 rounded-lg cursor-pointer flex items-center justify-center gap-3 transition-all transform hover:scale-105 shadow-lg font-semibold ${
               shopifyLoading ? 'opacity-50 cursor-not-allowed' : ''
             }`}>
               <Upload size={20} />
@@ -907,7 +1064,7 @@ const ShippingAnalytics = () => {
           {shopifyFile && (
             <div className="mt-4 text-sm text-gray-400 bg-[#0f1419] p-4 rounded-lg border border-gray-800">
               <FileText className="inline mr-2" size={16} />
-              <span className="text-green-400 font-semibold">{shopifyFile.name}</span>
+              <span className="text-brand-blue font-semibold">{shopifyFile.name}</span>
             </div>
           )}
 
@@ -948,7 +1105,7 @@ const ShippingAnalytics = () => {
                     <span className="text-white truncate flex-1">{report.filename}</span>
                     <button
                       onClick={() => loadReport(report.id)}
-                      className="text-green-500 hover:text-green-400 font-semibold ml-2"
+                      className="text-green-500 hover:text-brand-blue font-semibold ml-2"
                     >
                       View
                     </button>
@@ -958,28 +1115,6 @@ const ShippingAnalytics = () => {
                 <p className="text-xs text-gray-600">No Shopify reports yet</p>
               )}
             </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Help Section */}
-      <div className="max-w-7xl mx-auto mt-8 bg-[#1a1f2e] rounded-xl p-6 border border-blue-500/20">
-        <h3 className="text-lg font-bold text-white mb-4">📘 Need Help?</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-400">
-          <div>
-            <h4 className="text-white font-semibold mb-2">Amazon Rate Types:</h4>
-            <ul className="space-y-1">
-              <li><strong className="text-orange-400">Prep:</strong> Prep center services & inspection</li>
-              <li><strong className="text-orange-400">Middle Mile:</strong> Transport to fulfillment centers</li>
-              <li><strong className="text-orange-400">FBA Shipment:</strong> Amazon fulfillment shipping</li>
-            </ul>
-          </div>
-          <div>
-            <h4 className="text-white font-semibold mb-2">Shopify Rate Types:</h4>
-            <ul className="space-y-1">
-              <li><strong className="text-green-400">Order Update:</strong> Order fulfillment & delivery</li>
-              <li><strong className="text-green-400">Product Update:</strong> Inventory & catalog changes</li>
-            </ul>
           </div>
         </div>
       </div>
@@ -1338,7 +1473,7 @@ const USAHeatMap = ({ states, title, dataType = "volume", hazmatData = null, sho
     ];
 
   return (
-    <div className="bg-[#1a1f2e] rounded-xl p-6 border border-gray-800 mb-6">
+    <div className="bg-[#1a1f2e] rounded-xl p-6 border border-gray-800 mb-8">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h3 className="text-white text-2xl font-bold mb-2 flex items-center gap-2">
@@ -2085,34 +2220,93 @@ const AdminUserManagement = () => {
   );
 };
 
-    const DashboardView = () => {
-      if (!dashboardData) {
-        return <WelcomeScreen />;
-      }
+// 🆕 ENHANCED DASHBOARDVIEW WITH SHIPPING SCORECARD INTEGRATION
+const DashboardView = () => {
+if (!dashboardData) {
+  return <WelcomeScreen />;
+}
 
-      return (
-      <div className="space-y-6 p-6">
-        {success && <Alert type="success" message={success} onClose={() => setSuccess(null)} />}
-        {error && <Alert type="error" message={error} onClose={() => setError(null)} />}
+// 🆕 For regular users (non-admin), always show scorecard
+if (user?.role !== 'admin') {
+  return (
+    <div className="space-y-6 p-6">
+      {success && <Alert type="success" message={success} onClose={() => setSuccess(null)} />}
+      {error && <PremiumAlert type="error" message={error} onClose={() => setError(null)} />}
 
-        <div className="bg-[#1a1f2e] rounded-xl p-6 border border-gray-800">
+      {/* Customer-facing Scorecard */}
+      <ShippingScorecard
+        data={dashboardData}
+        metadata={dashboardData.metadata}
+        isAdmin={false}
+      />
+    </div>
+  );
+}
+
+// 🆕 For admin users, show toggle buttons and conditional rendering
+return (
+  <div className="space-y-6 p-6">
+    {success && <Alert type="success" message={success} onClose={() => setSuccess(null)} />}
+    {error && <PremiumAlert type="error" message={error} onClose={() => setError(null)} />}
+
+    {/* Admin Header with Toggle Buttons */}
+    <div className="bg-[#1a1f2e] rounded-xl p-6 border border-gray-800">
+      <div className="flex items-center justify-between mb-4">
+        <div>
           <h2 className="text-2xl font-bold text-white mb-2">AMZ Prep Shipping Analysis</h2>
           <p className="text-gray-400">
             Generated on {new Date().toLocaleDateString()} • Analysis Period: {dashboardData.analysisMonths} {dashboardData.analysisMonths > 1 ? 'months' : 'month'}
           </p>
         </div>
 
-        {/* Check if Smash Foods format */}
+        {/* Toggle Buttons */}
+        <div className="flex gap-3">
+          <button
+            onClick={() => setViewType('scorecard')}
+            className={`px-6 py-3 rounded-lg font-semibold transition-all ${
+              viewType === 'scorecard'
+                ? 'bg-brand-blue text-white'
+                : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+            }`}
+          >
+            📊 Customer Scorecard View
+          </button>
+          <button
+            onClick={() => setViewType('detailed')}
+            className={`px-6 py-3 rounded-lg font-semibold transition-all ${
+              viewType === 'detailed'
+                ? 'bg-brand-blue text-white'
+                : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+            }`}
+          >
+            📈 Full Admin Dashboard
+          </button>
+        </div>
+      </div>
+    </div>
 
-          {(dashboardData?.metadata?.dataFormat === 'smash_foods_actual' ||
-          dashboardData?.metadata?.dataFormat === 'muscle_mac_actual') ? (
+    {/* Conditional Rendering Based on View Type */}
+    {viewType === 'scorecard' ? (
+      // Show Scorecard View (what customers see)
+      <ShippingScorecard
+        data={dashboardData}
+        metadata={dashboardData.metadata}
+        isAdmin={true}
+      />
+    ) : (
+      // Show Full Dashboard (your existing detailed view)
+      <div className="space-y-6">
+        {/* Check if Smash Foods format */}
+        {(dashboardData?.metadata?.dataFormat === 'smash_foods_actual' ||
+        dashboardData?.metadata?.dataFormat === 'muscle_mac_actual') ? (
           <SmashFoodsDashboard data={dashboardData} />
-          ) : (
+        ) : (
           <>
           </>
           // standard dashboard
         )}
 
+        {/* YOUR EXISTING DASHBOARD CONTENT */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <MetricCard
             icon={Package}
@@ -2350,11 +2544,14 @@ const AdminUserManagement = () => {
           </button>
         </div>
       </div>
-    );
-  };
+    )}
+  </div>
+);
+};
 
-  return (
-    <>
+// REPLACE your main return with:
+return (
+  <>
     <ProcessingModal
       isOpen={processingModalOpen}
       progress={uploadProgress}
@@ -2363,56 +2560,93 @@ const AdminUserManagement = () => {
       stats={processingStats}
     />
 
-    <div className="min-h-screen bg-[#0f1419]">
+    <div className="min-h-screen bg-gradient-to-br from-[#0B1426] via-[#0F1C3A] to-[#1A2847] flex">
+      {/* Premium Sidebar */}
+      <PremiumSidebar />
+
+      {/* Main Content Area */}
+      <div className={`flex-1 transition-all duration-500 ease-in-out ${
+        sidebarCollapsed ? 'ml-20' : 'ml-80'
+      }`}>
+        {/* Premium Header */}
+        <div className="relative border-b border-[#00A8FF]/20 p-8 bg-gradient-to-r from-[#1A2847]/80 to-[#0F1C3A]/60 backdrop-blur-sm">
+          <div className="absolute inset-0 bg-gradient-to-r from-[#00A8FF]/5 to-transparent"></div>
+          <div className="relative">
+            <h1 className="text-4xl font-black mb-3 bg-gradient-to-r from-white via-[#00A8FF] to-white bg-clip-text text-transparent tracking-tight">
+              Shipping Analytics
+            </h1>
+            <p className="text-white/60 text-xl font-light leading-relaxed">
+              Comprehensive shipping cost analysis and warehouse optimization
+            </p>
+          </div>
+        </div>
+
+        {/* Main Content */}
+        <div className="p-8">
+          {activeView === 'upload' ? <UploadView /> : <DashboardView />}
+        </div>
+      </div>
+
+      {/* User Management Modal - your existing modal code */}
+      {showUserManagement && user?.role === 'admin' && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="relative max-w-6xl w-full max-h-[90vh] overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-br from-[#1A2847] via-[#0F1C3A] to-[#0B1426] rounded-3xl"></div>
+            <div className="absolute inset-0 border border-[#00A8FF]/30 rounded-3xl"></div>
+
+            <div className="relative backdrop-blur-sm">
+              <div className="p-8 border-b border-[#00A8FF]/20 bg-gradient-to-r from-[#00A8FF]/10 to-transparent">
+                <div className="flex justify-between items-center">
+                  <h2 className="text-3xl font-bold text-white flex items-center gap-4">
+                    <Users size={32} className="text-[#00A8FF]" />
+                    User Management
+                  </h2>
+                  <button
+                    onClick={() => setShowUserManagement(false)}
+                    className="p-3 hover:bg-white/10 rounded-2xl transition-colors text-white/60 hover:text-white"
+                  >
+                    <X size={24} />
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-8 overflow-y-auto max-h-[70vh]">
+                <AdminUserManagement />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Premium Animations & Styles */}
       <style>{`
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(-10px); }
+        @keyframes slideIn {
+          from { opacity: 0; transform: translateY(-20px); }
           to { opacity: 1; transform: translateY(0); }
         }
-        .animate-fadeIn {
-          animation: fadeIn 0.3s ease-out;
+        .animate-slideIn {
+          animation: slideIn 0.5s ease-out;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+          width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+          background: rgba(0, 168, 255, 0.1);
+          border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb {
+          background: rgba(0, 168, 255, 0.3);
+          border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+          background: rgba(0, 168, 255, 0.5);
         }
       `}</style>
-
-      <Header />
-
-      <div className="max-w-7xl mx-auto">
-        <div className="p-6 pb-4">
-          <h1 className="text-4xl font-black text-white mb-2 bg-gradient-to-r from-blue-400 to-blue-400 bg-clip-text text-transparent">
-            Shipping Analytics Dashboard
-          </h1>
-          <p className="text-gray-400 text-lg">
-            Comprehensive shipping cost analysis and warehouse optimization
-          </p>
-        </div>
-
-        {activeView === 'upload' ? <UploadView /> : <DashboardView />}
-      </div>
-      {showUserManagement && user?.role === 'admin' && (
-      <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-        <div className="bg-[#1a1f2e] rounded-xl max-w-5xl w-full max-h-[90vh] overflow-hidden border border-gray-700 shadow-2xl">
-          <div className="p-6 border-b border-gray-700 flex justify-between items-center bg-gradient-to-r from-blue-700 to-blue-800">
-            <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-              <Users size={24} />
-              User Management
-            </h2>
-            <button
-              onClick={() => setShowUserManagement(false)}
-              className="text-white hover:bg-white/20 p-2 rounded-lg transition-colors"
-            >
-              <X size={24} />
-            </button>
-          </div>
-
-          <div className="p-6 overflow-y-auto max-h-[70vh]">
-            <AdminUserManagement />
-          </div>
-        </div>
-      </div>
-    )}
     </div>
-    </>
-  );
+  </>
+);
 };
 
 export default ShippingAnalytics;

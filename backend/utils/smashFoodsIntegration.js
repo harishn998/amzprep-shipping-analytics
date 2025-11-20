@@ -8,6 +8,7 @@ import SmashFoodsCalculator from './smashFoodsCalculator.js';
 import SmashFoodsAnalytics from './smashFoodsAnalytics.js';
 import HazmatAnalytics from './hazmatAnalytics.js';
 import AmazonRateEnhanced from '../models/AmazonRateEnhanced.js';
+import path from 'path';
 
 /**
  * SmashFoodsIntegration - FIXED VERSION
@@ -67,26 +68,40 @@ class SmashFoodsIntegration {
         console.log(`📅 Filtered to ${shipments.length} shipments from 2025`);
       }*/
 
-      // Filter to current year
+      // 🔧 Filter based on manual analysis pattern
+      // Pattern found: CLOSED + Current Year + Exclude Canadian shipments
       const currentYear = new Date().getFullYear();
-      const filteredByDate = shipments.filter(s => {
-        if (!s.createdDate) return false;
+
+      // Step 1: Filter by current year
+      const shipmentsWithDates = shipments.filter(s => s.createdDate);
+      const currentYearShipments = shipmentsWithDates.filter(s => {
         const year = new Date(s.createdDate).getFullYear();
         return year === currentYear;
       });
 
-      // Filter to US shipments only (exclude Canadian postal codes)
-      const usShipments = filteredByDate.filter(s => {
+      // Step 2: Exclude Canadian shipments
+      // Canadian postal codes: Start with letter OR 523xxx (Saskatchewan)
+      /*const usShipments = currentYearShipments.filter(s => {
         const zip = String(s.shipFromZip || '').trim();
-        if (!zip) return true;
 
-        // Canadian postal codes start with letters
-        const isCanadian = /^[A-Z]/i.test(zip);
-        return !isCanadian; // Keep US shipments only
+        if (!zip) return true; // Keep if no zip
+
+        // Exclude if starts with letter (Canadian format like N3Y5C3)
+        if (/^[A-Z]/i.test(zip)) return false;
+
+        // Exclude if starts with 523 (Canadian Saskatchewan codes)
+        if (zip.startsWith('523')) return false;
+
+        return true; // Keep US shipments
       });
 
-      shipments = usShipments;
-      console.log(`✅ Filtered: ${shipments.length} shipments (${currentYear}, US only)`);
+      if (usShipments.length > 0) {
+        shipments = usShipments;
+        console.log(`📅 Filtered to ${shipments.length} shipments (${currentYear}, US only)`);
+        console.log(`   Excluded Canadian postal codes (N3Y5C3, 523xxx)`);
+      } else {
+        console.log(`⚠️  No shipments after filtering, using all ${shipments.length} shipments`);
+      }*/
 
       // 🆕 APPLY HAZMAT FILTER
       let originalShipmentCount = shipments.length;

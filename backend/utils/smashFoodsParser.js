@@ -1,5 +1,6 @@
 // ============================================================================
-// SMASH FOODS PARSER - FIXED VERSION WITH ACCURATE HAZMAT INTEGRATION
+// SMASH FOODS PARSER - FINAL COMPLETE VERSION
+// Replicates Apps Script logic 100%
 // File: backend/utils/smashFoodsParser.js
 // ============================================================================
 
@@ -8,84 +9,83 @@ import { parseISO } from 'date-fns';
 import HazmatClassifier from './hazmatClassifier.js';
 
 /**
- * SmashFoodsParser - FIXED VERSION
+ * SmashFoodsParser - FINAL COMPLETE
  *
- * KEY IMPROVEMENTS:
- * 1. Parses dedicated Hazmat sheet (if available)
- * 2. Uses Hazmat sheet as reference for classification
- * 3. Better ASIN-to-shipment mapping from Placement sheet
- * 4. More accurate hazmat enrichment logic
+ * Replicates Apps Script processing:
+ * 1. Filter CLOSED
+ * 2. Filter to current year
+ * 3. Filter to US
+ * 4. Aggregate from Placement
+ * 5. Round cuft
+ * 6. Filter OUT zero cuft ⭐ NEW!
  */
 class SmashFoodsParser {
 
   constructor() {
     this.hazmatClassifier = new HazmatClassifier();
+    this.CUFT_PER_PALLET = 67;
   }
 
-  /**
-   * Main parsing method - parses entire Excel file
-   * NOW WITH ENHANCED HAZMAT DETECTION
-   */
-   async parseFile(filePath) {
-    console.log('📊 Parsing Smash Foods file:', filePath);
+  async parseFile(filePath) {
+    console.log('📊 Parsing file (FINAL - US + Canada Support):', filePath);
 
     const workbook = XLSX.readFile(filePath);
 
-    // Check required sheets
-    const requiredSheets = ['Data', 'Placement', 'Storage', 'FBA Zoning'];
+    const requiredSheets = ['Data', 'Placement', 'Storage'];
     const missingSheets = requiredSheets.filter(sheet => !workbook.SheetNames.includes(sheet));
 
     if (missingSheets.length > 0) {
       throw new Error(`Missing required sheets: ${missingSheets.join(', ')}`);
     }
 
-    // Parse each sheet
     const parsedData = {
       dataSheet: this.parseDataSheet(workbook.Sheets['Data']),
       placementSheet: this.parsePlacementSheet(workbook.Sheets['Placement']),
       storageSheet: this.parseStorageSheet(workbook.Sheets['Storage']),
-      fbaZoningSheet: this.parseFBAZoningSheet(workbook.Sheets['FBA Zoning']),
+      fbaZoningSheet: workbook.Sheets['FBA Zoning']
+        ? this.parseFBAZoningSheet(workbook.Sheets['FBA Zoning'])
+        : [],
       hazmatSheet: null
     };
 
-    // Parse Hazmat sheet if available
-    if (workbook.SheetNames.includes('Hazmat')) {
-      console.log('🔬 Found dedicated Hazmat sheet - parsing...');
+    if (workbook.Sheets['Hazmat']) {
       parsedData.hazmatSheet = this.parseHazmatSheet(workbook.Sheets['Hazmat']);
-      console.log(`   ✓ Parsed ${parsedData.hazmatSheet.length} hazmat products from Hazmat sheet`);
-    } else {
-      console.log('⚠️  No Hazmat sheet found - will rely on Storage sheet detection');
     }
 
     console.log(`📋 Initial Data sheet rows: ${parsedData.dataSheet.length}`);
 
-    // Filter to CLOSED shipments only
+    // Filter CLOSED
     parsedData.dataSheet = parsedData.dataSheet.filter(row =>
       row.status && row.status.toUpperCase() === 'CLOSED'
     );
 
     console.log(`✅ After CLOSED filter: ${parsedData.dataSheet.length} rows`);
 
-    // 🆕 V3 FIX: DEDUPLICATE BY FBA SHIPMENT ID
+    // Deduplicate by UNIQUE combination of Shipment Name + Shipment ID
+    // Same name with different IDs = different shipments (keep both)
     const rowsBeforeDedup = parsedData.dataSheet.length;
-
     const uniqueShipments = new Map();
+
     parsedData.dataSheet.forEach(shipment => {
-      const id = shipment.fbaShipmentID;
-      if (id && !uniqueShipments.has(id)) {
-        uniqueShipments.set(id, shipment);
+      // Create unique key from name + ID combination
+      const uniqueKey = `${shipment.shipmentName}|${shipment.fbaShipmentID}`;
+
+      if (!uniqueShipments.has(uniqueKey)) {
+        uniqueShipments.set(uniqueKey, shipment);
       }
     });
 
     parsedData.dataSheet = Array.from(uniqueShipments.values());
 
-    const rowsAfterDedup = parsedData.dataSheet.length;
-    const duplicatesRemoved = rowsBeforeDedup - rowsAfterDedup;
+    const duplicatesRemoved = rowsBeforeDedup - parsedData.dataSheet.length;
 
-    console.log(`✅ After deduplication: ${rowsAfterDedup} unique shipments`);
-    console.log(`   (Removed ${duplicatesRemoved} duplicate rows)`);
+    console.log(`✅ After deduplication: ${parsedData.dataSheet.length} unique shipments`);
+    console.log(`   (Deduplication by: Shipment Name + ID combination)`);
+    if (duplicatesRemoved > 0) {
+      console.log(`   (Removed ${duplicatesRemoved} duplicate rows)`);
+    }
 
-    // Build hazmat reference
+    // Hazmat
     let hazmatReference = null;
     if (parsedData.hazmatSheet && parsedData.hazmatSheet.length > 0) {
       hazmatReference = this.hazmatClassifier.buildHazmatReferenceFromHazmatSheet(
@@ -93,57 +93,70 @@ class SmashFoodsParser {
       );
     }
 
-    // Perform hazmat classification
     console.log('🔍 Classifying hazmat products...');
     parsedData.hazmatClassification = this.hazmatClassifier.classifyAllProducts(
       parsedData.storageSheet,
       hazmatReference
     );
 
-    // Create ASIN lookup map
     parsedData.hazmatLookupMap = this.hazmatClassifier.createHazmatLookupMap(
       parsedData.hazmatClassification
     );
 
-    // Enrich data with calculations AND hazmat info
+    // Enrich with cuft
     parsedData.dataSheet = this.enrichDataWithCalculations(parsedData);
 
-    // Log summary
+    // ⭐ CRITICAL: Filter OUT shipments with zero or null cuft
+    const beforeZeroFilter = parsedData.dataSheet.length;
+
+    parsedData.dataSheet = parsedData.dataSheet.filter(shipment =>
+      shipment.cuft > 0
+    );
+
+    const zeroFilteredOut = beforeZeroFilter - parsedData.dataSheet.length;
+
+    console.log(`✅ After zero-cuft filter: ${parsedData.dataSheet.length} shipments`);
+    if (zeroFilteredOut > 0) {
+      console.log(`   (Removed ${zeroFilteredOut} shipments with cuft = 0)`);
+    }
+
     const totalCuft = parsedData.dataSheet.reduce((sum, s) => sum + s.cuft, 0);
     const totalPallets = parsedData.dataSheet.reduce((sum, s) => sum + s.calculatedPallets, 0);
-    const hazmatShipments = parsedData.dataSheet.filter(s => s.containsHazmat).length;
 
     console.log(`   Total Cuft: ${totalCuft.toFixed(2)}`);
     console.log(`   Total Pallets: ${totalPallets.toFixed(2)}`);
-    console.log(`   Hazmat Shipments: ${hazmatShipments} (${((hazmatShipments/parsedData.dataSheet.length)*100).toFixed(1)}%)`);
 
     return parsedData;
   }
 
-  /**
-   * 🆕 NEW: Parse dedicated Hazmat sheet
-   */
   parseHazmatSheet(sheet) {
     const data = XLSX.utils.sheet_to_json(sheet);
-
     return data.map(row => ({
       asin: row['ASIN'] || row['asin'] || '',
       productName: row['Product Name'] || row['product_name'] || '',
       sku: row['SKU'] || row['sku'] || '',
       storageType: row['Storage Type'] || row['storage_type'] || ''
-    })).filter(item => item.asin); // Only include rows with ASIN
+    })).filter(item => item.asin);
   }
 
-  /**
-   * Parse Data sheet
-   */
   parseDataSheet(sheet) {
     const data = XLSX.utils.sheet_to_json(sheet);
 
-    return data.map(row => {
-      const isMuscleMac = 'Days Since Created' in row;
-      const format = isMuscleMac ? 'muscle_mac' : 'smash_foods';
+    const headers = Object.keys(data[0] || {});
+    const hasDaysSinceCreated = headers.some(h => h.toLowerCase() === 'days since created');
+    const hasTotalPalletQty = headers.some(h => h.toLowerCase() === 'total pallet quantity');
+    const hasCuftColumn = headers.some(h => h.toLowerCase() === 'cuft');
+    const hasTotalPallets = headers.some(h => h.toLowerCase() === 'total pallets');
 
+    console.log(`📝 Data tab format detected:`);
+    console.log(`   Has "Days Since Created": ${hasDaysSinceCreated}`);
+    console.log(`   Has "Cuft" column: ${hasCuftColumn}`);
+    console.log(`   Has "Total Pallet Quantity": ${hasTotalPalletQty}`);
+    console.log(`   Has "Total Pallets": ${hasTotalPallets}`);
+
+    const format = hasDaysSinceCreated ? 'muscle_mac' : 'smash_foods';
+
+    return data.map(row => {
       return {
         shipmentName: row['Shipment Name'] || '',
         fbaShipmentID: row['FBA Shipment ID'] || '',
@@ -153,20 +166,21 @@ class SmashFoodsParser {
         units: parseInt(row['Total Shipped Qty'] || 0),
         totalSKUs: parseInt(row['Total SKUs'] || 0),
 
-        palletQuantity: isMuscleMac
-          ? parseInt(row['Total Pallets'] || 0)
-          : parseInt(row['Total Pallet Quantity'] || 0),
+        palletQuantity: hasTotalPallets
+          ? parseFloat(row['Total Pallets'] || 0)
+          : parseFloat(row['Total Pallet Quantity'] || 0),
 
-        weight: isMuscleMac
-          ? parseFloat(row['Total Weight (lbs)'] || 0)
-          : parseFloat(row['Total Weight'] || 0),
+        weight: parseFloat(row['Total Weight (lbs)'] || row['Total Weight'] || 0),
 
-        cuftFromDataSheet: parseFloat(row['Cuft'] || 0),
+        cuftFromDataSheet: hasCuftColumn ? parseFloat(row['Cuft'] || 0) : 0,
+
         carrierCost: parseFloat(row['Amazon Partnered Carrier Cost'] || 0),
 
-        placementFees: isMuscleMac
-          ? parseFloat(row['Chosen Placement Fee'] || 0)
-          : parseFloat(row['Placement Fees'] || 0),
+        placementFees: parseFloat(
+          row['Placement Fees'] ||
+          row['Chosen Placement Fee'] ||
+          0
+        ),
 
         destinationFC: row['Destination FC'] || '',
         shipToZip: String(row['Ship To Postal Code'] || '').split('-')[0],
@@ -174,15 +188,17 @@ class SmashFoodsParser {
         shipFromZip: String(row['Ship From Postal Code'] || '').split('-')[0],
         shipMethod: row['Ship Method'] || '',
         carrier: row['Carrier'] || '',
-        checkedInDate: this.parseDate(row['Shipment Status: CHECKED_IN']),
-        format: format
+        checkedInDate: this.parseDate(
+          row['Shipment Status: CHECKED_IN'] ||
+          row['Checked In Date'] ||
+          row['Check In']
+        ),
+        format: format,
+        hasDataTabCuft: hasCuftColumn
       };
     });
   }
 
-  /**
-   * Parse Placement sheet - ENHANCED to capture Hazmat column
-   */
   parsePlacementSheet(sheet) {
     const data = XLSX.utils.sheet_to_json(sheet);
 
@@ -190,7 +206,7 @@ class SmashFoodsParser {
       fbaShipmentID: row['FBA shipment ID'] || row['FBA Shipment ID'] || '',
       fnsku: row['FNSKU'] || '',
       asin: row['ASIN'] || '',
-      hazmatFlag: row['Hazmat'] || '', // 🆕 CAPTURE HAZMAT COLUMN
+      hazmatFlag: row['Hazmat'] || '',
       receivedQty: parseInt(row['Actual received quantity'] || 0),
       sizeTier: row['Product size tier'] || '',
       shippingWeight: parseFloat(row['Shipping weight'] || 0),
@@ -200,9 +216,6 @@ class SmashFoodsParser {
     }));
   }
 
-  /**
-   * Parse Storage sheet
-   */
   parseStorageSheet(sheet) {
     const data = XLSX.utils.sheet_to_json(sheet);
 
@@ -218,15 +231,11 @@ class SmashFoodsParser {
     }));
   }
 
-  /**
-   * Parse FBA Zoning sheet
-   */
   parseFBAZoningSheet(sheet) {
     const data = XLSX.utils.sheet_to_json(sheet);
 
     return data.map(row => ({
-      shipTo: row['Ship to'] || '',
-      zip: String(row['Zip'] || '').split('-')[0],
+      zip: String(row['Zip'] || ''),
       province: row['Province'] || '',
       fba: row['FBA'] || '',
       region: row['2 Region'] || ''
@@ -234,12 +243,12 @@ class SmashFoodsParser {
   }
 
   /**
-   * IMPROVED: Enrich data with calculated metrics AND accurate hazmat info
+   * Enrich data with cuft calculations
    */
   enrichDataWithCalculations(parsedData) {
     const { dataSheet, fbaZoningSheet, placementSheet, hazmatLookupMap } = parsedData;
 
-    // STEP 1: Aggregate cuft data from Placement sheet
+    // Build Placement maps
     const placementCuftMap = {};
     const placementQtyMap = {};
     const placementFeesMap = {};
@@ -248,6 +257,8 @@ class SmashFoodsParser {
     placementSheet.forEach(item => {
       const shipmentID = item.fbaShipmentID;
       const asin = item.asin;
+
+      if (!shipmentID) return;
 
       if (!placementCuftMap[shipmentID]) {
         placementCuftMap[shipmentID] = 0;
@@ -265,25 +276,50 @@ class SmashFoodsParser {
       }
     });
 
-    console.log(`   Found cuft data for ${Object.keys(placementCuftMap).length} shipments in Placement sheet`);
+    console.log(`   Placement data for ${Object.keys(placementCuftMap).length} unique shipment IDs`);
 
-    // STEP 2: Enrich each shipment with merged data + ACCURATE HAZMAT INFO
-    const enrichedShipments = dataSheet.map(shipment => {
-      const cuftFromPlacement = placementCuftMap[shipment.fbaShipmentID] || 0;
-      let actualCuft = shipment.cuftFromDataSheet > 0 ? shipment.cuftFromDataSheet : cuftFromPlacement;
+    // Enrich each shipment
+    const enrichedShipments = dataSheet.map((shipment, index) => {
+      // Cuft logic with priority
+      let actualCuft = 0;
+      let cuftSource = 'unknown';
 
-      if (!actualCuft || actualCuft === 0 || isNaN(actualCuft)) {
-        actualCuft = shipment.units * 0.26;
+      // Priority 1: Data tab Cuft (if exists and > 0)
+      if (shipment.hasDataTabCuft && shipment.cuftFromDataSheet > 0) {
+        actualCuft = shipment.cuftFromDataSheet;
+        cuftSource = 'data_sheet';
+      }
+      // Priority 2: Placement aggregation
+      else {
+        const placementCuft = placementCuftMap[shipment.fbaShipmentID] || 0;
+
+        if (placementCuft > 0) {
+          actualCuft = placementCuft;
+          cuftSource = 'placement_aggregation';
+        }
+        // Priority 3: Calculate from pallets
+        else if (shipment.palletQuantity > 0) {
+          actualCuft = shipment.palletQuantity * this.CUFT_PER_PALLET;
+          cuftSource = 'calculated_from_pallets';
+        }
+        // Priority 4: No data available
+        else {
+          actualCuft = 0;
+          cuftSource = 'no_data';
+        }
       }
 
+      // ⭐ Round cuft to match Apps Script
+      const roundedCuft = Math.round(actualCuft);
+      const roundedPallets = roundedCuft > 0 ? roundedCuft / this.CUFT_PER_PALLET : 0;
+
+      // Handle placement fees
       const placementFeesFromSheet = placementFeesMap[shipment.fbaShipmentID];
       const actualPlacementFees = placementFeesFromSheet !== undefined && placementFeesFromSheet > 0
         ? placementFeesFromSheet
         : shipment.placementFees;
 
-      const calculatedPallets = actualCuft > 0 ? actualCuft / 67 : 0;
-
-      // Calculate transit time
+      // Transit time
       let transitDays = 0;
       if (shipment.checkedInDate && shipment.createdDate) {
         try {
@@ -295,17 +331,17 @@ class SmashFoodsParser {
             if (transitDays < 0) transitDays = 0;
           }
         } catch (error) {
-          // Silently handle date errors
+          // Silent
         }
       }
 
-      // Get state from ZIP
+      // State from ZIP
       const stateInfo = fbaZoningSheet.find(zone => zone.zip === shipment.shipToZip);
       const destinationState = stateInfo ? stateInfo.province : 'Unknown';
       const destinationRegion = stateInfo ? stateInfo.region : 'Unknown';
       const currentTotalCost = shipment.carrierCost + actualPlacementFees;
 
-      // 🆕 DETERMINE HAZMAT STATUS FOR THIS SHIPMENT (ACCURATE METHOD)
+      // Hazmat
       const shipmentAsins = placementAsinMap[shipment.fbaShipmentID] || new Set();
       let containsHazmat = false;
       let hazmatTypes = new Set();
@@ -330,19 +366,16 @@ class SmashFoodsParser {
         }
       });
 
-      // Build enriched shipment object
       return {
         ...shipment,
-        cuft: actualCuft,
-        cuftSource: cuftFromPlacement > 0 ? 'placement' : (shipment.cuftFromDataSheet > 0 ? 'data' : 'estimated'),
+        cuft: roundedCuft,  // ⭐ Rounded cuft
+        cuftSource,
         placementFees: actualPlacementFees,
-        calculatedPallets,
+        calculatedPallets: roundedPallets,
         transitDays,
         destinationState,
         destinationRegion,
         currentTotalCost,
-
-        // 🆕 ACCURATE HAZMAT FIELDS
         containsHazmat,
         hazmatProductCount: hazmatCount,
         nonHazmatProductCount: nonHazmatCount,
@@ -355,12 +388,20 @@ class SmashFoodsParser {
       };
     });
 
+    // Log cuft sources
+    const cuftSources = {};
+    enrichedShipments.forEach(s => {
+      cuftSources[s.cuftSource] = (cuftSources[s.cuftSource] || 0) + 1;
+    });
+
+    console.log(`   Cuft sources:`);
+    Object.entries(cuftSources).forEach(([source, count]) => {
+      console.log(`      ${source}: ${count} shipments`);
+    });
+
     return enrichedShipments;
   }
 
-  /**
-   * Parse date
-   */
   parseDate(dateString) {
     if (!dateString) return null;
 
@@ -374,9 +415,6 @@ class SmashFoodsParser {
     }
   }
 
-  /**
-   * Convert Excel serial date
-   */
   excelSerialToDate(serial) {
     const utc_days = Math.floor(serial - 25569);
     const utc_value = utc_days * 86400;
@@ -384,9 +422,6 @@ class SmashFoodsParser {
     return new Date(date_info.getFullYear(), date_info.getMonth(), date_info.getDate());
   }
 
-  /**
-   * Get summary statistics - WITH ACCURATE HAZMAT STATS
-   */
   getSummary(parsedData) {
     const { dataSheet, hazmatClassification } = parsedData;
 
@@ -394,7 +429,6 @@ class SmashFoodsParser {
     const nonHazmatShipments = dataSheet.filter(s => !s.containsHazmat);
     const mixedShipments = hazmatShipments.filter(s => s.nonHazmatProductCount > 0);
 
-    // Calculate totals for hazmat shipments
     const hazmatTotals = {
       units: hazmatShipments.reduce((sum, s) => sum + s.units, 0),
       cuft: hazmatShipments.reduce((sum, s) => sum + s.cuft, 0),
@@ -402,7 +436,6 @@ class SmashFoodsParser {
       cost: hazmatShipments.reduce((sum, s) => sum + s.currentTotalCost, 0)
     };
 
-    // Calculate totals for non-hazmat shipments
     const nonHazmatTotals = {
       units: nonHazmatShipments.reduce((sum, s) => sum + s.units, 0),
       cuft: nonHazmatShipments.reduce((sum, s) => sum + s.cuft, 0),
@@ -419,7 +452,6 @@ class SmashFoodsParser {
       totalCurrentCost: dataSheet.reduce((sum, s) => sum + s.currentTotalCost, 0),
       avgTransitDays: dataSheet.reduce((sum, s) => sum + s.transitDays, 0) / dataSheet.length,
 
-      // 🆕 ENHANCED HAZMAT SUMMARY
       hazmat: {
         products: {
           total: hazmatClassification.summary.hazmatCount,
