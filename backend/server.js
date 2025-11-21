@@ -237,11 +237,19 @@ async function parseMuscleMacFormat(filePath, hazmatFilter = 'all') {
 
     // Muscle Mac uses same calculation logic as Smash Foods
     // Just different column names in Data sheet
+    // 🆕 SOP Config
+    const sopConfig = {
+      ftlCost: 3000,      // Default FTL cost
+      palletCost: 150,    // Default pallet cost
+      useFTL: true        // Use FTL method
+    };
+
     const analysis = await integration.analyzeSmashFoodsFile(
       filePath,
       'combined',  // rate type
       0.10,       // 10% markup
-      hazmatFilter // Pass filter here too
+      hazmatFilter, // Pass filter here too
+      sopConfig   // 🆕 NEW: Pass SOP config
     );
 
     console.log('✅ Muscle Mac analysis complete');
@@ -286,11 +294,20 @@ async function parseSmashFoodsFormat(filePath, hazmatFilter = 'all') {
     const integration = new SmashFoodsIntegration();
 
     // Run complete automated analysis using Analysis (Pallet) sheet formulas
+    // 🆕 SOP Config
+    const sopConfig = {
+      ftlCost: 3000,      // Default FTL cost
+      palletCost: 150,    // Default pallet cost
+      useFTL: true        // Use FTL method
+    };
+
+    // Run complete automated analysis using SOP-compliant formulas
     const analysis = await integration.analyzeSmashFoodsFile(
       filePath,
       'combined', // rate type
       0.10, // 10% markup
-      hazmatFilter // NEW PARAMETER
+      hazmatFilter, // NEW PARAMETER
+      sopConfig   // 🆕 NEW: Pass SOP config
     );
 
     console.log('✅ Smash Foods analysis complete');
@@ -780,11 +797,11 @@ function convertSmashFoodsToReportFormat(analysis) {
   const currentFreight = safeNumber(analysis.currentCosts?.totalFreight, 0);
   const currentPlacementFees = safeNumber(analysis.currentCosts?.totalPlacementFees, 0);
 
-  // Proposed costs
-  const proposedTotalCost = safeNumber(analysis.proposedCosts?.combined?.totalCost, 0);
-  const patternCost = safeNumber(analysis.proposedCosts?.combined?.patternCost, 0);
-  const internalCost = safeNumber(analysis.proposedCosts?.combined?.internalCost, 0);
-  const amzPrepCost = safeNumber(analysis.proposedCosts?.combined?.amzPrepCost, 0);
+  // ✅ FIXED: Proposed costs - using SOP structure
+  const proposedTotalCost = safeNumber(analysis.proposedCosts?.sop?.totalFreightCost, 0);
+  const mmCost = safeNumber(analysis.proposedCosts?.sop?.mmCost, 0);
+  const internalTransferCost = safeNumber(analysis.proposedCosts?.sop?.internalTransferCost, 0);
+  const mmCostPT = safeNumber(analysis.proposedCosts?.sop?.mmCostPT, 0);
 
   // Savings
   const savingsAmount = safeNumber(analysis.savings?.amount, 0);
@@ -884,7 +901,7 @@ function convertSmashFoodsToReportFormat(analysis) {
 
     hazmat: analysis.hazmat || null,
 
-    // ENHANCED METADATA - Store complete Smash Foods analysis
+    // ✅ FIXED: ENHANCED METADATA - Store complete Smash Foods analysis with SOP structure
     metadata: {
       dataFormat: 'smash_foods_actual',
 
@@ -898,18 +915,17 @@ function convertSmashFoodsToReportFormat(analysis) {
         costPerPallet: safeNumber(analysis.currentCosts?.costPerPallet, 0)
       },
 
-      // Proposed costs with detailed breakdown using Analysis sheet formulas
+      // ✅ FIXED: Proposed costs using SOP structure
       proposedCosts: {
-        combined: {
-          patternCost: Math.round(patternCost),
-          internalCost: Math.round(internalCost),
-          freightOnlyCost: Math.round(safeNumber(analysis.proposedCosts?.combined?.freightOnlyCost, 0)),
-          amzPrepCost: Math.round(amzPrepCost),
-          totalCost: Math.round(proposedTotalCost),
-          costPerCuft: safeNumber(analysis.proposedCosts?.combined?.costPerCuft, 0),
-          costPerUnit: safeNumber(analysis.proposedCosts?.combined?.costPerUnit, 0),
-          costPerPallet: safeNumber(analysis.proposedCosts?.combined?.costPerPallet, 0),
-          breakdown: (analysis.proposedCosts?.combined?.breakdown || []).map(item => ({
+        sop: {
+          mmCost: Math.round(mmCost),
+          internalTransferCost: Math.round(internalTransferCost),
+          totalFreightCost: Math.round(proposedTotalCost),
+          mmCostPT: Math.round(mmCostPT),
+          costPerCuft: safeNumber(analysis.proposedCosts?.sop?.costPerCuft, 0),
+          costPerUnit: safeNumber(analysis.proposedCosts?.sop?.costPerUnit, 0),
+          costPerPallet: safeNumber(analysis.proposedCosts?.sop?.costPerPallet, 0),
+          breakdown: (analysis.proposedCosts?.sop?.breakdown || []).map(item => ({
             type: item.type || 'Unknown',
             description: item.description || '',
             cost: Math.round(safeNumber(item.cost, 0))

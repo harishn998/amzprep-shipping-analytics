@@ -20,7 +20,7 @@ export const SmashFoodsDashboard = ({ data }) => {
   }
 
   const currentCosts = metadata.currentCosts || {};
-  const proposedCosts = metadata.proposedCosts?.combined || {};
+  const proposedCosts = metadata.proposedCosts?.sop || {};
   const savings = metadata.savings || {};
   const isSavings = savings.amount > 0;
 
@@ -166,33 +166,27 @@ const SmashFoodsCostComparison = ({ currentCosts, proposedCosts, savings }) => {
           </div>
         </div>
 
-        {/* AMZ Prep */}
+        {/* AMZ Prep - SOP Compliant */}
         <div className="bg-blue-900/30 p-4 rounded-lg border border-blue-500/30">
           <h3 className="text-lg font-semibold text-white mb-3">AMZ Prep Solution</h3>
           <div className="space-y-2">
             <div className="flex justify-between text-sm">
               <span className="text-gray-400">Pattern (DC→FBA):</span>
               <span className="text-white font-medium">
-                ${proposedCosts.patternCost?.toLocaleString()}
+                ${proposedCosts.mmCost?.toLocaleString() || '0'}
               </span>
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-gray-400">Internal (Whse→DC):</span>
               <span className="text-white font-medium">
-                ${proposedCosts.internalCost?.toLocaleString()}
-              </span>
-            </div>
-            <div className="flex justify-between text-sm text-green-400">
-              <span>After 9.86% discount:</span>
-              <span className="font-medium">
-                ${proposedCosts.amzPrepCost?.toLocaleString()}
+                ${proposedCosts.internalTransferCost?.toLocaleString() || '0'}
               </span>
             </div>
             <div className="border-t border-blue-500/30 pt-2 mt-2">
               <div className="flex justify-between">
                 <span className="text-white font-semibold">Total:</span>
                 <span className="text-xl font-bold text-brand-blue">
-                  ${proposedCosts.totalCost?.toLocaleString()}
+                  ${proposedCosts.totalFreightCost?.toLocaleString() || '0'}
                 </span>
               </div>
             </div>
@@ -244,7 +238,7 @@ const SmashFoodsCostComparison = ({ currentCosts, proposedCosts, savings }) => {
              ${metadata.currentCosts?.costPerCuft?.toFixed(2) || '0.00'}
            </div>
            <div className="text-xs text-green-400 mt-1">
-             → ${metadata.proposedCosts?.combined?.costPerCuft?.toFixed(2) || '0.00'} AMZ Prep
+             → ${metadata.proposedCosts?.sop?.costPerCuft?.toFixed(2) || '0.00'} AMZ Prep
            </div>
          </div>
 
@@ -254,7 +248,7 @@ const SmashFoodsCostComparison = ({ currentCosts, proposedCosts, savings }) => {
              ${metadata.currentCosts?.costPerUnit?.toFixed(2) || '0.00'}
            </div>
            <div className="text-xs text-green-400 mt-1">
-             → ${metadata.proposedCosts?.combined?.costPerUnit?.toFixed(2) || '0.00'} AMZ Prep
+             → ${metadata.proposedCosts?.sop?.costPerUnit?.toFixed(2) || '0.00'} AMZ Prep
            </div>
          </div>
 
@@ -264,7 +258,7 @@ const SmashFoodsCostComparison = ({ currentCosts, proposedCosts, savings }) => {
              ${metadata.currentCosts?.costPerPallet?.toFixed(2) || '0.00'}
            </div>
            <div className="text-xs text-green-400 mt-1">
-             → ${metadata.proposedCosts?.combined?.costPerPallet?.toFixed(2) || '0.00'} AMZ Prep
+             → ${metadata.proposedCosts?.sop?.costPerPallet?.toFixed(2) || '0.00'} AMZ Prep
            </div>
          </div>
 
@@ -292,7 +286,7 @@ const SmashFoodsCostComparison = ({ currentCosts, proposedCosts, savings }) => {
            {/* Hazmat Overview Cards */}
            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
              {/* Card 1: Hazmat Products */}
-             <div className="bg-gradient-to-br bg-gray-700/50 to-gray-800 p-6 rounded-lg">
+             <div className="bg-gray-700/50 p-6 rounded-lg">
                <div className="text-sm text-gray-300 mb-2 font-medium">
                  Hazmat Products
                </div>
@@ -305,7 +299,7 @@ const SmashFoodsCostComparison = ({ currentCosts, proposedCosts, savings }) => {
              </div>
 
              {/* Card 2: Hazmat Shipments */}
-             <div className="bg-gradient-to-br bg-gray-700/50 to-gray-800 p-6 rounded-lg">
+             <div className="bg-gray-700/50 p-6 rounded-lg">
                <div className="text-sm text-gray-300 mb-2 font-medium">
                  Hazmat Shipments
                </div>
@@ -318,7 +312,7 @@ const SmashFoodsCostComparison = ({ currentCosts, proposedCosts, savings }) => {
              </div>
 
              {/* Card 3: DG Classifications */}
-             <div className="bg-gradient-to-br bg-gray-700/50 to-gray-800 p-6 rounded-lg">
+             <div className="bg-gray-700/50 p-6 rounded-lg">
                <div className="text-sm text-gray-300 mb-2 font-medium">
                  DG Classifications
                </div>
@@ -331,7 +325,7 @@ const SmashFoodsCostComparison = ({ currentCosts, proposedCosts, savings }) => {
              </div>
 
              {/* Card 4: Compliance Status */}
-             <div className="bg-gradient-to-br bg-gray-700/50 to-gray-800 p-6 rounded-lg">
+             <div className="bg-gray-700/50 p-6 rounded-lg">
                <div className="text-sm text-gray-300 mb-2 font-medium">
                  High Confidence
                </div>
@@ -460,10 +454,10 @@ const SmashFoodsAnalysisSection = ({ proposedCosts, totalCuft, totalPallets }) =
 
       <div className="mt-4 p-4 bg-blue-900/20 border border-blue-500/30 rounded-lg">
         <div className="text-sm text-gray-300 space-y-1">
-          <p><strong>Pallet Analysis:</strong></p>
-          <p>• Pattern Rate: $2.625/cuft ({totalCuft?.toFixed(2)} cuft)</p>
-          <p>• Internal Rate: $1.0138/cuft</p>
-          <p>• Discount Applied: 9.86% operational efficiency</p>
+          <p><strong>Rate Analysis:</strong></p>
+          <p>• Pattern Rates: $2.75-$7.00/cuft (varies by warehouse & type)</p>
+          <p>• Internal Transfer: Based on FTL cost / 1742 × 1.20</p>
+          <p>• Total Volume: {totalCuft?.toFixed(2)} cuft ({totalPallets?.toFixed(2)} pallets)</p>
         </div>
       </div>
     </div>

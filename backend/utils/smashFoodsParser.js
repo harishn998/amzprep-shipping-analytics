@@ -106,19 +106,18 @@ class SmashFoodsParser {
     // Enrich with cuft
     parsedData.dataSheet = this.enrichDataWithCalculations(parsedData);
 
-    // ⭐ CRITICAL: Filter OUT shipments with zero or null cuft
+
+    // 🆕 V4 FIX: DON'T filter zero-cuft - let SOP calculator handle it
+    // The enhancement layer should have added cuft, but if not, we'll keep the shipments anyway
     const beforeZeroFilter = parsedData.dataSheet.length;
 
-    parsedData.dataSheet = parsedData.dataSheet.filter(shipment =>
-      shipment.cuft > 0
-    );
+    // DISABLED: parsedData.dataSheet = parsedData.dataSheet.filter(shipment => shipment.cuft > 0);
+    const shipmentsWithCuft = parsedData.dataSheet.filter(s => s.cuft > 0).length;
+    const shipmentsWithoutCuft = parsedData.dataSheet.filter(s => s.cuft === 0).length;
 
-    const zeroFilteredOut = beforeZeroFilter - parsedData.dataSheet.length;
-
-    console.log(`✅ After zero-cuft filter: ${parsedData.dataSheet.length} shipments`);
-    if (zeroFilteredOut > 0) {
-      console.log(`   (Removed ${zeroFilteredOut} shipments with cuft = 0)`);
-    }
+    console.log(`✅ Total shipments: ${parsedData.dataSheet.length} (keeping all shipments)`);
+    console.log(`   ✓ With cuft > 0: ${shipmentsWithCuft}`);
+    console.log(`   ✓ With cuft = 0: ${shipmentsWithoutCuft}`);
 
     const totalCuft = parsedData.dataSheet.reduce((sum, s) => sum + s.cuft, 0);
     const totalPallets = parsedData.dataSheet.reduce((sum, s) => sum + s.calculatedPallets, 0);

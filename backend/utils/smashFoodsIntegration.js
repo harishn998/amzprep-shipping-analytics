@@ -1,46 +1,43 @@
 // ============================================================================
-// SMASH FOODS INTEGRATION - FIXED VERSION WITH ACCURATE HAZMAT ANALYSIS
+// SMASH FOODS INTEGRATION - SOP COMPLIANT VERSION
 // File: backend/utils/smashFoodsIntegration.js
 // ============================================================================
 
 import SmashFoodsParser from './smashFoodsParser.js';
-import SmashFoodsCalculator from './smashFoodsCalculator.js';
+import SmashFoodsCalculator from './smashFoodsCalculator.js'; // Keep for backup
+import MiddleMileCalculatorSOP from './middleMileCalculatorSOP.js'; // NEW SOP calculator
 import SmashFoodsAnalytics from './smashFoodsAnalytics.js';
 import HazmatAnalytics from './hazmatAnalytics.js';
 import AmazonRateEnhanced from '../models/AmazonRateEnhanced.js';
-import path from 'path';
 
 /**
- * SmashFoodsIntegration - FIXED VERSION
- *
- * KEY IMPROVEMENTS:
- * 1. Accurate hazmat detection using Hazmat sheet as source of truth
- * 2. Proper shipment filtering by hazmat status
- * 3. Correct cost calculations for filtered data
- * 4. Enhanced analytics and insights
+ * SmashFoodsIntegration - SOP COMPLIANT VERSION
  */
 class SmashFoodsIntegration {
 
   constructor() {
     this.parser = new SmashFoodsParser();
-    this.calculator = new SmashFoodsCalculator();
+    this.oldCalculator = new SmashFoodsCalculator(); // Keep for comparison
+    this.sopCalculator = new MiddleMileCalculatorSOP(); // NEW SOP calculator
     this.analytics = new SmashFoodsAnalytics();
     this.hazmatAnalytics = new HazmatAnalytics();
   }
 
   /**
-   * Main analysis method - FIXED VERSION
+   * Main analysis method - SOP COMPLIANT
    */
-  async analyzeSmashFoodsFile(filePath, rateType = 'combined', markup = 0.10, hazmatFilter = 'all') {
-    console.log('🚀 Starting Smash Foods analysis (FIXED VERSION)...');
+  async analyzeSmashFoodsFile(filePath, rateType = 'combined', markup = 0.10, hazmatFilter = 'all', config = {}) {
+    console.log('\n🚀 ===============================================');
+    console.log('   SMASH FOODS ANALYSIS - SOP COMPLIANT');
+    console.log('===============================================');
     console.log(`   File: ${filePath}`);
-    console.log(`   Rate Type: ${rateType}`);
-    console.log(`   Markup: ${(markup * 100)}%`);
     console.log(`   Hazmat Filter: ${hazmatFilter}`);
+    console.log(`   Calculation Method: SOP Official Document`);
+    console.log('===============================================\n');
 
     try {
-      // Step 1: Parse Excel file with ACCURATE hazmat detection
-      console.log('📊 Step 1: Parsing Excel file with hazmat detection...');
+      // Step 1: Parse Excel file
+      console.log('📊 Step 1: Parsing Excel file...');
       const parsedData = await this.parser.parseFile(filePath);
       let shipments = parsedData.dataSheet;
 
@@ -50,78 +47,44 @@ class SmashFoodsIntegration {
 
       console.log(`✅ Parsed ${shipments.length} closed shipments`);
 
-      // Log hazmat detection results
+      // Log hazmat detection
       const hazmatShipments = shipments.filter(s => s.containsHazmat);
-      console.log(`   🔬 Hazmat detection:`);
-      console.log(`      - Products: ${parsedData.hazmatClassification.summary.hazmatCount} hazmat, ${parsedData.hazmatClassification.summary.nonHazmatCount} non-hazmat`);
-      console.log(`      - Shipments: ${hazmatShipments.length} contain hazmat (${((hazmatShipments.length/shipments.length)*100).toFixed(1)}%)`);
+      console.log(`\n🔬 Hazmat Detection:`);
+      console.log(`   Products: ${parsedData.hazmatClassification.summary.hazmatCount} hazmat, ${parsedData.hazmatClassification.summary.nonHazmatCount} non-hazmat`);
+      console.log(`   Shipments: ${hazmatShipments.length} contain hazmat (${((hazmatShipments.length/shipments.length)*100).toFixed(1)}%)`);
 
-      // Filter to 2025 shipments
-      /*const shipmentsWithDates = shipments.filter(s => s.createdDate);
-      const shipments2025 = shipmentsWithDates.filter(s => {
-        const year = new Date(s.createdDate).getFullYear();
-        return year === 2025;
-      });
-
-      if (shipments2025.length > 0) {
-        shipments = shipments2025;
-        console.log(`📅 Filtered to ${shipments.length} shipments from 2025`);
-      }*/
-
-      // 🔧 Filter based on manual analysis pattern
-      // Pattern found: CLOSED + Current Year + Exclude Canadian shipments
+      // Filter by current year
       const currentYear = new Date().getFullYear();
-
-      // Step 1: Filter by current year
       const shipmentsWithDates = shipments.filter(s => s.createdDate);
       const currentYearShipments = shipmentsWithDates.filter(s => {
         const year = new Date(s.createdDate).getFullYear();
         return year === currentYear;
       });
 
-      // Step 2: Exclude Canadian shipments
-      // Canadian postal codes: Start with letter OR 523xxx (Saskatchewan)
-      /*const usShipments = currentYearShipments.filter(s => {
-        const zip = String(s.shipFromZip || '').trim();
+      if (currentYearShipments.length > 0) {
+        shipments = currentYearShipments;
+        console.log(`\n📅 Filtered to ${shipments.length} shipments from ${currentYear}`);
+      }
 
-        if (!zip) return true; // Keep if no zip
-
-        // Exclude if starts with letter (Canadian format like N3Y5C3)
-        if (/^[A-Z]/i.test(zip)) return false;
-
-        // Exclude if starts with 523 (Canadian Saskatchewan codes)
-        if (zip.startsWith('523')) return false;
-
-        return true; // Keep US shipments
-      });
-
-      if (usShipments.length > 0) {
-        shipments = usShipments;
-        console.log(`📅 Filtered to ${shipments.length} shipments (${currentYear}, US only)`);
-        console.log(`   Excluded Canadian postal codes (N3Y5C3, 523xxx)`);
-      } else {
-        console.log(`⚠️  No shipments after filtering, using all ${shipments.length} shipments`);
-      }*/
-
-      // 🆕 APPLY HAZMAT FILTER
+      // Apply hazmat filter
       let originalShipmentCount = shipments.length;
       let filterDescription = 'All shipments';
 
       if (hazmatFilter === 'hazmat') {
         shipments = shipments.filter(s => s.containsHazmat === true);
         filterDescription = 'Hazmat shipments only';
-        console.log(`🔍 Filtered to ${shipments.length} HAZMAT shipments (from ${originalShipmentCount} total)`);
+        console.log(`\n🔍 Filtered to ${shipments.length} HAZMAT shipments (from ${originalShipmentCount} total)`);
       } else if (hazmatFilter === 'non-hazmat') {
         shipments = shipments.filter(s => s.containsHazmat === false);
         filterDescription = 'Non-hazmat shipments only';
-        console.log(`🔍 Filtered to ${shipments.length} NON-HAZMAT shipments (from ${originalShipmentCount} total)`);
+        console.log(`\n🔍 Filtered to ${shipments.length} NON-HAZMAT shipments (from ${originalShipmentCount} total)`);
       }
 
       if (shipments.length === 0) {
         throw new Error(`No ${hazmatFilter} shipments found after filtering`);
       }
 
-      // Log breakdown by hazmat type (if filtering to hazmat only)
+      // Log hazmat type breakdown
       if (hazmatFilter === 'hazmat') {
         const typeBreakdown = {};
         shipments.forEach(s => {
@@ -129,45 +92,86 @@ class SmashFoodsIntegration {
             typeBreakdown[type] = (typeBreakdown[type] || 0) + 1;
           });
         });
-        console.log(`   📊 Hazmat types in filtered shipments:`);
+        console.log(`\n📊 Hazmat Types:`);
         Object.entries(typeBreakdown).forEach(([type, count]) => {
-          console.log(`      - ${type}: ${count} shipments`);
+          console.log(`   - ${type}: ${count} shipments`);
         });
       }
 
-      // Step 2: Get rates
-      console.log('💰 Step 2: Fetching AMZ Prep rates...');
-      const rates = await this.getActiveRates();
-      console.log('✅ Rates loaded');
+      // Step 2: Calculate costs using SOP
+      console.log(`\n🧮 Step 2: Calculating costs (SOP method)...`);
 
-      // Step 3: Calculate costs FOR FILTERED DATA
-      console.log('🧮 Step 3: Calculating costs for filtered data...');
-      const costAnalysis = this.calculator.calculateComprehensiveComparison(
-        shipments,
-        rates,
-        markup
-      );
-      console.log('✅ Cost calculations complete');
-      console.log(`   Current Total: $${costAnalysis.currentCosts.totalCost.toLocaleString()}`);
-      console.log(`   AMZ Prep Total: $${costAnalysis.proposedCosts.totalCost.toLocaleString()}`);
-      console.log(`   Savings: $${costAnalysis.savings.amount.toLocaleString()} (${costAnalysis.savings.percent}%)`);
+      const sopConfig = {
+        ftlCost: config.ftlCost || 3000,
+        palletCost: config.palletCost || 150,
+        useFTL: config.useFTL !== false
+      };
+
+      const sopCalculation = this.sopCalculator.calculateBulkShipments(shipments, sopConfig);
+
+      // Step 3: Get current costs
+      console.log(`\n💰 Step 3: Calculating current costs...`);
+      const currentCosts = this.calculateCurrentCosts(shipments);
+
+      console.log(`✅ Current: $${currentCosts.totalCost.toFixed(2)}`);
+      console.log(`   - Placement: $${currentCosts.totalPlacementFees.toFixed(2)}`);
+      console.log(`   - Carrier: $${currentCosts.totalFreight.toFixed(2)}`);
 
       // Step 4: Generate analytics
-      console.log('📈 Step 4: Generating insights...');
+      console.log(`\n📈 Step 4: Generating insights...`);
+
+      const costAnalysisForAnalytics = {
+        currentCosts,
+        currentMetrics: this.calculateMetrics(
+          currentCosts.totalCost,
+          sopCalculation.summary.totalCuft,
+          sopCalculation.summary.totalShipments * 50,
+          sopCalculation.summary.totalPallets
+        ),
+        proposedCosts: {
+          totalCost: sopCalculation.summary.totalFreightCost
+        },
+        proposedMetrics: this.calculateMetrics(
+          sopCalculation.summary.totalFreightCost,
+          sopCalculation.summary.totalCuft,
+          sopCalculation.summary.totalShipments * 50,
+          sopCalculation.summary.totalPallets
+        ),
+        savings: {
+          amount: sopCalculation.summary.totalMerchantSavings,
+          percent: sopCalculation.summary.savingsPercent,
+          currentTotal: sopCalculation.summary.totalClientCost,
+          proposedTotal: sopCalculation.summary.totalFreightCost
+        },
+        transitImprovement: {
+          currentTransitDays: Math.round(shipments.reduce((sum, s) => sum + s.transitDays, 0) / shipments.length),
+          amzPrepTransitDays: 6,
+          improvementDays: 0,
+          improvementPercent: 0
+        },
+        stateBreakdown: this.calculateStateBreakdown(shipments)
+      };
+
+      // Calculate transit improvement
+      if (costAnalysisForAnalytics.transitImprovement.currentTransitDays > 6) {
+        costAnalysisForAnalytics.transitImprovement.improvementDays =
+          costAnalysisForAnalytics.transitImprovement.currentTransitDays - 6;
+        costAnalysisForAnalytics.transitImprovement.improvementPercent =
+          (costAnalysisForAnalytics.transitImprovement.improvementDays /
+           costAnalysisForAnalytics.transitImprovement.currentTransitDays) * 100;
+      }
+
       const insights = this.analytics.generateDashboardInsights(
-        costAnalysis,
+        costAnalysisForAnalytics,
         shipments
       );
       console.log('✅ Insights generated');
 
-      // 🆕 Step 5: Generate COMPREHENSIVE hazmat analytics
-      console.log('🔬 Step 5: Generating comprehensive hazmat analytics...');
-
-      // For hazmat analytics, we need to use the FULL classification data
-      // but filter shipments according to the user's selection
+      // Step 5: Hazmat analytics
+      console.log(`\n🔬 Step 5: Generating hazmat analytics...`);
       const hazmatAnalysis = this.hazmatAnalytics.generateHazmatAnalysis(
         parsedData.hazmatClassification,
-        shipments // Use filtered shipments
+        shipments
       );
       console.log('✅ Hazmat analytics complete');
 
@@ -177,10 +181,9 @@ class SmashFoodsIntegration {
         hazmatClassification: parsedData.hazmatClassification
       });
 
-      // 🆕 Calculate metrics breakdown by hazmat status
       const hazmatMetricsBreakdown = this.calculateHazmatMetricsBreakdown(
         shipments,
-        costAnalysis
+        costAnalysisForAnalytics
       );
 
       const completeAnalysis = {
@@ -191,7 +194,7 @@ class SmashFoodsIntegration {
         totalCuft: Math.round(summary.totalCuft),
         totalWeight: Math.round(summary.totalWeight),
 
-        // Filter information
+        // Filter info
         filterApplied: hazmatFilter,
         filterDescription,
         originalShipmentCount,
@@ -199,71 +202,87 @@ class SmashFoodsIntegration {
         // Date range
         dateRange: insights.executiveSummary.overview.analysisTimeframe,
 
+        // Calculation method
+        calculationMethod: 'SOP_COMPLIANT',
+        sopConfig,
+
         // Current costs
         currentCosts: {
-          totalFreight: costAnalysis.currentCosts.totalFreight,
-          totalPlacementFees: costAnalysis.currentCosts.totalPlacementFees,
-          totalCost: costAnalysis.currentCosts.totalCost,
-          costPerCuft: costAnalysis.currentMetrics.costPerCuft,
-          costPerUnit: costAnalysis.currentMetrics.costPerUnit,
-          costPerPallet: costAnalysis.currentMetrics.costPerPallet
+          totalFreight: currentCosts.totalFreight,
+          totalPlacementFees: currentCosts.totalPlacementFees,
+          totalCost: currentCosts.totalCost,
+          costPerCuft: costAnalysisForAnalytics.currentMetrics.costPerCuft,
+          costPerUnit: costAnalysisForAnalytics.currentMetrics.costPerUnit,
+          costPerPallet: costAnalysisForAnalytics.currentMetrics.costPerPallet
         },
 
-        // Proposed costs
+        // Proposed costs (SOP)
         proposedCosts: {
-          combined: {
-            patternCost: costAnalysis.proposedCosts.patternCost,
-            internalCost: costAnalysis.proposedCosts.internalCost,
-            freightOnlyCost: costAnalysis.proposedCosts.freightOnlyCost,
-            amzPrepCost: costAnalysis.proposedCosts.amzPrepCost,
-            totalCost: costAnalysis.proposedCosts.totalCost,
-            costPerCuft: costAnalysis.proposedMetrics.costPerCuft,
-            costPerUnit: costAnalysis.proposedMetrics.costPerUnit,
-            costPerPallet: costAnalysis.proposedMetrics.costPerPallet,
+          sop: {
+            mmCost: sopCalculation.summary.totalMM,
+            internalTransferCost: sopCalculation.summary.totalInternalTransfer,
+            totalFreightCost: sopCalculation.summary.totalFreightCost,
+            mmCostPT: sopCalculation.summary.totalMMCostPT,
+
+            costPerCuft: costAnalysisForAnalytics.proposedMetrics.costPerCuft,
+            costPerUnit: costAnalysisForAnalytics.proposedMetrics.costPerUnit,
+            costPerPallet: costAnalysisForAnalytics.proposedMetrics.costPerPallet,
+
             breakdown: [
               {
-                type: 'Pattern (DC to FBA)',
-                description: `${Math.round(summary.totalCuft)} cuft @ $2.625/cuft`,
-                cost: costAnalysis.proposedCosts.patternCost
+                type: 'Middle Mile (Pattern to Amazon)',
+                description: `${Math.round(summary.totalCuft)} cuft × rate (varies by type)`,
+                cost: sopCalculation.summary.totalMM,
+                formula: 'Cuft × Pattern Rate ($2.75-$7.00 depending on type)'
               },
               {
-                type: 'Internal Transfer (Whse to DC)',
-                description: `${Math.round(summary.totalCuft)} cuft @ $1.014/cuft`,
-                cost: costAnalysis.proposedCosts.internalCost
+                type: 'Internal Transfer (Warehouse to Pattern)',
+                description: `${Math.round(summary.totalCuft)} cuft × (FTL/1742) × 1.20`,
+                cost: sopCalculation.summary.totalInternalTransfer,
+                formula: 'Cuft × (FTL/1742) × 1.20 markup'
               },
               {
-                type: 'Freight Only Subtotal',
-                description: 'Pattern + Internal before discount',
-                cost: costAnalysis.proposedCosts.freightOnlyCost
+                type: 'Total Freight Cost',
+                description: 'MM + Internal Transfer',
+                cost: sopCalculation.summary.totalFreightCost,
+                formula: 'Client would pay this amount'
               },
               {
-                type: 'AMZ Prep Final Cost',
-                description: 'After 9.86% operational efficiency discount',
-                cost: costAnalysis.proposedCosts.amzPrepCost
+                type: 'MM COST PT (AMZ Prep\'s Cost)',
+                description: 'What AMZ Prep is charged by Pattern',
+                cost: sopCalculation.summary.totalMMCostPT,
+                formula: '[(FTL/26) × Pallets] + [Cuft × Base Rate]'
               }
-            ]
+            ],
+
+            warehouseBreakdown: sopCalculation.warehouseBreakdown,
+            typeBreakdown: sopCalculation.typeBreakdown,
+            rateCard: this.sopCalculator.getRateCard()
           }
         },
 
         // Savings
         savings: {
-          amount: costAnalysis.savings.amount,
-          percent: costAnalysis.savings.percent,
-          currentTotal: costAnalysis.savings.currentTotal,
-          proposedTotal: costAnalysis.savings.proposedTotal
+          amount: sopCalculation.summary.totalMerchantSavings,
+          percent: sopCalculation.summary.savingsPercent,
+          currentTotal: sopCalculation.summary.totalClientCost,
+          proposedTotal: sopCalculation.summary.totalFreightCost,
+          explanation: sopCalculation.summary.totalMerchantSavings >= 0 ?
+            'Client saves money with AMZ Prep' :
+            'Client would pay more with AMZ Prep'
         },
 
         // Transit times
-        avgTransitTime: Math.round(summary.avgTransitDays),
-        amzPrepTransitTime: this.calculator.AMZ_PREP_TRANSIT_DAYS,
-        transitImprovement: costAnalysis.transitImprovement.improvementDays,
-        transitImprovementPercent: costAnalysis.transitImprovement.improvementPercent,
+        avgTransitTime: costAnalysisForAnalytics.transitImprovement.currentTransitDays,
+        amzPrepTransitTime: 6,
+        transitImprovement: costAnalysisForAnalytics.transitImprovement.improvementDays,
+        transitImprovementPercent: Math.round(costAnalysisForAnalytics.transitImprovement.improvementPercent),
 
-        // Geographic analysis
+        // Geographic
         topStates: insights.geographic.topStates,
         stateBreakdown: insights.geographic.stateBreakdown,
 
-        // Carrier analysis
+        // Carriers
         carriers: insights.performance.carriers.map(c => ({
           name: c.carrier,
           count: c.count,
@@ -274,48 +293,28 @@ class SmashFoodsIntegration {
         recommendations: insights.recommendations,
         recommendationCount: insights.recommendations.length,
 
-        // 🆕 COMPREHENSIVE HAZMAT ANALYSIS
+        // HAZMAT ANALYSIS
         hazmat: {
-          // Overview
           overview: {
             totalHazmatProducts: parsedData.hazmatClassification.summary.hazmatCount,
             totalNonHazmatProducts: parsedData.hazmatClassification.summary.nonHazmatCount,
             totalProducts: parsedData.hazmatClassification.total,
             hazmatPercentage: hazmatAnalysis.products.percentHazmat,
-
             totalHazmatShipments: hazmatAnalysis.shipments.hazmat,
             totalNonHazmatShipments: hazmatAnalysis.shipments.nonHazmat,
             shipmentsAnalyzed: summary.totalShipments,
             shipmentHazmatPercentage: hazmatAnalysis.shipments.percentHazmat
           },
-
-          // Product-level metrics
           products: hazmatAnalysis.products,
-
-          // Type and class breakdown
           typeBreakdown: hazmatAnalysis.typeBreakdown,
           dgClassBreakdown: hazmatAnalysis.dgClassBreakdown,
           confidenceBreakdown: hazmatAnalysis.confidenceBreakdown,
-
-          // Shipment-level metrics (for filtered data)
           shipments: hazmatAnalysis.shipments,
-
-          // 🆕 Metrics breakdown by hazmat status
           metricsBreakdown: hazmatMetricsBreakdown,
-
-          // Geographic analysis for hazmat
           geographic: hazmatAnalysis.geographic,
-
-          // Compliance insights
           compliance: hazmatAnalysis.compliance,
-
-          // Hazmat-specific recommendations
           recommendations: hazmatAnalysis.recommendations,
-
-          // Pivot data (for charts)
           pivotData: this.hazmatAnalytics.generateHazmatPivotData(shipments),
-
-          // Sample hazmat products (for reference)
           sampleProducts: parsedData.hazmatClassification.hazmat.slice(0, 20).map(item => ({
             asin: item.asin,
             productName: item.product_name,
@@ -328,7 +327,7 @@ class SmashFoodsIntegration {
         // Executive summary
         executiveSummary: this.generateExecutiveSummary(
           summary,
-          costAnalysis,
+          costAnalysisForAnalytics,
           insights,
           hazmatAnalysis,
           hazmatFilter,
@@ -337,40 +336,115 @@ class SmashFoodsIntegration {
 
         // Metadata
         metadata: {
-          dataFormat: 'smash_foods_with_hazmat_sheet',
+          dataFormat: 'smash_foods_with_hazmat',
           rateType,
           markup,
           analysisDate: new Date().toISOString(),
-          version: '2.0-fixed',
+          version: '3.0-sop',
           filtered: shipments.length < originalShipmentCount,
           hazmatFilter,
           originalShipmentCount,
           hasHazmatSheet: parsedData.hazmatSheet !== null,
-          hasHazmatData: true,
-          parserVersion: 'fixed-accurate',
-          classifierVersion: 'reference-based'
+          sopCompliant: true,
+          rateCardVersion: '2025-SOP'
         }
       };
 
-      console.log('\n✅ Smash Foods analysis complete!');
-      console.log(`   📊 Analysis Summary:`);
-      console.log(`      - Filter: ${filterDescription}`);
-      console.log(`      - Shipments: ${completeAnalysis.totalShipments}`);
-      console.log(`      - Hazmat Products: ${hazmatAnalysis.products.hazmat} (${hazmatAnalysis.products.percentHazmat}%)`);
-      console.log(`      - Total Savings: $${completeAnalysis.savings.amount.toLocaleString()}`);
-      console.log(`      - Transit Improvement: ${completeAnalysis.transitImprovement} days`);
-      console.log(`      - Recommendations: ${completeAnalysis.recommendationCount}`);
+      console.log('\n✅ ===============================================');
+      console.log('   ANALYSIS COMPLETE');
+      console.log('===============================================');
+      console.log(`   Method: SOP Compliant`);
+      console.log(`   Shipments: ${completeAnalysis.totalShipments}`);
+      console.log(`   Current: $${completeAnalysis.currentCosts.totalCost.toFixed(2)}`);
+      console.log(`   Proposed: $${completeAnalysis.proposedCosts.sop.totalFreightCost.toFixed(2)}`);
+      console.log(`   Savings: $${completeAnalysis.savings.amount.toFixed(2)} (${completeAnalysis.savings.percent.toFixed(2)}%)`);
+      console.log('===============================================\n');
 
       return completeAnalysis;
 
     } catch (error) {
-      console.error('❌ Smash Foods analysis failed:', error);
+      console.error('❌ Analysis failed:', error);
       throw error;
     }
   }
 
   /**
-   * 🆕 Calculate metrics breakdown by hazmat status
+   * Calculate current costs
+   */
+  calculateCurrentCosts(shipments) {
+    const totals = {
+      totalFreight: 0,
+      totalPlacementFees: 0,
+      totalCost: 0
+    };
+
+    shipments.forEach(shipment => {
+      totals.totalFreight += shipment.carrierCost || 0;
+      totals.totalPlacementFees += shipment.placementFees || 0;
+      totals.totalCost += shipment.currentTotalCost || 0;
+    });
+
+    return {
+      totalFreight: Math.round(totals.totalFreight * 100) / 100,
+      totalPlacementFees: Math.round(totals.totalPlacementFees * 100) / 100,
+      totalCost: Math.round(totals.totalCost * 100) / 100
+    };
+  }
+
+  /**
+   * Calculate metrics
+   */
+  calculateMetrics(totalCost, totalCuft, totalUnits, totalPallets) {
+    return {
+      costPerCuft: totalCuft > 0 ? parseFloat((totalCost / totalCuft).toFixed(2)) : 0,
+      costPerUnit: totalUnits > 0 ? parseFloat((totalCost / totalUnits).toFixed(2)) : 0,
+      costPerPallet: totalPallets > 0 ? parseFloat((totalCost / totalPallets).toFixed(2)) : 0
+    };
+  }
+
+  /**
+   * Calculate state breakdown
+   */
+  calculateStateBreakdown(shipments) {
+    const stateData = {};
+
+    shipments.forEach(shipment => {
+      const state = shipment.destinationState || 'Unknown';
+
+      if (!stateData[state]) {
+        stateData[state] = {
+          state,
+          count: 0,
+          units: 0,
+          pallets: 0,
+          cuft: 0,
+          currentCost: 0,
+          avgTransitDays: 0
+        };
+      }
+
+      stateData[state].count += 1;
+      stateData[state].units += shipment.units || 0;
+      stateData[state].pallets += shipment.calculatedPallets || 0;
+      stateData[state].cuft += shipment.cuft || 0;
+      stateData[state].currentCost += shipment.currentTotalCost || 0;
+      stateData[state].avgTransitDays += shipment.transitDays || 0;
+    });
+
+    Object.keys(stateData).forEach(state => {
+      stateData[state].avgTransitDays = Math.round(
+        stateData[state].avgTransitDays / stateData[state].count
+      );
+      stateData[state].currentCost = Math.round(stateData[state].currentCost * 100) / 100;
+      stateData[state].pallets = parseFloat(stateData[state].pallets.toFixed(2));
+      stateData[state].cuft = parseFloat(stateData[state].cuft.toFixed(2));
+    });
+
+    return stateData;
+  }
+
+  /**
+   * Calculate hazmat metrics breakdown
    */
   calculateHazmatMetricsBreakdown(shipments, costAnalysis) {
     const hazmatShipments = shipments.filter(s => s.containsHazmat);
@@ -410,124 +484,75 @@ class SmashFoodsIntegration {
   }
 
   /**
-   * 🆕 Generate executive summary with hazmat context
+   * Generate executive summary
    */
   generateExecutiveSummary(summary, costAnalysis, insights, hazmatAnalysis, hazmatFilter, filterDescription) {
     const keyFindings = [];
 
-    // Cost savings finding
+    // Cost savings
     if (costAnalysis.savings.amount >= 0) {
       keyFindings.push(
-        `Save $${Math.abs(costAnalysis.savings.amount).toLocaleString()} (${Math.abs(costAnalysis.savings.percent)}%) by switching to AMZ Prep`
+        `Save $${Math.abs(costAnalysis.savings.amount).toLocaleString()} (${Math.abs(costAnalysis.savings.percent)}%) with AMZ Prep`
       );
     } else {
       keyFindings.push(
-        `AMZ Prep would cost $${Math.abs(costAnalysis.savings.amount).toLocaleString()} more (${Math.abs(costAnalysis.savings.percent)}% increase)`
+        `AMZ Prep costs $${Math.abs(costAnalysis.savings.amount).toLocaleString()} more (${Math.abs(costAnalysis.savings.percent)}%)`
       );
     }
 
-    // Transit time finding
+    // Transit time
     if (costAnalysis.transitImprovement.improvementDays > 0) {
       keyFindings.push(
-        `Reduce transit time by ${costAnalysis.transitImprovement.improvementDays} days (${costAnalysis.transitImprovement.improvementPercent}% faster)`
+        `Reduce transit by ${costAnalysis.transitImprovement.improvementDays} days (${costAnalysis.transitImprovement.improvementPercent}%)`
       );
     }
 
-    // Geographic finding
+    // Geographic
     if (insights.geographic.topStates[0]) {
       keyFindings.push(
-        `Top destination: ${insights.geographic.topStates[0].state} with ${insights.geographic.topStates[0].percentage}% of shipments`
+        `Top destination: ${insights.geographic.topStates[0].state} (${insights.geographic.topStates[0].percentage}%)`
       );
     }
 
-    // Hazmat finding (context-aware)
+    // Hazmat
     if (hazmatFilter === 'all') {
       keyFindings.push(
-        `${hazmatAnalysis.products.hazmat} hazmat products (${hazmatAnalysis.products.percentHazmat}%) across ${hazmatAnalysis.shipments.hazmat} shipments requiring special handling`
-      );
-    } else if (hazmatFilter === 'hazmat') {
-      const topType = hazmatAnalysis.typeBreakdown[0];
-      if (topType) {
-        keyFindings.push(
-          `Analysis of hazmat shipments: ${topType.type} is the dominant type (${topType.count} shipments, ${topType.percentage}%)`
-        );
-      }
-    } else if (hazmatFilter === 'non-hazmat') {
-      keyFindings.push(
-        `Analysis of non-hazmat shipments only: standard handling procedures apply`
+        `${hazmatAnalysis.products.hazmat} hazmat products (${hazmatAnalysis.products.percentHazmat}%)`
       );
     }
 
     return {
-      title: hazmatFilter === 'hazmat'
-        ? 'Hazmat Products Freight Analysis'
-        : hazmatFilter === 'non-hazmat'
-        ? 'Non-Hazmat Products Freight Analysis'
-        : 'Complete Freight Analysis',
-      subtitle: `${summary.totalShipments} Shipments | ${summary.totalUnits.toLocaleString()} Units | ${Math.round(summary.totalPallets)} Pallets`,
+      title: hazmatFilter === 'hazmat' ? 'Hazmat Freight Analysis' :
+             hazmatFilter === 'non-hazmat' ? 'Non-Hazmat Freight Analysis' :
+             'Complete Freight Analysis',
+      subtitle: `${summary.totalShipments} Shipments | ${summary.totalUnits.toLocaleString()} Units`,
       filterApplied: filterDescription,
       keyFindings
     };
   }
 
   /**
-   * Get active rates (unchanged)
+   * Get active rates
    */
   async getActiveRates() {
     try {
-      let rate = await AmazonRateEnhanced.getActiveRate('combined');
-
-      if (!rate) {
-        const prepRate = await AmazonRateEnhanced.getActiveRate('prep');
-        const middleMileRate = await AmazonRateEnhanced.getActiveRate('middleMile');
-
-        if (!prepRate || !middleMileRate) {
-          console.warn('⚠️  No rates found in database, using default rates');
-          return this.getDefaultRates();
-        }
-
-        return {
-          palletRate: 56.00,
-          cuftRate: 2.50,
-          prepRate: 0.60,
-          middleMileRate: 61.60
-        };
-      }
-
-      return {
-        palletRate: rate.rateDetails?.palletRate || 56.00,
-        cuftRate: rate.rateDetails?.cuftRate || 2.50,
-        prepRate: rate.rateDetails?.prepRate || 0.60,
-        middleMileRate: rate.rateDetails?.middleMileRate || 61.60
-      };
-
+      const rates = await AmazonRateEnhanced.findOne({ isActive: true });
+      return rates || { palletRate: 15, cuftRate: 0.35, prepFee: 0.15 };
     } catch (error) {
-      console.error('Error fetching rates:', error);
-      return this.getDefaultRates();
+      console.warn('⚠️ Could not fetch rates');
+      return { palletRate: 15, cuftRate: 0.35, prepFee: 0.15 };
     }
   }
 
   /**
-   * Get default rates (unchanged)
-   */
-  getDefaultRates() {
-    return {
-      palletRate: 56.00,
-      cuftRate: 2.50,
-      prepRate: 0.60,
-      middleMileRate: 61.60
-    };
-  }
-
-  /**
-   * Validate file (unchanged)
+   * Validate file
    */
   async validateFile(filePath) {
     try {
       const parsedData = await this.parser.parseFile(filePath);
       return parsedData.dataSheet.length > 0;
     } catch (error) {
-      console.error('File validation failed:', error);
+      console.error('Validation failed:', error);
       return false;
     }
   }

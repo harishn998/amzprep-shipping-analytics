@@ -314,14 +314,14 @@ const PremiumSidebar = () => (
     </div>
 
     {/* Content */}
-    <div className="relative flex flex-col h-full">
+    <div className="relative flex flex-col h-full bg-[#1a1f2e]">
       {/* Header Section - Premium Logo Area */}
       <div className="p-6 border-b border-[#00A8FF]/10">
         <div className="flex items-center gap-4">
           {/* Logo with Glow Effect */}
           <div className="relative group">
-            <div className="absolute inset-0 bg-[#00A8FF]/20 rounded-xl blur-lg group-hover:bg-[#00A8FF]/30 transition-all duration-300"></div>
-            <div className="relative bg-gradient-to-br from-[#00A8FF]/10 to-[#00A8FF]/20 p-3 rounded-xl border border-[#00A8FF]/30">
+            <div className="absolute inset-0"></div>
+            <div className="relative p-3 rounded-xl">
               <img
                 src={amzprepLogo}
                 alt="AMZ Prep"
@@ -795,7 +795,7 @@ const Alert = PremiumAlert;
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 max-w-7xl mx-auto">
 
         {/* ============== AMAZON UPLOAD CARD ============== */}
-        <div className="bg-[#1a1f2e] rounded-2xl p-8 border border-brand-blue/30 hover:border-brand-blue/60 transition-all shadow-2xl hover:shadow-brand-blue/20">
+        <div className="bg-[#1a1f2e] rounded-2xl p-8 border border-gray-800 hover:border-brand-blue/60 transition-all shadow-2xl hover:shadow-brand-blue/20">
 
           {/* Amazon Logo & Header */}
           <div className="text-center mb-6">
@@ -848,10 +848,10 @@ const Alert = PremiumAlert;
           <div className="hazmat-filter-section" style={{
             marginTop: '20px',
             padding: '15px',
-            backgroundColor: '#f8f9fa',
             borderRadius: '8px',
-            border: '1px solid #dee2e6',
-            marginBottom: '30px'
+            border: '1px solid #00a8ff70',
+            marginBottom: '30px',
+            color: '#ffffff'
           }}>
             <h4 style={{ marginBottom: '12px', fontSize: '14px', fontWeight: '600' }}>
               Filter Shipments by Hazmat Status
@@ -950,20 +950,20 @@ const Alert = PremiumAlert;
           {/* Format Guide */}
           <div className="mt-6 bg-[#0f1419] p-4 rounded-lg border border-gray-800">
             <h4 className="text-sm font-bold text-white mb-3 flex items-center gap-2">
-              <FileText size={16} className="text-orange-400" />
+              <FileText size={16} className="text-brand-blue" />
               Expected Format
             </h4>
             <ul className="text-xs text-gray-400 space-y-1">
               <li className="flex items-start gap-2">
-                <span className="text-orange-400 mt-0.5">•</span>
+                <span className="text-brand-blue mt-0.5">•</span>
                 <span>Smash Foods CSV/Excel format</span>
               </li>
               <li className="flex items-start gap-2">
-                <span className="text-orange-400 mt-0.5">•</span>
+                <span className="text-brand-blue mt-0.5">•</span>
                 <span>State, Weight, Cost columns required</span>
               </li>
               <li className="flex items-start gap-2">
-                <span className="text-orange-400 mt-0.5">•</span>
+                <span className="text-brand-blue mt-0.5">•</span>
                 <span>Shipping method & zone optional</span>
               </li>
             </ul>
@@ -998,7 +998,7 @@ const Alert = PremiumAlert;
         </div>
 
         {/* ============== SHOPIFY UPLOAD CARD ============== */}
-        <div className="bg-[#1a1f2e] rounded-2xl p-8 border border-brand-blue/30 hover:border-brand-blue/60 transition-all shadow-2xl hover:shadow-brand-blue/20">
+        <div className="bg-[#1a1f2e] rounded-2xl p-8 border border-gray-800 hover:border-brand-blue/60 transition-all shadow-2xl hover:shadow-brand-blue/20">
 
           {/* Shopify Logo & Header */}
           <div className="text-center mb-6">
@@ -1071,20 +1071,20 @@ const Alert = PremiumAlert;
           {/* Format Guide */}
           <div className="mt-6 bg-[#0f1419] p-4 rounded-lg border border-gray-800">
             <h4 className="text-sm font-bold text-white mb-3 flex items-center gap-2">
-              <FileText size={16} className="text-green-400" />
+              <FileText size={16} className="text-brand-blue" />
               Expected Format
             </h4>
             <ul className="text-xs text-gray-400 space-y-1">
               <li className="flex items-start gap-2">
-                <span className="text-green-400 mt-0.5">•</span>
+                <span className="text-brand-blue mt-0.5">•</span>
                 <span>Shopify Orders CSV export</span>
               </li>
               <li className="flex items-start gap-2">
-                <span className="text-green-400 mt-0.5">•</span>
+                <span className="text-brand-blue mt-0.5">•</span>
                 <span>Shipping Address, Line Items required</span>
               </li>
               <li className="flex items-start gap-2">
-                <span className="text-green-400 mt-0.5">•</span>
+                <span className="text-brand-blue mt-0.5">•</span>
                 <span>Order weight & shipping cost</span>
               </li>
             </ul>
@@ -2269,7 +2269,7 @@ return (
                 : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
             }`}
           >
-            📊 Customer Scorecard View
+            Customer Scorecard View
           </button>
           <button
             onClick={() => setViewType('detailed')}
@@ -2279,7 +2279,7 @@ return (
                 : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
             }`}
           >
-            📈 Full Admin Dashboard
+            Full Admin Dashboard
           </button>
         </div>
       </div>
@@ -2568,18 +2568,6 @@ return (
       <div className={`flex-1 transition-all duration-500 ease-in-out ${
         sidebarCollapsed ? 'ml-20' : 'ml-80'
       }`}>
-        {/* Premium Header */}
-        <div className="relative border-b border-[#00A8FF]/20 p-8 bg-gradient-to-r from-[#1A2847]/80 to-[#0F1C3A]/60 backdrop-blur-sm">
-          <div className="absolute inset-0 bg-gradient-to-r from-[#00A8FF]/5 to-transparent"></div>
-          <div className="relative">
-            <h1 className="text-4xl font-black mb-3 bg-gradient-to-r from-white via-[#00A8FF] to-white bg-clip-text text-transparent tracking-tight">
-              Shipping Analytics
-            </h1>
-            <p className="text-white/60 text-xl font-light leading-relaxed">
-              Comprehensive shipping cost analysis and warehouse optimization
-            </p>
-          </div>
-        </div>
 
         {/* Main Content */}
         <div className="p-8">

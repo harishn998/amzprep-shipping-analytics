@@ -4,7 +4,7 @@
 // File: ShippingScorecard.jsx
 // ============================================================================
 
-import React from 'react';
+import React, { useState } from 'react';
 import { TrendingDown, Clock, Package, DollarSign, ExternalLink, Lock } from 'lucide-react';
 import amzprepLogo from './assets/amzprep_white_logo.png';
 
@@ -33,17 +33,20 @@ export const ShippingScorecard = ({ data, metadata = {}, isAdmin = false }) => {
       {/* Key Insights Section */}
       <BrandInsightsSection metrics={scorecardData.urgencyMetrics} />
 
-      {/* Blurred Detailed Analysis Section (unless admin) */}
-      {!isAdmin && (
-        <BrandAnalysisSection
-          totalSavings={scorecardData.urgencyMetrics.totalAnnualSavings}
-          placementFeeSavings={scorecardData.urgencyMetrics.placementFeeSavings}
-          dailyLoss={scorecardData.urgencyMetrics.dailyLoss}
-        />
-      )}
+      {/* FOMO Section for ALL Users (both regular and admin) */}
+      <BrandAnalysisSection
+        totalSavings={scorecardData.urgencyMetrics.totalAnnualSavings}
+        placementFeeSavings={scorecardData.urgencyMetrics.placementFeeSavings}
+        dailyLoss={scorecardData.urgencyMetrics.dailyLoss}
+        isAdmin={isAdmin}
+      />
 
-      {/* Full Analysis (admin only) */}
-      {isAdmin && <DetailedAnalysisSection data={data} metadata={metadata} />}
+      {/* Full Analysis Section - Initially Hidden */}
+      {isAdmin && (
+        <div id="detailed-analysis" className="hidden">
+          <DetailedAnalysisSection data={data} metadata={metadata} />
+        </div>
+      )}
     </div>
   );
 };
@@ -219,7 +222,7 @@ const BrandHeader = ({ scorecardData }) => {
               key={i}
               className="rounded"
               style={{
-                backgroundColor: i % 3 === 0 ? brandBlue : 'transparent'
+                backgroundColor: i % 3 === 0 ? 'transparent' : 'transparent'
               }}
             />
           ))}
@@ -259,16 +262,18 @@ const BrandHeader = ({ scorecardData }) => {
           </div>
         </div>
 
-        {/* Right: Logo & Branding */}
+        {/* Right: Logo & Branding - UPDATED LAYOUT */}
         <div className="text-center lg:text-right">
-          <div className="inline-flex items-center gap-3 mb-4">
+          <div className="inline-flex flex-col items-center lg:items-end gap-2 mb-4">
+            {/* Logo at Top */}
             <img
               src={amzprepLogo}
               alt="AMZ Prep"
-              className="h-12 w-auto"
+              className="h-10 w-auto mb-2"
             />
-            <div className="text-left">
-              <div className="text-white font-bold text-2xl">Shipping Score</div>
+            {/* Text Below Logo */}
+            <div className="text-center lg:text-right">
+              <div className="text-white font-bold text-xl mb-2">Shipping Score</div>
               <div className="text-brand-blue text-sm">Comprehensive logistics efficiency analysis</div>
             </div>
           </div>
@@ -519,107 +524,195 @@ const BrandInsightsSection = ({ metrics }) => {
 /**
  * Brand Analysis Section - UPDATED with Admin Dashboard Preview Background
  */
-const BrandAnalysisSection = ({ totalSavings = 15000, placementFeeSavings = 0, dailyLoss = 41 }) => {
-  const brandBlue = '#00A8FF';
-  const brandBlueRGB = '0, 168, 255';
+ /**
+  * Enhanced Brand Analysis Section with Detailed Map Preview
+  */
+ const BrandAnalysisSection = ({
+   totalSavings = 15000,
+   placementFeeSavings = 0,
+   dailyLoss = 41,
+   isAdmin = false,
+   onUnlockAnalysis
+ }) => {
+   const brandBlue = '#00A8FF';
+   const [showFullAnalysis, setShowFullAnalysis] = useState(false);
 
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    }).format(amount);
-  };
+   const formatCurrency = (amount) => {
+     return new Intl.NumberFormat('en-US', {
+       style: 'currency',
+       currency: 'USD',
+       minimumFractionDigits: 0,
+       maximumFractionDigits: 0
+     }).format(amount);
+   };
 
-  return (
-    <div className="relative mt-12 p-8 rounded-2xl border border-gray-700/50 backdrop-blur-sm overflow-hidden">
-      {/* Admin Dashboard Preview Background */}
-      <div className="absolute inset-0 opacity-20 blur-sm">
-        <div className="h-full w-full bg-gradient-to-br from-[#0B1426] via-[#0F1C3A] to-[#1A2847]">
-          {/* Mock Dashboard Elements */}
-          <div className="p-6">
-            {/* Mock Header */}
-            <div className="h-6 bg-[#00A8FF]/30 rounded mb-6 w-1/3"></div>
+   const handleUnlockClick = () => {
+     if (isAdmin) {
+       // For admin users, show the detailed analysis section
+       setShowFullAnalysis(true);
+       const detailedSection = document.getElementById('detailed-analysis');
+       if (detailedSection) {
+         detailedSection.classList.remove('hidden');
+         detailedSection.scrollIntoView({ behavior: 'smooth' });
+       }
+     } else {
+       // For regular users, go to contact page
+       window.open('https://amzprep.com/contact-us/', '_blank');
+     }
+   };
 
-            {/* Mock Metrics Cards */}
-            <div className="grid grid-cols-3 gap-4 mb-8">
-              <div className="h-20 bg-[#1A2847]/80 rounded-xl border border-[#00A8FF]/20"></div>
-              <div className="h-20 bg-[#1A2847]/80 rounded-xl border border-[#00A8FF]/20"></div>
-              <div className="h-20 bg-[#1A2847]/80 rounded-xl border border-[#00A8FF]/20"></div>
-            </div>
+   return (
+     <div className="relative mt-12 p-8 rounded-2xl border border-gray-700/50 backdrop-blur-sm overflow-hidden">
+     {/* HIGHLY VISIBLE Admin Dashboard Preview Background */}
+     <div className="absolute inset-0 opacity-40 blur-[2.3px]">
+       <div className="h-full w-full bg-gradient-to-br from-[#0B1426] via-[#0F1C3A] to-[#1A2847]">
 
-            {/* Mock Map Area */}
-            <div className="h-64 bg-[#1A2847]/80 rounded-2xl border border-[#00A8FF]/20 relative overflow-hidden">
-              {/* Mock US Map Outline */}
-              <svg className="absolute inset-0 w-full h-full opacity-40" viewBox="0 0 400 300">
-                <path
-                  d="M50 100 L100 80 L150 90 L200 100 L250 80 L300 90 L350 100 L350 200 L300 220 L250 210 L200 200 L150 210 L100 220 L50 200 Z"
-                  fill="none"
-                  stroke="#00A8FF"
-                  strokeWidth="2"
-                />
-                {/* Mock State Highlights */}
-                <circle cx="120" cy="150" r="8" fill="#00A8FF" opacity="0.6" />
-                <circle cx="180" cy="130" r="6" fill="#00A8FF" opacity="0.4" />
-                <circle cx="250" cy="160" r="10" fill="#00A8FF" opacity="0.8" />
-              </svg>
+         {/* Dashboard Layout - ENHANCED VISIBILITY */}
+         <div className="p-8 h-full">
+           {/* Header Section */}
+           <div className="flex justify-between items-center mb-10">
+             <div className="h-10 bg-[#00A8FF] rounded-lg w-1/3 opacity-80"></div>
+             <div className="flex gap-4">
+               <div className="h-8 w-24 bg-[#00A8FF] rounded opacity-70"></div>
+               <div className="h-8 w-24 bg-emerald-500 rounded opacity-70"></div>
+             </div>
+           </div>
 
-              {/* Mock Data Points */}
-              <div className="absolute top-4 left-4 bg-[#00A8FF]/20 px-3 py-1 rounded text-xs text-[#00A8FF]">
-                Heat Map View
-              </div>
-              <div className="absolute bottom-4 right-4 bg-[#00A8FF]/20 px-3 py-1 rounded text-xs text-[#00A8FF]">
-                Cost Analysis
-              </div>
-            </div>
+           {/* KPI Cards - MUCH MORE VISIBLE */}
+           <div className="grid grid-cols-4 gap-6 mb-12">
+             {Array.from({ length: 4 }).map((_, i) => (
+               <div key={i} className="bg-[#1A2847] rounded-2xl border-2 border-[#00A8FF] p-6 opacity-90">
+                 <div className="h-4 bg-[#00A8FF] rounded mb-3 w-3/4 opacity-80"></div>
+                 <div className="h-8 bg-[#00A8FF] rounded w-1/2 mb-2 opacity-90"></div>
+                 <div className="h-3 bg-[#00A8FF]/50 rounded w-full"></div>
+               </div>
+             ))}
+           </div>
 
-            {/* Mock Charts */}
-            <div className="grid grid-cols-2 gap-6 mt-6">
-              <div className="h-32 bg-[#1A2847]/80 rounded-xl border border-[#00A8FF]/20"></div>
-              <div className="h-32 bg-[#1A2847]/80 rounded-xl border border-[#00A8FF]/20"></div>
-            </div>
-          </div>
-        </div>
-      </div>
+           {/* MAIN MAP SECTION - MAXIMUM VISIBILITY */}
+           <div className="bg-[#1A2847] rounded-3xl border-3 border-[#00A8FF] p-8 h-96 opacity-95">
+             <div className="flex justify-between items-center mb-6">
+               <div className="h-8 bg-[#00A8FF] rounded w-1/4 opacity-90"></div>
+               <div className="flex gap-3">
+                 <div className="px-4 py-2 bg-[#00A8FF] rounded-lg text-white font-bold opacity-80">Heat Map</div>
+                 <div className="px-4 py-2 bg-emerald-500 rounded-lg text-white font-bold opacity-80">Routes</div>
+                 <div className="px-4 py-2 bg-orange-500 rounded-lg text-white font-bold opacity-80">Zones</div>
+               </div>
+             </div>
 
-      {/* Overlay Gradient */}
-      <div className="absolute inset-0 bg-gradient-to-t from-gray-900/90 via-gray-900/60 to-transparent"></div>
+             {/* ULTRA-VISIBLE US MAP */}
+             <div className="relative h-72 bg-[#0F1C3A] rounded-2xl border-2 border-[#00A8FF]/60 overflow-hidden">
+               <svg className="absolute inset-0 w-full h-full" viewBox="0 0 600 400">
+                 {/* US Map Base - THICK OUTLINE */}
+                 <path
+                   d="M80 120 L160 100 L240 110 L320 120 L400 100 L480 110 L560 120 L560 300 L480 320 L400 310 L320 300 L240 310 L160 320 L80 310 Z"
+                   fill="rgba(0, 168, 255, 0.25)"
+                   stroke="#00A8FF"
+                   strokeWidth="4"
+                   opacity="0.9"
+                 />
 
-      {/* Blur Effect */}
-      <div className="absolute inset-0 backdrop-blur-sm bg-gray-900/40"></div>
+                 {/* State Division Lines */}
+                 <line x1="160" y1="100" x2="160" y2="320" stroke="#00A8FF" strokeWidth="2" opacity="0.4" />
+                 <line x1="240" y1="110" x2="240" y2="310" stroke="#00A8FF" strokeWidth="2" opacity="0.4" />
+                 <line x1="320" y1="120" x2="320" y2="300" stroke="#00A8FF" strokeWidth="2" opacity="0.4" />
+                 <line x1="400" y1="100" x2="400" y2="310" stroke="#00A8FF" strokeWidth="2" opacity="0.4" />
+                 <line x1="480" y1="110" x2="480" y2="320" stroke="#00A8FF" strokeWidth="2" opacity="0.4" />
 
-      {/* Content Overlay */}
-      <div className="relative z-10 text-center max-w-lg mx-auto">
-        <div className="w-16 h-16 bg-gray-800 rounded-lg flex items-center justify-center mx-auto mb-6 border border-gray-700">
-          <Lock className="text-brand-blue" size={32} />
-        </div>
+                 {/* MASSIVE Heat Zones - VERY VISIBLE */}
+                 <circle cx="450" cy="160" r="50" fill="#00A8FF" opacity="0.95" />
+                 <circle cx="280" cy="200" r="45" fill="#00A8FF" opacity="0.90" />
+                 <circle cx="180" cy="180" r="40" fill="#3B82F6" opacity="0.85" />
 
-        <h3 className="text-3xl font-bold text-white mb-4">
-          Unlock Complete Analysis
-        </h3>
+                 {/* Medium Zones */}
+                 <circle cx="380" cy="240" r="35" fill="#60A5FA" opacity="0.80" />
+                 <circle cx="220" cy="150" r="30" fill="#60A5FA" opacity="0.75" />
+                 <circle cx="420" cy="190" r="32" fill="#93C5FD" opacity="0.70" />
 
-        <p className="text-gray-300 mb-8 leading-relaxed">
-          Get your comprehensive AMZ Prep optimization analysis with detailed savings breakdown,
-          implementation roadmap, and ROI projections.
-        </p>
+                 {/* THICK Shipping Routes */}
+                 <line x1="280" y1="200" x2="450" y2="160" stroke="#00A8FF" strokeWidth="8" opacity="0.95" strokeDasharray="12,6" />
+                 <line x1="180" y1="180" x2="380" y2="240" stroke="#60A5FA" strokeWidth="8" opacity="0.90" strokeDasharray="10,5" />
+                 <line x1="220" y1="150" x2="420" y2="190" stroke="#93C5FD" strokeWidth="6" opacity="0.85" strokeDasharray="8,4" />
 
-        <a
-          href="https://amzprep.com/contact-us/"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-block w-full bg-gradient-to-r from-[#00A8FF] to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-bold py-4 px-8 rounded-xl transition-all duration-300 transform hover:scale-105 shadow-xl text-center"
-        >
-          Book Free Analysis Call
-        </a>
+                 {/* Warehouse Markers - LARGE */}
+                 <rect x="275" y="195" width="15" height="15" fill="#FFD700" opacity="1" rx="2" />
+                 <rect x="445" y="155" width="15" height="15" fill="#FFD700" opacity="1" rx="2" />
+                 <rect x="175" y="175" width="15" height="15" fill="#FFD700" opacity="1" rx="2" />
+                 <rect x="375" y="235" width="15" height="15" fill="#FFD700" opacity="1" rx="2" />
+               </svg>
 
-        <p className="text-sm text-gray-400 mt-4">
-          30-min analysis • No obligation • See exact savings before committing
-        </p>
-      </div>
-    </div>
-  );
-};
+               {/* PROMINENT Labels */}
+               <div className="absolute top-4 left-4 bg-[#00A8FF] px-4 py-3 rounded-xl text-white font-bold text-sm border-2 border-white/30">
+                 🗺️ Interactive Heat Map
+               </div>
+               <div className="absolute top-4 right-4 bg-emerald-500 px-4 py-3 rounded-xl text-white font-bold text-sm border-2 border-white/30">
+                 📍 Live Routes
+               </div>
+
+               {/* Enhanced Legend */}
+               <div className="absolute bottom-4 left-4 bg-[#1A2847] border-2 border-[#00A8FF] rounded-xl p-4 opacity-95">
+                 <div className="text-sm text-[#00A8FF] font-bold mb-2">Volume Zones</div>
+                 <div className="space-y-2">
+                   <div className="flex items-center gap-3 text-sm">
+                     <div className="w-4 h-4 bg-[#00A8FF] rounded-full"></div>
+                     <span className="text-white font-semibold">High ($3.2M)</span>
+                   </div>
+                   <div className="flex items-center gap-3 text-sm">
+                     <div className="w-4 h-4 bg-[#60A5FA] rounded-full"></div>
+                     <span className="text-white font-semibold">Medium ($1.8M)</span>
+                   </div>
+                   <div className="flex items-center gap-3 text-sm">
+                     <div className="w-4 h-4 bg-[#93C5FD] rounded-full"></div>
+                     <span className="text-white font-semibold">Low ($0.9M)</span>
+                   </div>
+                 </div>
+               </div>
+
+               <div className="absolute bottom-4 right-4 bg-[#00A8FF] px-4 py-3 rounded-xl text-white font-bold border-2 border-white/30">
+                 Total Analysis: $5.9M Impact
+               </div>
+             </div>
+           </div>
+         </div>
+       </div>
+     </div>
+
+     {/* MUCH LIGHTER Overlay for Maximum Map Visibility */}
+     <div className="absolute inset-0 bg-gradient-to-t from-gray-900/75 via-gray-900/40 to-gray-900/20"></div>
+     <div className="absolute inset-0 backdrop-blur-[0.5px]"></div>
+
+       {/* Content Overlay */}
+       <div className="relative z-10 text-center max-w-lg mx-auto">
+         <div className="w-16 h-16 bg-gradient-to-br from-[#00A8FF]/20 to-[#00A8FF]/40 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-[#00A8FF]/30 backdrop-blur-sm">
+           <Lock className="text-[#00A8FF]" size={32} />
+         </div>
+
+         <h3 className="text-4xl font-bold text-white mb-4">
+           Unlock Complete Analysis
+         </h3>
+
+         <p className="text-gray-300 mb-8 leading-relaxed text-lg">
+           Get your comprehensive AMZ Prep optimization analysis with detailed savings breakdown,
+           interactive cost mapping, and ROI projections.
+         </p>
+
+         <button
+           onClick={handleUnlockClick}
+           className="inline-block w-full bg-gradient-to-r from-[#00A8FF] to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-bold py-4 px-8 rounded-xl transition-all duration-300 transform hover:scale-105 shadow-xl text-center text-lg"
+         >
+           {isAdmin ? 'View Full Admin Dashboard' : 'Book Free Analysis Call'}
+         </button>
+
+         <p className="text-sm text-gray-400 mt-4">
+           {isAdmin
+             ? 'Access complete analytics • Interactive maps • Detailed breakdowns'
+             : '30-min analysis • No obligation • See exact savings before committing'
+           }
+         </p>
+       </div>
+     </div>
+   );
+ };
 
 /**
  * Full detailed analysis for admin users

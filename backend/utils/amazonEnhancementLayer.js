@@ -1,20 +1,20 @@
 // ============================================================================
-// AMAZON ENHANCEMENT LAYER - FIXED V3
+// AMAZON ENHANCEMENT LAYER - FIXED V4
 // File: backend/utils/amazonEnhancementLayer.js
 //
-// FIX: Only enhance if truly needed, skip if Placement has enough data
+// FIX: Force enhancement for Muscle Mac files to calculate cuft properly
 // ============================================================================
 
 import xlsx from 'xlsx';
 import path from 'path';
 
 /**
- * AmazonEnhancementLayer - V3 FIX
+ * AmazonEnhancementLayer - V4 FIX
  *
  * KEY CHANGES:
- * - Check if Placement sheet has sufficient data
- * - Skip enhancement if Placement already has cuft values
- * - Only enhance if truly missing critical columns
+ * - ALWAYS enhance Muscle Mac files (don't skip based on Placement check)
+ * - Properly calculate cuft from Storage dimensions × Placement quantities
+ * - Add Cuft column to Data sheet so parser doesn't filter out shipments
  */
 class AmazonEnhancementLayer {
 
@@ -23,7 +23,7 @@ class AmazonEnhancementLayer {
   }
 
   /**
-   * Main entry point - SMARTER enhancement logic
+   * Main entry point - FORCE enhancement for Muscle Mac
    */
   async enhanceIfNeeded(filePath) {
     console.log('🔍 Checking if file needs enhancement...');
@@ -46,17 +46,9 @@ class AmazonEnhancementLayer {
       return filePath;
     }
 
-    // V3 FIX: Check if Placement has cuft data
-    if (workbook.Sheets['Placement']) {
-      const placementHasCuft = this.checkPlacementHasCuft(workbook.Sheets['Placement']);
-
-      if (placementHasCuft) {
-        console.log('✅ Placement sheet has cuft data - skipping enhancement');
-        console.log('   Parser will calculate from Placement sheet directly');
-        return filePath;
-      }
-    }
-
+    // 🆕 V4 FIX: ALWAYS enhance if columns are missing
+    // Don't skip based on Placement check - that was causing the bug
+    console.log('🔧 Forcing enhancement to properly calculate Cuft from Storage + Placement sheets');
     console.log('🔧 Enhancement required:', needsEnhancement.missingColumns.join(', '));
 
     // Perform enhancement
@@ -64,35 +56,6 @@ class AmazonEnhancementLayer {
 
     console.log('✅ Enhancement complete:', enhancedFilePath);
     return enhancedFilePath;
-  }
-
-  /**
-   * V3 NEW: Check if Placement sheet has cuft data
-   */
-  checkPlacementHasCuft(placementSheet) {
-    const data = xlsx.utils.sheet_to_json(placementSheet);
-
-    if (data.length === 0) return false;
-
-    // Check if "Total Cuft" column exists and has values
-    const hasTotalCuftColumn = Object.keys(data[0]).some(h =>
-      h.toLowerCase().includes('total cuft') || h.toLowerCase() === 'cuft'
-    );
-
-    if (!hasTotalCuftColumn) return false;
-
-    // Check if at least 10% of rows have cuft values > 0
-    let rowsWithCuft = 0;
-    data.forEach(row => {
-      const cuft = parseFloat(row['Total Cuft'] || row['Cuft'] || row['total cuft'] || 0);
-      if (cuft > 0) rowsWithCuft++;
-    });
-
-    const percentageWithCuft = (rowsWithCuft / data.length) * 100;
-
-    console.log(`   Placement sheet check: ${rowsWithCuft}/${data.length} rows have cuft (${percentageWithCuft.toFixed(1)}%)`);
-
-    return percentageWithCuft >= 10; // If 10%+ rows have cuft, consider it sufficient
   }
 
   /**
@@ -140,7 +103,7 @@ class AmazonEnhancementLayer {
   }
 
   /**
-   * Enhance the file - same as before
+   * Enhance the file
    */
   async enhanceFile(workbook, originalFilePath, needsEnhancement) {
     console.log('📊 Starting file enhancement...');
