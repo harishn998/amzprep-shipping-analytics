@@ -82,6 +82,9 @@ const storage = multer.diskStorage({
   }
 });
 
+// ⚡ CRITICAL: Trust proxy when behind Nginx
+app.set('trust proxy', 1);
+
 // Session configuration
 app.use(session({
   secret: process.env.SESSION_SECRET,
@@ -89,15 +92,15 @@ app.use(session({
   saveUninitialized: false,
   store: MongoStore.create({
     mongoUrl: process.env.MONGODB_URI,
-    touchAfter: 24 * 3600, // lazy session update (seconds)
-    crypto: {
-      secret: process.env.SESSION_SECRET
-    }
+    ttl: 24 * 60 * 60,  // 1 day
+    autoRemove: 'native'
   }),
   cookie: {
     secure: process.env.NODE_ENV === 'production',
     httpOnly: true,
-    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+    sameSite: 'lax',
+    maxAge: 24 * 60 * 60 * 1000,
+    domain: process.env.NODE_ENV === 'production' ? '.amzprep.com' : undefined
   }
 }));
 
