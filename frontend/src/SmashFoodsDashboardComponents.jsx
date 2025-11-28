@@ -131,89 +131,119 @@ const SmashFoodsKeyMetrics = ({ data, metadata }) => {
 /**
  * Cost Comparison Section
  */
-const SmashFoodsCostComparison = ({ currentCosts, proposedCosts, savings }) => {
-  const isSavings = savings.amount > 0;
+ /**
+  * Cost Comparison Section - WITH COST PER CUFT
+  */
+ const SmashFoodsCostComparison = ({ currentCosts, proposedCosts, savings }) => {
+   const isSavings = savings.amount > 0;
 
-  return (
-    <div className="bg-gray-800 rounded-lg p-6 mb-6">
-      <h2 className="text-xl font-bold text-white mb-4">Cost Comparison Analysis</h2>
+   return (
+     <div className="bg-gray-800 rounded-lg p-6 mb-6">
+       <h2 className="text-xl font-bold text-white mb-4">Cost Comparison Analysis</h2>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Current Provider */}
-        <div className="bg-gray-700/50 p-4 rounded-lg">
-          <h3 className="text-lg font-semibold text-white mb-3">Current Provider</h3>
-          <div className="space-y-2">
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-400">Freight:</span>
-              <span className="text-white font-medium">
-                ${currentCosts.totalFreight?.toLocaleString()}
-              </span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-400">Placement Fees:</span>
-              <span className="text-white font-medium">
-                ${currentCosts.totalPlacementFees?.toLocaleString()}
-              </span>
-            </div>
-            <div className="border-t border-gray-600 pt-2 mt-2">
-              <div className="flex justify-between">
-                <span className="text-white font-semibold">Total:</span>
-                <span className="text-xl font-bold text-white">
-                  ${currentCosts.totalCost?.toLocaleString()}
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
+       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+         {/* Current Provider */}
+         <div className="bg-gray-700/50 p-4 rounded-lg">
+           <h3 className="text-lg font-semibold text-white mb-3">Current Provider</h3>
+           <div className="space-y-2">
+             <div className="flex justify-between text-sm">
+               <span className="text-gray-400">Freight:</span>
+               <span className="text-white font-medium">
+                 ${currentCosts.totalFreight?.toLocaleString()}
+               </span>
+             </div>
+             <div className="flex justify-between text-sm">
+               <span className="text-gray-400">Placement Fees:</span>
+               <span className="text-white font-medium">
+                 ${currentCosts.totalPlacementFees?.toLocaleString()}
+               </span>
+             </div>
+             <div className="border-t border-gray-600 pt-2 mt-2">
+               <div className="flex justify-between">
+                 <span className="text-white font-semibold">Total:</span>
+                 <span className="text-xl font-bold text-white">
+                   ${currentCosts.totalCost?.toLocaleString()}
+                 </span>
+               </div>
+             </div>
+             {/* ✅ NEW: Cost per Cuft */}
+             <div className="bg-gray-800/50 rounded px-3 py-2 mt-3">
+               <div className="flex justify-between items-center">
+                 <span className="text-gray-400 text-sm">Cost/Cuft:</span>
+                 <span className="text-yellow-400 font-bold text-lg">
+                   ${currentCosts.costPerCuft?.toFixed(2) || '0.00'}
+                 </span>
+               </div>
+             </div>
+           </div>
+         </div>
 
-        {/* AMZ Prep - SOP Compliant */}
-        <div className="bg-blue-900/30 p-4 rounded-lg border border-blue-500/30">
-          <h3 className="text-lg font-semibold text-white mb-3">AMZ Prep Solution</h3>
-          <div className="space-y-2">
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-400">Pattern (DC→FBA):</span>
-              <span className="text-white font-medium">
-                ${proposedCosts.mmCost?.toLocaleString() || '0'}
-              </span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-400">Internal (Whse→DC):</span>
-              <span className="text-white font-medium">
-                ${proposedCosts.internalTransferCost?.toLocaleString() || '0'}
-              </span>
-            </div>
-            <div className="border-t border-blue-500/30 pt-2 mt-2">
-              <div className="flex justify-between">
-                <span className="text-white font-semibold">Total:</span>
-                <span className="text-xl font-bold text-brand-blue">
-                  ${proposedCosts.totalFreightCost?.toLocaleString() || '0'}
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
+         {/* AMZ Prep - SOP Compliant */}
+         <div className="bg-blue-900/30 p-4 rounded-lg border border-blue-500/30">
+           <h3 className="text-lg font-semibold text-white mb-3">AMZ Prep Solution</h3>
+           <div className="space-y-2">
+             <div className="flex justify-between text-sm">
+               <span className="text-gray-400">Pattern (DC→FBA):</span>
+               <span className="text-white font-medium">
+                 ${proposedCosts.mmCost?.toLocaleString() || '0'}
+               </span>
+             </div>
+             <div className="flex justify-between text-sm">
+               <span className="text-gray-400">Internal (Whse→DC):</span>
+               <span className="text-white font-medium">
+                 ${proposedCosts.internalTransferCost?.toLocaleString() || '0'}
+               </span>
+             </div>
+             <div className="border-t border-blue-500/30 pt-2 mt-2">
+               <div className="flex justify-between">
+                 <span className="text-white font-semibold">Total:</span>
+                 <span className="text-xl font-bold text-brand-blue">
+                   ${proposedCosts.totalFreightCost?.toLocaleString() || '0'}
+                 </span>
+               </div>
+             </div>
+             {/* ✅ NEW: Cost per Cuft */}
+             <div className="bg-blue-950/50 rounded px-3 py-2 mt-3">
+               <div className="flex justify-between items-center">
+                 <span className="text-gray-400 text-sm">Cost/Cuft:</span>
+                 <span className="text-[#00A8FF] font-bold text-lg">
+                   ${proposedCosts.costPerCuft?.toFixed(2) || '0.00'}
+                 </span>
+               </div>
+             </div>
+           </div>
+         </div>
 
-        {/* Difference */}
-        <div className={`p-4 rounded-lg ${isSavings ? 'bg-green-900/30 border border-green-500/30' : 'bg-red-900/30 border border-red-500/30'}`}>
-          <h3 className="text-lg font-semibold text-white mb-3">
-            {isSavings ? 'Your Savings' : 'Additional Cost'}
-          </h3>
-          <div className="flex flex-col items-center justify-center h-32">
-            <div className={`text-4xl font-bold ${isSavings ? 'text-green-400' : 'text-red-400'}`}>
-              ${Math.abs(savings.amount || 0).toLocaleString()}
-            </div>
-            <div className={`text-2xl font-semibold mt-2 ${isSavings ? 'text-green-300' : 'text-red-300'}`}>
-              {Math.abs(savings.percent || 0).toFixed(1)}%
-            </div>
-            <div className="text-sm text-gray-400 mt-2">
-              {isSavings ? 'Potential savings' : 'vs current provider'}
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
+         {/* Difference */}
+         <div className={`p-4 rounded-lg ${isSavings ? 'bg-green-900/30 border border-green-500/30' : 'bg-red-900/30 border border-red-500/30'}`}>
+           <h3 className="text-lg font-semibold text-white mb-3">
+             {isSavings ? 'Your Savings' : 'Additional Cost'}
+           </h3>
+           <div className="flex flex-col items-center justify-center h-24">
+             <div className={`text-4xl font-bold ${isSavings ? 'text-green-400' : 'text-red-400'}`}>
+               ${Math.abs(savings.amount || 0).toLocaleString()}
+             </div>
+             <div className={`text-2xl font-semibold mt-2 ${isSavings ? 'text-green-300' : 'text-red-300'}`}>
+               {Math.abs(savings.percent || 0).toFixed(1)}%
+             </div>
+             <div className="text-sm text-gray-400 mt-2">
+               vs current provider
+             </div>
+           </div>
+           {/* ✅ NEW: Cost per Cuft Difference */}
+           <div className={`rounded px-3 py-2 mt-3 ${isSavings ? 'bg-green-950/50' : 'bg-red-950/50'}`}>
+             <div className="flex justify-between items-center">
+               <span className="text-gray-400 text-sm">Cuft Rate:</span>
+               <span className={`font-bold text-lg ${isSavings ? 'text-green-400' : 'text-red-400'}`}>
+                 {isSavings ? '-' : '+'}${Math.abs((proposedCosts.costPerCuft || 0) - (currentCosts.costPerCuft || 0)).toFixed(2)}
+               </span>
+             </div>
+           </div>
+         </div>
+       </div>
+     </div>
+   );
+ };
 
 /**
  * Summary Section (mirrors Summary Pallet tab)

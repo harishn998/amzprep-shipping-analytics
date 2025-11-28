@@ -24,7 +24,7 @@ class SmashFoodsIntegration {
   }
 
   /**
-   * Main analysis method - SOP COMPLIANT
+   * Main analysis method - SOP COMPLIANT WITH DYNAMIC CONFIG
    */
   async analyzeSmashFoodsFile(filePath, rateType = 'combined', markup = 0.10, hazmatFilter = 'all', config = {}) {
     console.log('\n🚀 ===============================================');
@@ -32,7 +32,7 @@ class SmashFoodsIntegration {
     console.log('===============================================');
     console.log(`   File: ${filePath}`);
     console.log(`   Hazmat Filter: ${hazmatFilter}`);
-    console.log(`   Calculation Method: SOP Official Document`);
+    console.log(`   Dynamic Config: ${JSON.stringify(config)}`);
     console.log('===============================================\n');
 
     try {
@@ -98,16 +98,22 @@ class SmashFoodsIntegration {
         });
       }
 
-      // Step 2: Calculate costs using SOP
-      console.log(`\n🧮 Step 2: Calculating costs (SOP method)...`);
+      // Step 2: Calculate costs using SOP WITH DYNAMIC CONFIG
+      console.log(`\n🧮 Step 2: Calculating costs (SOP method with dynamic config)...`);
 
+      // 🆕 Build sopConfig from request config
       const sopConfig = {
-        ftlCost: config.ftlCost || 3000,
-        palletCost: config.palletCost || 150,
-        useFTL: config.useFTL !== false
+        freightCost: config.freightCost || 3000,
+        freightMarkup: config.freightMarkup || 1.20,
+        mmBaseCost: config.mmBaseCost || null,  // null = use default pattern rates
+        mmMarkup: config.mmMarkup || 1.0,
+        rateMode: config.rateMode || 'FTL',
+        destination: config.destination || null,  // null = auto-detect
+        palletCost: config.palletCost || 150
       };
 
-      const sopCalculation = this.sopCalculator.calculateBulkShipments(shipments, sopConfig);
+      // 🆕 Use new dynamic calculation method
+      const sopCalculation = this.sopCalculator.calculateBulkShipmentsWithConfig(shipments, sopConfig);
 
       // Step 3: Get current costs
       console.log(`\n💰 Step 3: Calculating current costs...`);

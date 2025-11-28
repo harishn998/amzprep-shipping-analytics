@@ -135,7 +135,7 @@ const reportSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.Mixed,
     required: false,
     default: null
-  }
+  },
   // Stores complete hazmat analysis:
   // - overview (products, shipments, percentages)
   // - typeBreakdown (Aerosol, Flammable, etc.)
@@ -143,6 +143,14 @@ const reportSchema = new mongoose.Schema({
   // - compliance (alerts and warnings)
   // - shipments (hazmat vs non-hazmat metrics)
   // - sampleProducts (example hazmat ASINs)
+
+  // 🆕 Cost Configuration used for this report
+  costConfig: {
+    type: mongoose.Schema.Types.Mixed,
+    required: false,
+    default: null
+  }
+  // Stores: { freightCost, freightMarkup, mmBaseCost, mmMarkup, rateMode, destination }
 
 }, {
   timestamps: true  // Automatically adds createdAt and updatedAt

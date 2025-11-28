@@ -163,7 +163,7 @@ function downloadImage(url) {
   });
 }
 
-async function parseExcelFile(filePath, hazmatFilter = 'all') {
+async function parseExcelFile(filePath, hazmatFilter = 'all', costConfig = {}) {
   // ✨ NEW: Enhancement Layer
   const enhancer = new AmazonEnhancementLayer();
   const enhancedFilePath = await enhancer.enhanceIfNeeded(filePath);
@@ -194,10 +194,10 @@ async function parseExcelFile(filePath, hazmatFilter = 'all') {
   // Route to appropriate parser
   switch (detection.format) {
     case 'smash_foods':
-      return await parseSmashFoodsFormat(enhancedFilePath, hazmatFilter || 'all');  // ✓ Use enhanced path
+      return await parseSmashFoodsFormat(enhancedFilePath, hazmatFilter, costConfig || 'all');  // ✓ Use enhanced path
 
     case 'muscle_mac':
-      return await parseMuscleMacFormat(enhancedFilePath, hazmatFilter || 'all');  // ✓ Use enhanced path
+      return await parseMuscleMacFormat(enhancedFilePath, hazmatFilter, costConfig || 'all');  // ✓ Use enhanced path
 
     case 'shopify':
       return parseShopifyFormat(data);
@@ -229,30 +229,35 @@ function parseSimpleFormat(data) {
 }
 
 // New MUSCLE MAC format parser
-async function parseMuscleMacFormat(filePath, hazmatFilter = 'all') {
+async function parseMuscleMacFormat(filePath, hazmatFilter = 'all', costConfig = {}) {
   console.log('🔄 Processing Muscle Mac (Inv Water) format...');
   console.log('   File path:', filePath);
   console.log('   Using Smash Foods integration with Muscle Mac column mapping');
   console.log(`   Hazmat filter: ${hazmatFilter}`);
+  console.log('   Cost Config:', JSON.stringify(costConfig));
 
   try {
     const integration = new SmashFoodsIntegration();
 
-    // Muscle Mac uses same calculation logic as Smash Foods
-    // Just different column names in Data sheet
-    // 🆕 SOP Config
+    // 🆕 Build SOP config from costConfig (same as Smash Foods)
     const sopConfig = {
-      ftlCost: 3000,      // Default FTL cost
-      palletCost: 150,    // Default pallet cost
-      useFTL: true        // Use FTL method
+      freightCost: costConfig.freightCost || 3000,
+      freightMarkup: costConfig.freightMarkup || 1.20,
+      mmBaseCost: costConfig.mmBaseCost || null,
+      mmMarkup: costConfig.mmMarkup || 1.0,
+      rateMode: costConfig.rateMode || 'FTL',
+      destination: costConfig.destination || null,
+      palletCost: costConfig.palletCost || 150,
+      ftlCost: costConfig.freightCost || 3000,
+      useFTL: costConfig.rateMode !== 'PALLET'
     };
 
     const analysis = await integration.analyzeSmashFoodsFile(
       filePath,
-      'combined',  // rate type
-      0.10,       // 10% markup
-      hazmatFilter, // Pass filter here too
-      sopConfig   // 🆕 NEW: Pass SOP config
+      'combined',
+      0.10,
+      hazmatFilter,
+      sopConfig  // 🆕 Pass dynamic config
     );
 
     console.log('✅ Muscle Mac analysis complete');
@@ -261,20 +266,20 @@ async function parseMuscleMacFormat(filePath, hazmatFilter = 'all') {
     console.log(`   Total Cuft: ${analysis.totalCuft?.toFixed(2)}`);
     console.log(`   Savings: $${analysis.savings?.amount?.toFixed(2)}`);
 
-    // Return with special flag (same as Smash Foods)
+    // Return with special flag
     return [{
       __smashFoodsAnalysis: true,
       analysis: {
         ...analysis,
-        // Mark as Muscle Mac format for frontend
         metadata: {
           ...analysis.metadata,
           dataFormat: 'muscle_mac_actual',
-          originalFormat: 'muscle_mac'
+          originalFormat: 'muscle_mac',
+          costConfig: sopConfig  // 🆕 Include config in metadata
         },
         executiveSummary: {
           ...analysis.executiveSummary,
-          title: 'Inv Water Freight Analysis'  // Different title
+          title: 'Inv Water Freight Analysis'
         }
       }
     }];
@@ -287,43 +292,60 @@ async function parseMuscleMacFormat(filePath, hazmatFilter = 'all') {
 
 // Smash Foods format parser
 // NEW: Automated Smash Foods parser using integration module
-async function parseSmashFoodsFormat(filePath, hazmatFilter = 'all') {
+async function parseSmashFoodsFormat(filePath, hazmatFilter = 'all', costConfig = {}) {
   console.log('🚀 Processing Smash Foods format with FULL AUTOMATION...');
   console.log(`   File path: ${filePath}`);
-  console.log(`   Hazmat filter: ${hazmatFilter}`); // NEW
-  console.log('   Using Smash Foods integration');
+  console.log(`   Hazmat filter: ${hazmatFilter}`);
+  console.log(`   Cost Config:`, JSON.stringify(costConfig));
 
   try {
     const integration = new SmashFoodsIntegration();
 
-    // Run complete automated analysis using Analysis (Pallet) sheet formulas
-    // 🆕 SOP Config
+    // 🆕 Build SOP config from costConfig
     const sopConfig = {
-      ftlCost: 3000,      // Default FTL cost
-      palletCost: 150,    // Default pallet cost
-      useFTL: true        // Use FTL method
+      // Freight settings
+      freightCost: costConfig.freightCost || 3000,
+      freightMarkup: costConfig.freightMarkup || 1.20,
+
+      // Middle mile settings
+      mmBaseCost: costConfig.mmBaseCost || null,  // null = use pattern rates
+      mmMarkup: costConfig.mmMarkup || 1.0,
+
+      // Rate mode
+      rateMode: costConfig.rateMode || 'FTL',  // 'FTL' or 'PALLET'
+
+      // Destination override
+      destination: costConfig.destination || null,  // null = auto-detect
+
+      // Pallet cost (for PALLET mode)
+      palletCost: costConfig.palletCost || 150,
+
+      // Backward compatibility
+      ftlCost: costConfig.freightCost || 3000,
+      useFTL: costConfig.rateMode !== 'PALLET'
     };
+
+    console.log('📊 SOP Config built:', JSON.stringify(sopConfig, null, 2));
 
     // Run complete automated analysis using SOP-compliant formulas
     const analysis = await integration.analyzeSmashFoodsFile(
       filePath,
-      'combined', // rate type
-      0.10, // 10% markup
-      hazmatFilter, // NEW PARAMETER
-      sopConfig   // 🆕 NEW: Pass SOP config
+      'combined',  // rate type
+      0.10,        // 10% markup (legacy param)
+      hazmatFilter,
+      sopConfig    // 🆕 Pass dynamic config
     );
 
     console.log('✅ Smash Foods analysis complete');
     console.log(`   Total Shipments: ${analysis.totalShipments}`);
     console.log(`   Total Pallets: ${analysis.totalPallets}`);
     console.log(`   Total Cuft: ${analysis.totalCuft?.toFixed(2)}`);
-    console.log(`   Hazmat Products: ${analysis.hazmat.products.hazmat}`);
+    console.log(`   Hazmat Products: ${analysis.hazmat?.products?.hazmat || 0}`);
     console.log(`   Current Total: $${analysis.currentCosts?.totalCost?.toFixed(2)}`);
-    console.log(`   AMZ Prep Total: $${analysis.proposedCosts?.combined?.totalCost?.toFixed(2)}`);
-    console.log(`   Savings: $${analysis.savings?.amount?.toFixed(2)} (${analysis.savings?.amount >= 0 ? 'SAVINGS' : 'INCREASE'})`);
+    console.log(`   AMZ Prep Total: $${analysis.proposedCosts?.combined?.totalCost?.toFixed(2) || analysis.proposedCosts?.sop?.totalFreightCost?.toFixed(2)}`);
+    console.log(`   Savings: $${analysis.savings?.amount?.toFixed(2)}`);
 
-    // IMPORTANT: Return a special marker object that tells analyzeShipments()
-    // that this is already a complete Smash Foods analysis
+    // Return with special marker
     return [{
       __smashFoodsAnalysis: true,
       analysis: {
@@ -332,7 +354,8 @@ async function parseSmashFoodsFormat(filePath, hazmatFilter = 'all') {
           ...analysis.metadata,
           dataFormat: 'smash_foods_actual',
           originalFormat: 'smash_foods',
-          hazmatFilter // Track filter in metadata
+          hazmatFilter,
+          costConfig: sopConfig  // 🆕 Include config in metadata for audit trail
         }
       }
     }];
@@ -2736,9 +2759,34 @@ app.post('/api/upload', authenticateToken, upload.single('file'), async (req, re
 
     console.log('📤 File upload from user:', req.user.email);
 
+    console.log('\n📦 ===============================================');
+    console.log('   FILE UPLOAD RECEIVED');
+    console.log('===============================================');
+    console.log(`   File: ${req.file.originalname}`);
+    console.log(`   Size: ${(req.file.size / 1024).toFixed(2)} KB`);
+    console.log(`   User: ${req.user.email}`);
+
+    // 🆕 Extract cost config from request
+    let costConfig = {};
+    if (req.body.costConfig) {
+      try {
+        costConfig = typeof req.body.costConfig === 'string'
+          ? JSON.parse(req.body.costConfig)
+          : req.body.costConfig;
+        console.log('📊 Cost Config received:', costConfig);
+      } catch (e) {
+        console.warn('⚠️ Could not parse costConfig, using defaults');
+      }
+    }
+
     const filePath = req.file.path;
     const { hazmatFilter } = req.body; // NEW - Get filter from request
-    const shipments = await parseExcelFile(filePath, hazmatFilter || 'all');
+    const shipments = await parseExcelFile(filePath, hazmatFilter, costConfig || 'all');
+
+    console.log(`   Upload Type: ${uploadType}`);
+    console.log(`   Rate Type: ${rateType}`);
+    console.log(`   Hazmat Filter: ${hazmatFilter}`);
+    console.log('===============================================\n');
 
     console.log('🔍 Hazmat filter:', hazmatFilter || 'all'); // NEW
 
@@ -2758,7 +2806,9 @@ app.post('/api/upload', authenticateToken, upload.single('file'), async (req, re
       uploadDate: new Date(),
       uploadType,
       rateType,
-      ...analysis
+      ...analysis,
+      // 🆕 Save cost configuration for audit trail
+      costConfig: costConfig
     });
 
     await report.save();

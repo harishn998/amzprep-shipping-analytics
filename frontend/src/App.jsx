@@ -9,6 +9,7 @@ import shopifyLogo from './assets/shopify-logo.png';
 import { SmashFoodsDashboard } from './SmashFoodsDashboardComponents';
 import { ProcessingModal } from './ProcessingModal';
 import { ShippingScorecard } from './ShippingScorecard';
+import { CostConfigPanel } from './components/CostConfigPanel';
 
 
 //const API_URL = 'http://localhost:5000/api';
@@ -73,6 +74,15 @@ const ShippingAnalytics = () => {
   });
   const [viewType, setViewType] = useState('scorecard');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [costConfig, setCostConfig] = useState({
+  freightCost: 1315,      // Default FTL cost
+  freightMarkup: 1.2,     // 20% markup
+  mmBaseCost: 2.75,       // KY Standard rate
+  mmMarkup: 1.05,         // 5% markup
+  rateMode: 'FTL',        // Full Truckload
+  destination: 'KY',      // Hebron, KY
+  palletCost: 150         // Pallet rate
+});
 
   useEffect(() => {
     fetchReports();
@@ -584,6 +594,10 @@ const Alert = PremiumAlert;
     formData.append('file', file);
     formData.append('uploadType', 'amazon');
     formData.append('rateType', amazonRateType);
+    formData.append('hazmatFilter', hazmatFilter);
+
+    // 🆕 Add cost config
+    formData.append('costConfig', JSON.stringify(costConfig));
 
     try {
       // Simulate initial progress
@@ -844,6 +858,13 @@ const Alert = PremiumAlert;
             </p>
           </div>
 
+          {/* 🆕 Cost Configuration Panel */}
+          <CostConfigPanel
+            onConfigChange={setCostConfig}
+            disabled={amazonLoading}
+            initialConfig={costConfig}
+          />
+
           {/* Hazmat Filter Selection */}
           <div className="hazmat-filter-section" style={{
             marginTop: '20px',
@@ -956,7 +977,7 @@ const Alert = PremiumAlert;
             <ul className="text-xs text-gray-400 space-y-1">
               <li className="flex items-start gap-2">
                 <span className="text-brand-blue mt-0.5">•</span>
-                <span>Smash Foods CSV/Excel format</span>
+                <span>Amazon FBA CSV/Excel format</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-brand-blue mt-0.5">•</span>

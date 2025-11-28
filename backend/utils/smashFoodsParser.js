@@ -309,7 +309,7 @@ class SmashFoodsParser {
       }
 
       // ⭐ Round cuft to match Apps Script
-      const roundedCuft = Math.round(actualCuft);
+      const roundedCuft = Math.round(actualCuft * 100) / 100;
       const roundedPallets = roundedCuft > 0 ? roundedCuft / this.CUFT_PER_PALLET : 0;
 
       // Handle placement fees
