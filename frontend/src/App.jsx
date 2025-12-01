@@ -75,14 +75,14 @@ const ShippingAnalytics = () => {
   const [viewType, setViewType] = useState('scorecard');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [costConfig, setCostConfig] = useState({
-  freightCost: 1315,      // Default FTL cost
-  freightMarkup: 1.2,     // 20% markup
-  mmBaseCost: 2.75,       // KY Standard rate
-  mmMarkup: 1.05,         // 5% markup
-  rateMode: 'FTL',        // Full Truckload
-  destination: 'KY',      // Hebron, KY
-  palletCost: 150         // Pallet rate
-});
+    freightCost: 1315,      // Default FTL cost (from Illinois to KY)
+    freightMarkup: 1.2,     // 20% markup (1315 × 1.2 = 1578)
+    mmBaseCost: 2.625,      // ✅ FIXED: KY Standard rate (was 2.75)
+    mmMarkup: 1.0,          // ✅ FIXED: No markup (was 1.05)
+    rateMode: 'FTL',        // Full Truckload
+    destination: 'KY',      // Hebron, KY
+    palletCost: 150         // Pallet rate (when using PALLET mode)
+  });
 
   useEffect(() => {
     fetchReports();
@@ -862,7 +862,6 @@ const Alert = PremiumAlert;
           <CostConfigPanel
             onConfigChange={setCostConfig}
             disabled={amazonLoading}
-            initialConfig={costConfig}
           />
 
           {/* Hazmat Filter Selection */}

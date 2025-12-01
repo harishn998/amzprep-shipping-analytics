@@ -1,42 +1,65 @@
 // ============================================================================
-// COST CONFIGURATION PANEL - CORRECTED DEFAULTS
-// Defaults now match the pivot table analysis values
+// COST CONFIGURATION PANEL - FIXED DECIMAL INPUT
+// Fixes:
+// 1. Decimal input now works properly (keeps string while typing)
+// 2. Converts to number only on blur (when user finishes typing)
+// 3. Proper validation for MM rate calculation
 // ============================================================================
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Settings, DollarSign, Truck, MapPin, Calculator, Info, ChevronDown, ChevronUp } from 'lucide-react';
 
-// ✅ CORRECTED: Default values matching the pivot table analysis
+// Default values matching the pivot table analysis
 const DEFAULT_CONFIG = {
-  freightCost: 1315,       // FTL cost (from Illinois to KY)
-  freightMarkup: 1.2,      // 20% markup
-  mmBaseCost: 2.625,       // ✅ FIXED: Was 2.75, pivot uses 2.625
-  mmMarkup: 1.0,           // ✅ FIXED: Was 1.05 (5%), pivot uses 1.0 (no markup)
-  rateMode: 'FTL',         // Full Truckload
-  destination: 'KY',       // Hebron, KY
-  palletCost: 150          // Pallet rate (when using PALLET mode)
+  freightCost: 1315,
+  freightMarkup: 1.2,
+  mmBaseCost: 2.625,
+  mmMarkup: 1.0,
+  rateMode: 'FTL',
+  destination: 'KY',
+  palletCost: 150
 };
 
 // Pattern rates from Freight Rate sheet
-// Note: Pivot table analysis uses 2.625 for KY Standard (blended rate)
 const PATTERN_RATES = {
-  KY: { Standard: 2.625, Oversize: 4.00, Hazmat: 6.00 },  // ✅ Updated Standard
+  KY: { Standard: 2.625, Oversize: 4.00, Hazmat: 6.00 },
   VEGAS: { Standard: 3.75, Oversize: 5.00, Hazmat: 7.00 }
 };
 
 export const CostConfigPanel = ({ onConfigChange, disabled = false }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [config, setConfig] = useState(DEFAULT_CONFIG);
+
+  // ✅ NEW: Separate state for input fields (keeps raw string while typing)
+  const [inputValues, setInputValues] = useState({
+    freightCost: '1315',
+    freightMarkup: '1.2',
+    mmBaseCost: '2.625',
+    mmMarkup: '1',
+    palletCost: '150'
+  });
+
   const [preview, setPreview] = useState({
     totalFreightCost: '1578.00',
     internalTransferRate: '0.9059',
     mmRate: '2.6250',
-    mmCostPT: '1709.50'
+    mmCostPT: '218.08'
   });
 
   // Store callback in ref to avoid dependency issues
   const onConfigChangeRef = useRef(onConfigChange);
   onConfigChangeRef.current = onConfigChange;
+
+  // ✅ Initialize input values from config
+  useEffect(() => {
+    setInputValues({
+      freightCost: String(config.freightCost),
+      freightMarkup: String(config.freightMarkup),
+      mmBaseCost: String(config.mmBaseCost),
+      mmMarkup: String(config.mmMarkup),
+      palletCost: String(config.palletCost)
+    });
+  }, []);
 
   // Calculate preview values whenever config changes
   useEffect(() => {
@@ -52,58 +75,129 @@ export const CostConfigPanel = ({ onConfigChange, disabled = false }) => {
       : (pc * fm) / 67;
     const mmRate = mbc * mm;
 
+    // MM Cost PT = (FTL/26 × 1 pallet) + (67 cuft × $2.50) for preview
+    const MM_COST_PT_RATE = 2.50;
+    const previewPallets = 1;
+    const previewCuft = 67;
+    const mmCostPTPerPallet = (fc / 26) * previewPallets + (previewCuft * MM_COST_PT_RATE);
+
     setPreview({
       totalFreightCost: totalFreightCost.toFixed(2),
       internalTransferRate: internalTransferRate.toFixed(4),
       mmRate: mmRate.toFixed(4),
-      mmCostPT: (fc * 1.3).toFixed(2)
+      mmCostPT: mmCostPTPerPallet.toFixed(2)
+    });
+
+    // Debug log to verify values
+    console.log('📊 Config Preview:', {
+      freightCost: fc,
+      freightMarkup: fm,
+      mmBaseCost: mbc,
+      mmMarkup: mm,
+      mmRate: mmRate
     });
   }, [config]);
 
-  // ✅ KEY FIX: Only notify parent when panel CLOSES or on initial mount
+  // Notify parent when panel CLOSES
   useEffect(() => {
-    // When panel closes, send the final config to parent
     if (!isExpanded && onConfigChangeRef.current) {
-      onConfigChangeRef.current(config);
+      // Ensure all values are proper numbers before sending to parent
+      const cleanConfig = {
+        ...config,
+        freightCost: parseFloat(config.freightCost) || DEFAULT_CONFIG.freightCost,
+        freightMarkup: parseFloat(config.freightMarkup) || DEFAULT_CONFIG.freightMarkup,
+        mmBaseCost: parseFloat(config.mmBaseCost) || DEFAULT_CONFIG.mmBaseCost,
+        mmMarkup: parseFloat(config.mmMarkup) || DEFAULT_CONFIG.mmMarkup,
+        palletCost: parseFloat(config.palletCost) || DEFAULT_CONFIG.palletCost
+      };
+      console.log('📤 Sending config to parent:', cleanConfig);
+      onConfigChangeRef.current(cleanConfig);
     }
-  }, [isExpanded]); // Only triggers when isExpanded changes
+  }, [isExpanded]);
 
-  // Also notify on mount so parent has initial values
+  // Notify on mount
   useEffect(() => {
     if (onConfigChangeRef.current) {
       onConfigChangeRef.current(config);
     }
-  }, []); // Only on mount
+  }, []);
 
-  // Handle field changes (local state only - no parent notification)
+  // ✅ FIXED: Handle input change - keeps raw string while typing
+  const handleInputChange = useCallback((field, rawValue) => {
+    // Allow: empty, digits, single decimal point, and valid decimal patterns
+    // This regex allows: "", "1", "1.", "1.2", "1.23", "1.234", etc.
+    const isValidInput = /^-?\d*\.?\d*$/.test(rawValue);
+
+    if (!isValidInput) {
+      return; // Reject invalid characters
+    }
+
+    // Update the display value (string)
+    setInputValues(prev => ({ ...prev, [field]: rawValue }));
+
+    // Also update config with the numeric value (for preview calculation)
+    // But keep it as string in config if it ends with decimal or is empty
+    if (rawValue === '' || rawValue === '.' || rawValue.endsWith('.')) {
+      setConfig(prev => ({ ...prev, [field]: rawValue }));
+    } else {
+      const numValue = parseFloat(rawValue);
+      if (!isNaN(numValue)) {
+        setConfig(prev => ({ ...prev, [field]: numValue }));
+      }
+    }
+  }, []);
+
+  // ✅ NEW: Handle blur - finalize the value as a number
+  const handleInputBlur = useCallback((field) => {
+    const rawValue = inputValues[field];
+    let finalValue;
+
+    // Parse the value
+    const numValue = parseFloat(rawValue);
+
+    if (isNaN(numValue) || rawValue === '' || rawValue === '.') {
+      // Revert to default if invalid
+      finalValue = DEFAULT_CONFIG[field];
+    } else {
+      finalValue = numValue;
+    }
+
+    // Update both states with the final numeric value
+    setInputValues(prev => ({ ...prev, [field]: String(finalValue) }));
+    setConfig(prev => ({ ...prev, [field]: finalValue }));
+
+    console.log(`✅ Field ${field} finalized:`, finalValue);
+  }, [inputValues]);
+
+  // Handle generic field changes (non-numeric)
   const handleChange = useCallback((field, value) => {
     setConfig(prev => ({ ...prev, [field]: value }));
   }, []);
 
-  // Handle numeric input
-  const handleNumericChange = useCallback((field, rawValue) => {
-    if (rawValue === '' || rawValue === '.') {
-      setConfig(prev => ({ ...prev, [field]: rawValue }));
-      return;
-    }
-    const numValue = parseFloat(rawValue);
-    if (!isNaN(numValue)) {
-      setConfig(prev => ({ ...prev, [field]: numValue }));
-    }
-  }, []);
-
   // Handle destination change
   const handleDestinationChange = useCallback((dest) => {
+    const newRate = PATTERN_RATES[dest].Standard;
     setConfig(prev => ({
       ...prev,
       destination: dest,
-      mmBaseCost: PATTERN_RATES[dest].Standard
+      mmBaseCost: newRate
+    }));
+    setInputValues(prev => ({
+      ...prev,
+      mmBaseCost: String(newRate)
     }));
   }, []);
 
   // Reset to defaults
   const resetToDefaults = useCallback(() => {
     setConfig(DEFAULT_CONFIG);
+    setInputValues({
+      freightCost: String(DEFAULT_CONFIG.freightCost),
+      freightMarkup: String(DEFAULT_CONFIG.freightMarkup),
+      mmBaseCost: String(DEFAULT_CONFIG.mmBaseCost),
+      mmMarkup: String(DEFAULT_CONFIG.mmMarkup),
+      palletCost: String(DEFAULT_CONFIG.palletCost)
+    });
   }, []);
 
   // Toggle panel
@@ -213,11 +307,12 @@ export const CostConfigPanel = ({ onConfigChange, disabled = false }) => {
               <input
                 type="text"
                 inputMode="decimal"
-                value={config.rateMode === 'FTL' ? config.freightCost : config.palletCost}
-                onChange={(e) => handleNumericChange(
+                value={config.rateMode === 'FTL' ? inputValues.freightCost : inputValues.palletCost}
+                onChange={(e) => handleInputChange(
                   config.rateMode === 'FTL' ? 'freightCost' : 'palletCost',
                   e.target.value
                 )}
+                onBlur={() => handleInputBlur(config.rateMode === 'FTL' ? 'freightCost' : 'palletCost')}
                 disabled={disabled}
                 className="w-full bg-[#0f1419] border border-gray-700 rounded-lg px-4 py-3 text-white focus:border-[#00A8FF] focus:outline-none focus:ring-2 focus:ring-[#00A8FF]/20 disabled:opacity-50"
                 placeholder={config.rateMode === 'FTL' ? '1315' : '150'}
@@ -233,8 +328,9 @@ export const CostConfigPanel = ({ onConfigChange, disabled = false }) => {
                 <input
                   type="text"
                   inputMode="decimal"
-                  value={config.freightMarkup}
-                  onChange={(e) => handleNumericChange('freightMarkup', e.target.value)}
+                  value={inputValues.freightMarkup}
+                  onChange={(e) => handleInputChange('freightMarkup', e.target.value)}
+                  onBlur={() => handleInputBlur('freightMarkup')}
                   disabled={disabled}
                   className="w-full bg-[#0f1419] border border-gray-700 rounded-lg px-4 py-3 text-white focus:border-[#00A8FF] focus:outline-none focus:ring-2 focus:ring-[#00A8FF]/20 disabled:opacity-50"
                   placeholder="1.2"
@@ -255,8 +351,9 @@ export const CostConfigPanel = ({ onConfigChange, disabled = false }) => {
               <input
                 type="text"
                 inputMode="decimal"
-                value={config.mmBaseCost}
-                onChange={(e) => handleNumericChange('mmBaseCost', e.target.value)}
+                value={inputValues.mmBaseCost}
+                onChange={(e) => handleInputChange('mmBaseCost', e.target.value)}
+                onBlur={() => handleInputBlur('mmBaseCost')}
                 disabled={disabled}
                 className="w-full bg-[#0f1419] border border-gray-700 rounded-lg px-4 py-3 text-white focus:border-[#00A8FF] focus:outline-none focus:ring-2 focus:ring-[#00A8FF]/20 disabled:opacity-50"
                 placeholder="2.625"
@@ -274,8 +371,9 @@ export const CostConfigPanel = ({ onConfigChange, disabled = false }) => {
                 <input
                   type="text"
                   inputMode="decimal"
-                  value={config.mmMarkup}
-                  onChange={(e) => handleNumericChange('mmMarkup', e.target.value)}
+                  value={inputValues.mmMarkup}
+                  onChange={(e) => handleInputChange('mmMarkup', e.target.value)}
+                  onBlur={() => handleInputBlur('mmMarkup')}
                   disabled={disabled}
                   className="w-full bg-[#0f1419] border border-gray-700 rounded-lg px-4 py-3 text-white focus:border-[#00A8FF] focus:outline-none focus:ring-2 focus:ring-[#00A8FF]/20 disabled:opacity-50"
                   placeholder="1.0"
@@ -295,20 +393,20 @@ export const CostConfigPanel = ({ onConfigChange, disabled = false }) => {
             </h5>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
               <div>
-                <p className="text-gray-400 pb-6">Total Freight Cost</p>
-                <p className="text-white font-bold">${preview.totalFreightCost}</p>
+                <p className="text-gray-400 pb-2">Total Freight Cost</p>
+                <p className="text-white font-bold text-lg">${preview.totalFreightCost}</p>
               </div>
               <div>
-                <p className="text-gray-400 pb-6">Internal Transfer/cuft</p>
-                <p className="text-white font-bold">${preview.internalTransferRate}</p>
+                <p className="text-gray-400 pb-2">Internal Transfer/cuft</p>
+                <p className="text-white font-bold text-lg">${preview.internalTransferRate}</p>
               </div>
               <div>
-                <p className="text-gray-400 pb-6">MM Rate/cuft</p>
-                <p className="text-white font-bold">${preview.mmRate}</p>
+                <p className="text-gray-400 pb-2">MM Rate/cuft</p>
+                <p className="text-[#00A8FF] font-bold text-lg">${preview.mmRate}</p>
               </div>
               <div>
-                <p className="text-gray-400 pb-6">MM Cost PT</p>
-                <p className="text-white font-bold">${preview.mmCostPT}</p>
+                <p className="text-gray-400 pb-2">MM Cost PT (per pallet)</p>
+                <p className="text-white font-bold text-lg">${preview.mmCostPT}</p>
               </div>
             </div>
           </div>
@@ -319,7 +417,7 @@ export const CostConfigPanel = ({ onConfigChange, disabled = false }) => {
               type="button"
               onClick={resetToDefaults}
               disabled={disabled}
-              className="text-gray-400 hover:text-white text-sm"
+              className="text-gray-400 hover:text-white text-sm transition-colors"
             >
               Reset to Defaults
             </button>
