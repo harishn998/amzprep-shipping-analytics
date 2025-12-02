@@ -1,15 +1,16 @@
 // ============================================================================
-// COST CONFIGURATION PANEL - FIXED DECIMAL INPUT
-// Fixes:
-// 1. Decimal input now works properly (keeps string while typing)
-// 2. Converts to number only on blur (when user finishes typing)
-// 3. Proper validation for MM rate calculation
+// COST CONFIGURATION PANEL - FULLY WORKING VERSION
+//
+// Key Fixes:
+// 1. Receives initialConfig from parent to survive remounts
+// 2. Parent controls expanded state
+// 3. Local changes don't trigger parent re-render until Apply
 // ============================================================================
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Settings, DollarSign, Truck, MapPin, Calculator, Info, ChevronDown, ChevronUp } from 'lucide-react';
+import { Settings, DollarSign, Truck, MapPin, Calculator, Info, ChevronDown, ChevronUp, Check } from 'lucide-react';
 
-// Default values matching the pivot table analysis
+// Default values (fallback only)
 const DEFAULT_CONFIG = {
   freightCost: 1315,
   freightMarkup: 1.2,
@@ -17,51 +18,72 @@ const DEFAULT_CONFIG = {
   mmMarkup: 1.0,
   rateMode: 'FTL',
   destination: 'KY',
-  palletCost: 150
+  palletCost: 150,
+  analysisYear: new Date().getFullYear(),
+  analysisStartMonth: 1,
+  analysisEndMonth: 12,
+  shipFromFilter: []
 };
 
-// Pattern rates from Freight Rate sheet
+// Pattern rates
 const PATTERN_RATES = {
   KY: { Standard: 2.625, Oversize: 4.00, Hazmat: 6.00 },
   VEGAS: { Standard: 3.75, Oversize: 5.00, Hazmat: 7.00 }
 };
 
-export const CostConfigPanel = ({ onConfigChange, disabled = false }) => {
-  const [isExpanded, setIsExpanded] = useState(false);
-  const [config, setConfig] = useState(DEFAULT_CONFIG);
+const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-  // ✅ NEW: Separate state for input fields (keeps raw string while typing)
-  const [inputValues, setInputValues] = useState({
-    freightCost: '1315',
-    freightMarkup: '1.2',
-    mmBaseCost: '2.625',
-    mmMarkup: '1',
-    palletCost: '150'
-  });
+export const CostConfigPanel = ({
+  onConfigChange,
+  disabled = false,
+  expanded: controlledExpanded,
+  onExpandedChange,
+  // 🆕 NEW: Receive current config from parent to initialize from
+  initialConfig
+}) => {
+  // Use internal state if not controlled by parent
+  const [internalExpanded, setInternalExpanded] = useState(false);
+  const isControlled = controlledExpanded !== undefined;
+  const isExpanded = isControlled ? controlledExpanded : internalExpanded;
 
+  // 🆕 Initialize from parent's config if provided, otherwise use defaults
+  const getInitialConfig = () => {
+    if (initialConfig) {
+      return { ...DEFAULT_CONFIG, ...initialConfig };
+    }
+    return DEFAULT_CONFIG;
+  };
+
+  const getInitialInputValues = () => {
+    const cfg = initialConfig || DEFAULT_CONFIG;
+    return {
+      freightCost: String(cfg.freightCost || DEFAULT_CONFIG.freightCost),
+      freightMarkup: String(cfg.freightMarkup || DEFAULT_CONFIG.freightMarkup),
+      mmBaseCost: String(cfg.mmBaseCost || DEFAULT_CONFIG.mmBaseCost),
+      mmMarkup: String(cfg.mmMarkup || DEFAULT_CONFIG.mmMarkup),
+      palletCost: String(cfg.palletCost || DEFAULT_CONFIG.palletCost)
+    };
+  };
+
+  const [config, setConfig] = useState(getInitialConfig);
+  const [inputValues, setInputValues] = useState(getInitialInputValues);
   const [preview, setPreview] = useState({
     totalFreightCost: '1578.00',
     internalTransferRate: '0.9059',
     mmRate: '2.6250',
     mmCostPT: '218.08'
   });
+  const [hasChanges, setHasChanges] = useState(false);
 
-  // Store callback in ref to avoid dependency issues
+  // Refs
   const onConfigChangeRef = useRef(onConfigChange);
-  onConfigChangeRef.current = onConfigChange;
 
-  // ✅ Initialize input values from config
+  // Update callback ref
   useEffect(() => {
-    setInputValues({
-      freightCost: String(config.freightCost),
-      freightMarkup: String(config.freightMarkup),
-      mmBaseCost: String(config.mmBaseCost),
-      mmMarkup: String(config.mmMarkup),
-      palletCost: String(config.palletCost)
-    });
-  }, []);
+    onConfigChangeRef.current = onConfigChange;
+  }, [onConfigChange]);
 
-  // Calculate preview values whenever config changes
+  // Calculate preview values (local only)
   useEffect(() => {
     const fc = typeof config.freightCost === 'number' ? config.freightCost : parseFloat(config.freightCost) || 0;
     const fm = typeof config.freightMarkup === 'number' ? config.freightMarkup : parseFloat(config.freightMarkup) || 1;
@@ -74,12 +96,7 @@ export const CostConfigPanel = ({ onConfigChange, disabled = false }) => {
       ? totalFreightCost / 1742
       : (pc * fm) / 67;
     const mmRate = mbc * mm;
-
-    // MM Cost PT = (FTL/26 × 1 pallet) + (67 cuft × $2.50) for preview
-    const MM_COST_PT_RATE = 2.50;
-    const previewPallets = 1;
-    const previewCuft = 67;
-    const mmCostPTPerPallet = (fc / 26) * previewPallets + (previewCuft * MM_COST_PT_RATE);
+    const mmCostPTPerPallet = (fc / 26) + (67 * 2.50);
 
     setPreview({
       totalFreightCost: totalFreightCost.toFixed(2),
@@ -87,59 +104,34 @@ export const CostConfigPanel = ({ onConfigChange, disabled = false }) => {
       mmRate: mmRate.toFixed(4),
       mmCostPT: mmCostPTPerPallet.toFixed(2)
     });
-
-    // Debug log to verify values
-    console.log('📊 Config Preview:', {
-      freightCost: fc,
-      freightMarkup: fm,
-      mmBaseCost: mbc,
-      mmMarkup: mm,
-      mmRate: mmRate
-    });
   }, [config]);
 
-  // Notify parent when panel CLOSES
-  useEffect(() => {
-    if (!isExpanded && onConfigChangeRef.current) {
-      // Ensure all values are proper numbers before sending to parent
+  // Helper to send config to parent
+  const sendConfigToParent = useCallback(() => {
+    if (onConfigChangeRef.current) {
       const cleanConfig = {
         ...config,
-        freightCost: parseFloat(config.freightCost) || DEFAULT_CONFIG.freightCost,
-        freightMarkup: parseFloat(config.freightMarkup) || DEFAULT_CONFIG.freightMarkup,
-        mmBaseCost: parseFloat(config.mmBaseCost) || DEFAULT_CONFIG.mmBaseCost,
-        mmMarkup: parseFloat(config.mmMarkup) || DEFAULT_CONFIG.mmMarkup,
-        palletCost: parseFloat(config.palletCost) || DEFAULT_CONFIG.palletCost
+        freightCost: typeof config.freightCost === 'number' ? config.freightCost : parseFloat(config.freightCost) || DEFAULT_CONFIG.freightCost,
+        freightMarkup: typeof config.freightMarkup === 'number' ? config.freightMarkup : parseFloat(config.freightMarkup) || DEFAULT_CONFIG.freightMarkup,
+        mmBaseCost: typeof config.mmBaseCost === 'number' ? config.mmBaseCost : parseFloat(config.mmBaseCost) || DEFAULT_CONFIG.mmBaseCost,
+        mmMarkup: typeof config.mmMarkup === 'number' ? config.mmMarkup : parseFloat(config.mmMarkup) || DEFAULT_CONFIG.mmMarkup,
+        palletCost: typeof config.palletCost === 'number' ? config.palletCost : parseFloat(config.palletCost) || DEFAULT_CONFIG.palletCost
       };
-      console.log('📤 Sending config to parent:', cleanConfig);
+      console.log('📤 Config applied:', cleanConfig);
       onConfigChangeRef.current(cleanConfig);
+      setHasChanges(false);
     }
-  }, [isExpanded]);
+  }, [config]);
 
-  // Notify on mount
-  useEffect(() => {
-    if (onConfigChangeRef.current) {
-      onConfigChangeRef.current(config);
-    }
-  }, []);
-
-  // ✅ FIXED: Handle input change - keeps raw string while typing
+  // Handle input change (local only)
   const handleInputChange = useCallback((field, rawValue) => {
-    // Allow: empty, digits, single decimal point, and valid decimal patterns
-    // This regex allows: "", "1", "1.", "1.2", "1.23", "1.234", etc.
     const isValidInput = /^-?\d*\.?\d*$/.test(rawValue);
+    if (!isValidInput) return;
 
-    if (!isValidInput) {
-      return; // Reject invalid characters
-    }
-
-    // Update the display value (string)
     setInputValues(prev => ({ ...prev, [field]: rawValue }));
+    setHasChanges(true);
 
-    // Also update config with the numeric value (for preview calculation)
-    // But keep it as string in config if it ends with decimal or is empty
-    if (rawValue === '' || rawValue === '.' || rawValue.endsWith('.')) {
-      setConfig(prev => ({ ...prev, [field]: rawValue }));
-    } else {
+    if (rawValue !== '' && rawValue !== '.' && !rawValue.endsWith('.')) {
       const numValue = parseFloat(rawValue);
       if (!isNaN(numValue)) {
         setConfig(prev => ({ ...prev, [field]: numValue }));
@@ -147,45 +139,31 @@ export const CostConfigPanel = ({ onConfigChange, disabled = false }) => {
     }
   }, []);
 
-  // ✅ NEW: Handle blur - finalize the value as a number
+  // Handle blur
   const handleInputBlur = useCallback((field) => {
     const rawValue = inputValues[field];
-    let finalValue;
-
-    // Parse the value
     const numValue = parseFloat(rawValue);
+    const finalValue = isNaN(numValue) || rawValue === '' || rawValue === '.'
+      ? DEFAULT_CONFIG[field]
+      : numValue;
 
-    if (isNaN(numValue) || rawValue === '' || rawValue === '.') {
-      // Revert to default if invalid
-      finalValue = DEFAULT_CONFIG[field];
-    } else {
-      finalValue = numValue;
-    }
-
-    // Update both states with the final numeric value
     setInputValues(prev => ({ ...prev, [field]: String(finalValue) }));
     setConfig(prev => ({ ...prev, [field]: finalValue }));
-
-    console.log(`✅ Field ${field} finalized:`, finalValue);
   }, [inputValues]);
 
-  // Handle generic field changes (non-numeric)
+  // Handle select/radio changes (local only)
   const handleChange = useCallback((field, value) => {
+    console.log(`📝 Local change: ${field} = ${value}`);
     setConfig(prev => ({ ...prev, [field]: value }));
+    setHasChanges(true);
   }, []);
 
   // Handle destination change
   const handleDestinationChange = useCallback((dest) => {
     const newRate = PATTERN_RATES[dest].Standard;
-    setConfig(prev => ({
-      ...prev,
-      destination: dest,
-      mmBaseCost: newRate
-    }));
-    setInputValues(prev => ({
-      ...prev,
-      mmBaseCost: String(newRate)
-    }));
+    setConfig(prev => ({ ...prev, destination: dest, mmBaseCost: newRate }));
+    setInputValues(prev => ({ ...prev, mmBaseCost: String(newRate) }));
+    setHasChanges(true);
   }, []);
 
   // Reset to defaults
@@ -198,41 +176,61 @@ export const CostConfigPanel = ({ onConfigChange, disabled = false }) => {
       mmMarkup: String(DEFAULT_CONFIG.mmMarkup),
       palletCost: String(DEFAULT_CONFIG.palletCost)
     });
+    setHasChanges(true);
   }, []);
+
+  // Apply changes
+  const applyChanges = useCallback(() => {
+    sendConfigToParent();
+  }, [sendConfigToParent]);
 
   // Toggle panel
   const togglePanel = useCallback(() => {
-    setIsExpanded(prev => !prev);
-  }, []);
+    const newExpanded = !isExpanded;
+
+    // If closing with unsaved changes, apply them
+    if (isExpanded && hasChanges) {
+      sendConfigToParent();
+    }
+
+    // Update expanded state
+    if (isControlled && onExpandedChange) {
+      onExpandedChange(newExpanded);
+    } else {
+      setInternalExpanded(newExpanded);
+    }
+  }, [isExpanded, hasChanges, sendConfigToParent, isControlled, onExpandedChange]);
 
   return (
     <div className="cost-config-panel bg-[#1a1f2e] rounded-xl border border-gray-800 mb-6">
-
-      {/* Header - Click to toggle */}
-      <div
-        onClick={togglePanel}
-        className={`w-full px-6 py-4 flex items-center justify-between cursor-pointer hover:bg-[#242936] transition-colors ${disabled ? 'opacity-50 pointer-events-none' : ''}`}
-      >
+      {/* Header */}
+      <div className={`w-full px-6 py-4 flex items-center justify-between ${disabled ? 'opacity-50' : ''}`}>
         <div className="flex items-center gap-3">
           <Settings className="text-[#00A8FF]" size={20} />
           <div>
             <h4 className="text-white font-semibold">Cost Configuration</h4>
             <p className="text-gray-400 text-sm">
-              {isExpanded ? 'Customize freight and middle mile costs' : 'Click to configure rates'}
+              {isExpanded
+                ? 'Customize freight and middle mile costs'
+                : `${config.rateMode} | ${config.destination} | ${MONTH_NAMES[config.analysisStartMonth - 1]}-${MONTH_NAMES[config.analysisEndMonth - 1]} ${config.analysisYear}`
+              }
             </p>
           </div>
         </div>
-        {isExpanded ? (
-          <ChevronUp className="text-gray-400" size={20} />
-        ) : (
-          <ChevronDown className="text-gray-400" size={20} />
-        )}
+
+        <button
+          type="button"
+          onClick={togglePanel}
+          disabled={disabled}
+          className="p-2 rounded-lg hover:bg-[#242936] transition-colors disabled:opacity-50"
+        >
+          {isExpanded ? <ChevronUp className="text-gray-400" size={20} /> : <ChevronDown className="text-gray-400" size={20} />}
+        </button>
       </div>
 
       {/* Expandable Content */}
       {isExpanded && (
         <div className="px-6 pb-6 space-y-6 border-t border-gray-800">
-
           {/* Destination Selection */}
           <div className="pt-4">
             <div className="block text-sm font-semibold text-gray-300 mb-2">
@@ -314,8 +312,7 @@ export const CostConfigPanel = ({ onConfigChange, disabled = false }) => {
                 )}
                 onBlur={() => handleInputBlur(config.rateMode === 'FTL' ? 'freightCost' : 'palletCost')}
                 disabled={disabled}
-                className="w-full bg-[#0f1419] border border-gray-700 rounded-lg px-4 py-3 text-white focus:border-[#00A8FF] focus:outline-none focus:ring-2 focus:ring-[#00A8FF]/20 disabled:opacity-50"
-                placeholder={config.rateMode === 'FTL' ? '1315' : '150'}
+                className="w-full bg-[#0f1419] border border-gray-700 rounded-lg px-4 py-3 text-white focus:border-[#00A8FF] focus:outline-none focus:ring-2 focus:ring-[#00A8FF]/20"
               />
               <p className="text-xs text-gray-500 mt-1">Base freight cost from rate sheet</p>
             </div>
@@ -332,8 +329,7 @@ export const CostConfigPanel = ({ onConfigChange, disabled = false }) => {
                   onChange={(e) => handleInputChange('freightMarkup', e.target.value)}
                   onBlur={() => handleInputBlur('freightMarkup')}
                   disabled={disabled}
-                  className="w-full bg-[#0f1419] border border-gray-700 rounded-lg px-4 py-3 text-white focus:border-[#00A8FF] focus:outline-none focus:ring-2 focus:ring-[#00A8FF]/20 disabled:opacity-50"
-                  placeholder="1.2"
+                  className="w-full bg-[#0f1419] border border-gray-700 rounded-lg px-4 py-3 text-white focus:border-[#00A8FF] focus:outline-none focus:ring-2 focus:ring-[#00A8FF]/20"
                 />
                 <span className="text-gray-400 whitespace-nowrap">
                   ({typeof config.freightMarkup === 'number' ? ((config.freightMarkup - 1) * 100).toFixed(0) : '0'}%)
@@ -355,11 +351,10 @@ export const CostConfigPanel = ({ onConfigChange, disabled = false }) => {
                 onChange={(e) => handleInputChange('mmBaseCost', e.target.value)}
                 onBlur={() => handleInputBlur('mmBaseCost')}
                 disabled={disabled}
-                className="w-full bg-[#0f1419] border border-gray-700 rounded-lg px-4 py-3 text-white focus:border-[#00A8FF] focus:outline-none focus:ring-2 focus:ring-[#00A8FF]/20 disabled:opacity-50"
-                placeholder="2.625"
+                className="w-full bg-[#0f1419] border border-gray-700 rounded-lg px-4 py-3 text-white focus:border-[#00A8FF] focus:outline-none focus:ring-2 focus:ring-[#00A8FF]/20"
               />
               <p className="text-xs text-gray-500 mt-1">
-                Pattern rate: {config.destination} Standard = ${PATTERN_RATES[config.destination].Standard}
+                Pattern rate: {config.destination} = ${PATTERN_RATES[config.destination].Standard}
               </p>
             </div>
 
@@ -375,14 +370,68 @@ export const CostConfigPanel = ({ onConfigChange, disabled = false }) => {
                   onChange={(e) => handleInputChange('mmMarkup', e.target.value)}
                   onBlur={() => handleInputBlur('mmMarkup')}
                   disabled={disabled}
-                  className="w-full bg-[#0f1419] border border-gray-700 rounded-lg px-4 py-3 text-white focus:border-[#00A8FF] focus:outline-none focus:ring-2 focus:ring-[#00A8FF]/20 disabled:opacity-50"
-                  placeholder="1.0"
+                  className="w-full bg-[#0f1419] border border-gray-700 rounded-lg px-4 py-3 text-white focus:border-[#00A8FF] focus:outline-none focus:ring-2 focus:ring-[#00A8FF]/20"
                 />
                 <span className="text-gray-400 whitespace-nowrap">
                   ({typeof config.mmMarkup === 'number' ? ((config.mmMarkup - 1) * 100).toFixed(0) : '0'}%)
                 </span>
               </div>
             </div>
+          </div>
+
+          {/* Analysis Period */}
+          <div className="bg-[#0a0e14] rounded-lg p-4 border border-gray-700">
+            <div className="text-sm font-semibold text-gray-300 mb-3">
+              Analysis Period
+            </div>
+
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">From Month</label>
+                <select
+                  value={config.analysisStartMonth}
+                  onChange={(e) => handleChange('analysisStartMonth', parseInt(e.target.value, 10))}
+                  disabled={disabled}
+                  className="w-full bg-[#1a1f2e] border border-gray-600 rounded-lg px-3 py-2 text-white focus:border-[#00A8FF] focus:outline-none"
+                >
+                  {MONTH_NAMES.map((month, i) => (
+                    <option key={i + 1} value={i + 1}>{month}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">To Month</label>
+                <select
+                  value={config.analysisEndMonth}
+                  onChange={(e) => handleChange('analysisEndMonth', parseInt(e.target.value, 10))}
+                  disabled={disabled}
+                  className="w-full bg-[#1a1f2e] border border-gray-600 rounded-lg px-3 py-2 text-white focus:border-[#00A8FF] focus:outline-none"
+                >
+                  {MONTH_NAMES.map((month, i) => (
+                    <option key={i + 1} value={i + 1}>{month}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">Year</label>
+                <select
+                  value={config.analysisYear}
+                  onChange={(e) => handleChange('analysisYear', parseInt(e.target.value, 10))}
+                  disabled={disabled}
+                  className="w-full bg-[#1a1f2e] border border-gray-600 rounded-lg px-3 py-2 text-white focus:border-[#00A8FF] focus:outline-none"
+                >
+                  {[2023, 2024, 2025, 2026].map(year => (
+                    <option key={year} value={year}>{year}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <p className="text-xs text-gray-500 mt-3">
+              Selected: {MONTH_NAMES[config.analysisStartMonth - 1]} - {MONTH_NAMES[config.analysisEndMonth - 1]} {config.analysisYear}
+            </p>
           </div>
 
           {/* Preview Panel */}
@@ -405,7 +454,7 @@ export const CostConfigPanel = ({ onConfigChange, disabled = false }) => {
                 <p className="text-[#00A8FF] font-bold text-lg">${preview.mmRate}</p>
               </div>
               <div>
-                <p className="text-gray-400 pb-2">MM Cost PT (per pallet)</p>
+                <p className="text-gray-400 pb-2">MM Cost PT</p>
                 <p className="text-white font-bold text-lg">${preview.mmCostPT}</p>
               </div>
             </div>
@@ -421,9 +470,24 @@ export const CostConfigPanel = ({ onConfigChange, disabled = false }) => {
             >
               Reset to Defaults
             </button>
-            <div className="flex items-center gap-2 text-xs text-gray-500">
-              <Info size={12} />
-              <span>Config saved when panel closes</span>
+
+            <div className="flex items-center gap-3">
+              {hasChanges && (
+                <span className="text-xs text-yellow-500">Unsaved changes</span>
+              )}
+              <button
+                type="button"
+                onClick={applyChanges}
+                disabled={disabled || !hasChanges}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  hasChanges
+                    ? 'bg-[#00A8FF] text-white hover:bg-[#0090dd]'
+                    : 'bg-gray-700 text-gray-400 cursor-not-allowed'
+                }`}
+              >
+                <Check size={16} />
+                Apply Changes
+              </button>
             </div>
           </div>
         </div>

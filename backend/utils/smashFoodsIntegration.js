@@ -1,6 +1,8 @@
 // ============================================================================
 // SMASH FOODS INTEGRATION - SOP COMPLIANT VERSION
 // File: backend/utils/smashFoodsIntegration.js
+//
+// THIS IS THE CORRECTED FILE - ONLY 2 CHANGES FROM ORIGINAL
 // ============================================================================
 
 import SmashFoodsParser from './smashFoodsParser.js';
@@ -36,9 +38,21 @@ class SmashFoodsIntegration {
     console.log('===============================================\n');
 
     try {
-      // Step 1: Parse Excel file
+      // =========================================================================
+      // 🆕 CHANGE #1: Build parser options from config for date filtering
+      // =========================================================================
+      const parserOptions = {
+        year: config.analysisYear || new Date().getFullYear(),
+        startMonth: config.analysisStartMonth || 1,
+        endMonth: config.analysisEndMonth || 12,
+        shipFromZips: config.shipFromFilter || []
+      };
+
+      console.log(`📅 Analysis Period: ${parserOptions.year} (${parserOptions.startMonth}-${parserOptions.endMonth})`);
+
+      // Step 1: Parse Excel file WITH OPTIONS
       console.log('📊 Step 1: Parsing Excel file...');
-      const parsedData = await this.parser.parseFile(filePath);
+      const parsedData = await this.parser.parseFile(filePath, parserOptions);
       let shipments = parsedData.dataSheet;
 
       if (shipments.length === 0) {
@@ -53,18 +67,10 @@ class SmashFoodsIntegration {
       console.log(`   Products: ${parsedData.hazmatClassification.summary.hazmatCount} hazmat, ${parsedData.hazmatClassification.summary.nonHazmatCount} non-hazmat`);
       console.log(`   Shipments: ${hazmatShipments.length} contain hazmat (${((hazmatShipments.length/shipments.length)*100).toFixed(1)}%)`);
 
-      // Filter by current year
-      const currentYear = new Date().getFullYear();
-      const shipmentsWithDates = shipments.filter(s => s.createdDate);
-      const currentYearShipments = shipmentsWithDates.filter(s => {
-        const year = new Date(s.createdDate).getFullYear();
-        return year === currentYear;
-      });
-
-      if (currentYearShipments.length > 0) {
-        shipments = currentYearShipments;
-        console.log(`\n📅 Filtered to ${shipments.length} shipments from ${currentYear}`);
-      }
+      // =========================================================================
+      // 🆕 CHANGE #2: Date filtering now handled by parser - just log it
+      // =========================================================================
+      console.log(`\n📅 Filtered to ${shipments.length} shipments from ${parserOptions.year} (months ${parserOptions.startMonth}-${parserOptions.endMonth})`);
 
       // Apply hazmat filter
       let originalShipmentCount = shipments.length;
@@ -112,7 +118,9 @@ class SmashFoodsIntegration {
         palletCost: config.palletCost || 150
       };
 
-      // 🆕 Use new dynamic calculation method
+      // =========================================================================
+      // ⚠️ CRITICAL: Use calculateBulkShipmentsWithConfig - NOT calculateAllCosts
+      // =========================================================================
       const sopCalculation = this.sopCalculator.calculateBulkShipmentsWithConfig(shipments, sopConfig);
 
       // Step 3: Get current costs
@@ -207,6 +215,13 @@ class SmashFoodsIntegration {
 
         // Date range
         dateRange: insights.executiveSummary.overview.analysisTimeframe,
+
+        // 🆕 Add analysis period to response
+        analysisPeriod: {
+          year: parserOptions.year,
+          startMonth: parserOptions.startMonth,
+          endMonth: parserOptions.endMonth
+        },
 
         // Calculation method
         calculationMethod: 'SOP_COMPLIANT',
@@ -360,6 +375,7 @@ class SmashFoodsIntegration {
       console.log('   ANALYSIS COMPLETE');
       console.log('===============================================');
       console.log(`   Method: SOP Compliant`);
+      console.log(`   Analysis Period: ${parserOptions.year} (${parserOptions.startMonth}-${parserOptions.endMonth})`);
       console.log(`   Shipments: ${completeAnalysis.totalShipments}`);
       console.log(`   Current: $${completeAnalysis.currentCosts.totalCost.toFixed(2)}`);
       console.log(`   Proposed: $${completeAnalysis.proposedCosts.sop.totalFreightCost.toFixed(2)}`);

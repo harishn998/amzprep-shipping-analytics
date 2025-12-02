@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Upload, BarChart3, Package, DollarSign, Download, Settings, LogOut, AlertCircle, CheckCircle, MapPin, FileText, TruckIcon, ShoppingCart, Users, X, Menu, ChevronLeft, ChevronRight, Search, Bell, Zap, Activity, TrendingUp } from 'lucide-react';
 import axios from 'axios';
 import { ComposableMap, Geographies, Geography } from 'react-simple-maps';
@@ -75,14 +75,25 @@ const ShippingAnalytics = () => {
   const [viewType, setViewType] = useState('scorecard');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [costConfig, setCostConfig] = useState({
-    freightCost: 1315,      // Default FTL cost (from Illinois to KY)
-    freightMarkup: 1.2,     // 20% markup (1315 × 1.2 = 1578)
-    mmBaseCost: 2.625,      // ✅ FIXED: KY Standard rate (was 2.75)
-    mmMarkup: 1.0,          // ✅ FIXED: No markup (was 1.05)
-    rateMode: 'FTL',        // Full Truckload
-    destination: 'KY',      // Hebron, KY
-    palletCost: 150         // Pallet rate (when using PALLET mode)
+    freightCost: 1315,
+    freightMarkup: 1.2,
+    mmBaseCost: 2.625,
+    mmMarkup: 1.0,
+    rateMode: 'FTL',
+    destination: 'KY',
+    palletCost: 150,
+    analysisYear: new Date().getFullYear(),
+    analysisStartMonth: 1,
+    analysisEndMonth: 9,    // Default to September
+    shipFromFilter: []
   });
+
+  // 🆕 ADD THIS LINE:
+  const [costConfigExpanded, setCostConfigExpanded] = useState(false);
+
+  const handleCostConfigChange = useCallback((newConfig) => {
+  setCostConfig(newConfig);
+}, []);
 
   useEffect(() => {
     fetchReports();
@@ -860,8 +871,11 @@ const Alert = PremiumAlert;
 
           {/* 🆕 Cost Configuration Panel */}
           <CostConfigPanel
-            onConfigChange={setCostConfig}
-            disabled={amazonLoading}
+          onConfigChange={handleCostConfigChange}
+          disabled={amazonLoading}
+          expanded={costConfigExpanded}
+          onExpandedChange={setCostConfigExpanded}
+          initialConfig={costConfig}
           />
 
           {/* Hazmat Filter Selection */}

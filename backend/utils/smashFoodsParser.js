@@ -1,33 +1,74 @@
 // ============================================================================
-// SMASH FOODS PARSER - FINAL COMPLETE VERSION
-// Replicates Apps Script logic 100%
+// SMASH FOODS PARSER - FIXED VERSION
+// Fixes:
+// 1. Added date range filtering (to match pivot table)
+// 2. Added Ship From filter option
+// 3. Fixed state lookup to use zipToState.js as fallback
+// 4. Handle Canadian postal codes
 // File: backend/utils/smashFoodsParser.js
 // ============================================================================
 
 import XLSX from 'xlsx';
 import { parseISO } from 'date-fns';
 import HazmatClassifier from './hazmatClassifier.js';
+import { zipToState } from './zipToState.js';  // 🆕 Import zipToState utility
 
 /**
- * SmashFoodsParser - FINAL COMPLETE
+ * SmashFoodsParser - FIXED VERSION
  *
- * Replicates Apps Script processing:
- * 1. Filter CLOSED
- * 2. Filter to current year
- * 3. Filter to US
- * 4. Aggregate from Placement
- * 5. Round cuft
- * 6. Filter OUT zero cuft ⭐ NEW!
+ * Changes from original:
+ * 1. Filter to current year by default
+ * 2. Optional month range filter
+ * 3. Optional Ship From filter (warehouse)
+ * 4. Fallback to zipToState.js for geographic lookup
  */
 class SmashFoodsParser {
 
   constructor() {
     this.hazmatClassifier = new HazmatClassifier();
     this.CUFT_PER_PALLET = 67;
+
+    // 🆕 State to region mapping
+    this.STATE_REGIONS = {
+      // West
+      'CA': 'West', 'WA': 'West', 'OR': 'West', 'NV': 'West', 'AZ': 'West',
+      'UT': 'West', 'CO': 'West', 'NM': 'West', 'ID': 'West', 'MT': 'West',
+      'WY': 'West', 'AK': 'West', 'HI': 'West',
+      // Northeast
+      'NY': 'Northeast', 'NJ': 'Northeast', 'PA': 'Northeast', 'MA': 'Northeast',
+      'CT': 'Northeast', 'RI': 'Northeast', 'VT': 'Northeast', 'NH': 'Northeast',
+      'ME': 'Northeast', 'DE': 'Northeast', 'MD': 'Northeast', 'DC': 'Northeast',
+      // Southeast
+      'FL': 'Southeast', 'GA': 'Southeast', 'NC': 'Southeast', 'SC': 'Southeast',
+      'VA': 'Southeast', 'WV': 'Southeast', 'AL': 'Southeast', 'MS': 'Southeast',
+      'TN': 'Southeast', 'KY': 'Southeast',
+      // South
+      'TX': 'South', 'LA': 'South', 'OK': 'South', 'AR': 'South',
+      // Midwest
+      'OH': 'Midwest', 'IL': 'Midwest', 'IN': 'Midwest', 'MI': 'Midwest',
+      'WI': 'Midwest', 'MN': 'Midwest', 'IA': 'Midwest', 'MO': 'Midwest',
+      'ND': 'Midwest', 'SD': 'Midwest', 'NE': 'Midwest', 'KS': 'Midwest'
+    };
   }
 
-  async parseFile(filePath) {
-    console.log('📊 Parsing file (FINAL - US + Canada Support):', filePath);
+  /**
+   * Parse file with optional filters
+   * @param {string} filePath - Path to Excel file
+   * @param {Object} options - Optional filters
+   * @param {number} options.year - Filter to specific year (default: current year)
+   * @param {number} options.startMonth - Start month (1-12, inclusive)
+   * @param {number} options.endMonth - End month (1-12, inclusive)
+   * @param {Array<string>} options.shipFromZips - Filter by Ship From ZIP codes
+   */
+  async parseFile(filePath, options = {}) {
+    console.log('📊 Parsing file (FIXED VERSION):', filePath);
+
+    const {
+      year = new Date().getFullYear(),
+      startMonth = 1,
+      endMonth = 12,
+      shipFromZips = []  // Empty = all, or ['91761', '215124'] for specific warehouses
+    } = options;
 
     const workbook = XLSX.readFile(filePath);
 
@@ -61,13 +102,45 @@ class SmashFoodsParser {
 
     console.log(`✅ After CLOSED filter: ${parsedData.dataSheet.length} rows`);
 
+    // 🆕 FIX #1: Filter by year and month range
+    const beforeDateFilter = parsedData.dataSheet.length;
+    parsedData.dataSheet = parsedData.dataSheet.filter(row => {
+      if (!row.createdDate) return false;
+
+      const created = new Date(row.createdDate);
+      if (isNaN(created.getTime())) return false;
+
+      const rowYear = created.getFullYear();
+      const rowMonth = created.getMonth() + 1; // 1-12
+
+      // Check year
+      if (rowYear !== year) return false;
+
+      // Check month range
+      if (rowMonth < startMonth || rowMonth > endMonth) return false;
+
+      return true;
+    });
+
+    console.log(`✅ After date filter (${year} ${startMonth}-${endMonth}): ${parsedData.dataSheet.length} rows`);
+    console.log(`   (Filtered out ${beforeDateFilter - parsedData.dataSheet.length} rows outside date range)`);
+
+    // 🆕 FIX #2: Filter by Ship From ZIP (optional)
+    if (shipFromZips && shipFromZips.length > 0) {
+      const beforeShipFromFilter = parsedData.dataSheet.length;
+      parsedData.dataSheet = parsedData.dataSheet.filter(row => {
+        const shipFromZip = String(row.shipFromZip || '').trim();
+        return shipFromZips.includes(shipFromZip);
+      });
+      console.log(`✅ After Ship From filter (${shipFromZips.join(', ')}): ${parsedData.dataSheet.length} rows`);
+      console.log(`   (Filtered out ${beforeShipFromFilter - parsedData.dataSheet.length} rows from other origins)`);
+    }
+
     // Deduplicate by UNIQUE combination of Shipment Name + Shipment ID
-    // Same name with different IDs = different shipments (keep both)
     const rowsBeforeDedup = parsedData.dataSheet.length;
     const uniqueShipments = new Map();
 
     parsedData.dataSheet.forEach(shipment => {
-      // Create unique key from name + ID combination
       const uniqueKey = `${shipment.shipmentName}|${shipment.fbaShipmentID}`;
 
       if (!uniqueShipments.has(uniqueKey)) {
@@ -80,7 +153,6 @@ class SmashFoodsParser {
     const duplicatesRemoved = rowsBeforeDedup - parsedData.dataSheet.length;
 
     console.log(`✅ After deduplication: ${parsedData.dataSheet.length} unique shipments`);
-    console.log(`   (Deduplication by: Shipment Name + ID combination)`);
     if (duplicatesRemoved > 0) {
       console.log(`   (Removed ${duplicatesRemoved} duplicate rows)`);
     }
@@ -106,16 +178,10 @@ class SmashFoodsParser {
     // Enrich with cuft
     parsedData.dataSheet = this.enrichDataWithCalculations(parsedData);
 
-
-    // 🆕 V4 FIX: DON'T filter zero-cuft - let SOP calculator handle it
-    // The enhancement layer should have added cuft, but if not, we'll keep the shipments anyway
-    const beforeZeroFilter = parsedData.dataSheet.length;
-
-    // DISABLED: parsedData.dataSheet = parsedData.dataSheet.filter(shipment => shipment.cuft > 0);
     const shipmentsWithCuft = parsedData.dataSheet.filter(s => s.cuft > 0).length;
     const shipmentsWithoutCuft = parsedData.dataSheet.filter(s => s.cuft === 0).length;
 
-    console.log(`✅ Total shipments: ${parsedData.dataSheet.length} (keeping all shipments)`);
+    console.log(`✅ Total shipments: ${parsedData.dataSheet.length}`);
     console.log(`   ✓ With cuft > 0: ${shipmentsWithCuft}`);
     console.log(`   ✓ With cuft = 0: ${shipmentsWithoutCuft}`);
 
@@ -124,6 +190,21 @@ class SmashFoodsParser {
 
     console.log(`   Total Cuft: ${totalCuft.toFixed(2)}`);
     console.log(`   Total Pallets: ${totalPallets.toFixed(2)}`);
+
+    // 🆕 Log geographic distribution
+    const stateDistribution = {};
+    parsedData.dataSheet.forEach(s => {
+      const state = s.destinationState || 'Unknown';
+      stateDistribution[state] = (stateDistribution[state] || 0) + 1;
+    });
+    console.log(`\n📍 Geographic Distribution:`);
+    Object.entries(stateDistribution)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10)
+      .forEach(([state, count]) => {
+        const pct = ((count / parsedData.dataSheet.length) * 100).toFixed(1);
+        console.log(`   ${state}: ${count} (${pct}%)`);
+      });
 
     return parsedData;
   }
@@ -182,9 +263,10 @@ class SmashFoodsParser {
         ),
 
         destinationFC: row['Destination FC'] || '',
-        shipToZip: String(row['Ship To Postal Code'] || '').split('-')[0],
+        shipToZip: String(row['Ship To Postal Code'] || '').split('-')[0].replace('.0', '').trim(),
+        shipToCountry: row['Ship To Country Code'] || '',
         shipFromName: row['Ship From Owner Name'] || '',
-        shipFromZip: String(row['Ship From Postal Code'] || '').split('-')[0],
+        shipFromZip: String(row['Ship From Postal Code'] || '').split('-')[0].replace('.0', '').trim(),  // 🆕 Added for filtering
         shipMethod: row['Ship Method'] || '',
         carrier: row['Carrier'] || '',
         checkedInDate: this.parseDate(
@@ -234,7 +316,7 @@ class SmashFoodsParser {
     const data = XLSX.utils.sheet_to_json(sheet);
 
     return data.map(row => ({
-      zip: String(row['Zip'] || ''),
+      zip: String(row['Zip'] || '').trim(),
       province: row['Province'] || '',
       fba: row['FBA'] || '',
       region: row['2 Region'] || ''
@@ -242,7 +324,55 @@ class SmashFoodsParser {
   }
 
   /**
-   * Enrich data with cuft calculations
+   * 🆕 Get state from ZIP code using multiple sources
+   */
+  getStateFromZip(zipCode, fbaZoningSheet) {
+    if (!zipCode) {
+      return { state: 'Unknown', region: 'Unknown' };
+    }
+
+    const cleanZip = String(zipCode).split('-')[0].replace('.0', '').trim();
+
+    // Check if it's a Canadian postal code (e.g., "L0R 1W1", "K2J 7C7")
+    if (/^[A-Z]\d[A-Z]/i.test(cleanZip)) {
+      return { state: 'Canada', region: 'International' };
+    }
+
+    // Priority 1: Try FBA Zoning sheet
+    const stateInfo = fbaZoningSheet.find(zone => zone.zip === cleanZip);
+    if (stateInfo && stateInfo.province) {
+      return {
+        state: stateInfo.province,
+        region: stateInfo.region || this.STATE_REGIONS[stateInfo.province] || 'Other'
+      };
+    }
+
+    // Priority 2: Use zipToState utility as fallback
+    const stateFromZip = zipToState(cleanZip);
+    if (stateFromZip) {
+      return {
+        state: stateFromZip.code,  // e.g., "CA", "NY"
+        region: this.STATE_REGIONS[stateFromZip.code] || 'Other'
+      };
+    }
+
+    // If ZIP is too short, try padding with zeros
+    if (cleanZip.length < 5 && /^\d+$/.test(cleanZip)) {
+      const paddedZip = cleanZip.padStart(5, '0');
+      const stateFromPadded = zipToState(paddedZip);
+      if (stateFromPadded) {
+        return {
+          state: stateFromPadded.code,
+          region: this.STATE_REGIONS[stateFromPadded.code] || 'Other'
+        };
+      }
+    }
+
+    return { state: 'Unknown', region: 'Unknown' };
+  }
+
+  /**
+   * Enrich data with cuft calculations - FIXED VERSION
    */
   enrichDataWithCalculations(parsedData) {
     const { dataSheet, fbaZoningSheet, placementSheet, hazmatLookupMap } = parsedData;
@@ -308,7 +438,7 @@ class SmashFoodsParser {
         }
       }
 
-      // ⭐ Round cuft to match Apps Script
+      // Round cuft to match Apps Script
       const roundedCuft = Math.round(actualCuft * 100) / 100;
       const roundedPallets = roundedCuft > 0 ? roundedCuft / this.CUFT_PER_PALLET : 0;
 
@@ -334,10 +464,10 @@ class SmashFoodsParser {
         }
       }
 
-      // State from ZIP
-      const stateInfo = fbaZoningSheet.find(zone => zone.zip === shipment.shipToZip);
-      const destinationState = stateInfo ? stateInfo.province : 'Unknown';
-      const destinationRegion = stateInfo ? stateInfo.region : 'Unknown';
+      // 🆕 FIX #3: Use improved state lookup with fallback
+      const { state: destinationState, region: destinationRegion } =
+        this.getStateFromZip(shipment.shipToZip, fbaZoningSheet);
+
       const currentTotalCost = shipment.carrierCost + actualPlacementFees;
 
       // Hazmat
@@ -367,7 +497,7 @@ class SmashFoodsParser {
 
       return {
         ...shipment,
-        cuft: roundedCuft,  // ⭐ Rounded cuft
+        cuft: roundedCuft,
         cuftSource,
         placementFees: actualPlacementFees,
         calculatedPallets: roundedPallets,
@@ -401,75 +531,81 @@ class SmashFoodsParser {
     return enrichedShipments;
   }
 
-  parseDate(dateString) {
-    if (!dateString) return null;
+  /**
+   * Parse date string
+   */
+  parseDate(dateValue) {
+    if (!dateValue) return null;
 
     try {
-      if (typeof dateString === 'number') {
-        return this.excelSerialToDate(dateString);
+      if (dateValue instanceof Date) {
+        return dateValue.toISOString();
       }
-      return parseISO(dateString);
+
+      if (typeof dateValue === 'number') {
+        const excelEpoch = new Date(1899, 11, 30);
+        const jsDate = new Date(excelEpoch.getTime() + dateValue * 86400000);
+        return jsDate.toISOString();
+      }
+
+      const parsed = new Date(dateValue);
+      if (!isNaN(parsed.getTime())) {
+        return parsed.toISOString();
+      }
     } catch (error) {
-      return null;
+      // Silent
     }
+
+    return null;
   }
 
-  excelSerialToDate(serial) {
-    const utc_days = Math.floor(serial - 25569);
-    const utc_value = utc_days * 86400;
-    const date_info = new Date(utc_value * 1000);
-    return new Date(date_info.getFullYear(), date_info.getMonth(), date_info.getDate());
-  }
-
+  /**
+   * 🆕 Generate summary statistics from parsed data
+   * Required by SmashFoodsIntegration.analyzeSmashFoodsFile()
+   */
   getSummary(parsedData) {
     const { dataSheet, hazmatClassification } = parsedData;
 
-    const hazmatShipments = dataSheet.filter(s => s.containsHazmat);
-    const nonHazmatShipments = dataSheet.filter(s => !s.containsHazmat);
-    const mixedShipments = hazmatShipments.filter(s => s.nonHazmatProductCount > 0);
+    const shipments = dataSheet || [];
 
-    const hazmatTotals = {
-      units: hazmatShipments.reduce((sum, s) => sum + s.units, 0),
-      cuft: hazmatShipments.reduce((sum, s) => sum + s.cuft, 0),
-      pallets: hazmatShipments.reduce((sum, s) => sum + s.calculatedPallets, 0),
-      cost: hazmatShipments.reduce((sum, s) => sum + s.currentTotalCost, 0)
-    };
+    // Calculate totals
+    const totalShipments = shipments.length;
+    const totalUnits = shipments.reduce((sum, s) => sum + (s.units || 0), 0);
+    const totalPallets = shipments.reduce((sum, s) => sum + (s.calculatedPallets || 0), 0);
+    const totalCuft = shipments.reduce((sum, s) => sum + (s.cuft || 0), 0);
+    const totalWeight = shipments.reduce((sum, s) => sum + (s.weight || 0), 0);
 
-    const nonHazmatTotals = {
-      units: nonHazmatShipments.reduce((sum, s) => sum + s.units, 0),
-      cuft: nonHazmatShipments.reduce((sum, s) => sum + s.cuft, 0),
-      pallets: nonHazmatShipments.reduce((sum, s) => sum + s.calculatedPallets, 0),
-      cost: nonHazmatShipments.reduce((sum, s) => sum + s.currentTotalCost, 0)
-    };
+    // Calculate averages
+    const avgTransitDays = totalShipments > 0
+      ? shipments.reduce((sum, s) => sum + (s.transitDays || 0), 0) / totalShipments
+      : 0;
+
+    // Date range
+    const dates = shipments
+      .map(s => s.createdDate)
+      .filter(d => d)
+      .map(d => new Date(d))
+      .filter(d => !isNaN(d.getTime()));
+
+    const startDate = dates.length > 0 ? new Date(Math.min(...dates)) : null;
+    const endDate = dates.length > 0 ? new Date(Math.max(...dates)) : null;
 
     return {
-      totalShipments: dataSheet.length,
-      totalUnits: dataSheet.reduce((sum, s) => sum + s.units, 0),
-      totalPallets: dataSheet.reduce((sum, s) => sum + s.calculatedPallets, 0),
-      totalCuft: dataSheet.reduce((sum, s) => sum + s.cuft, 0),
-      totalWeight: dataSheet.reduce((sum, s) => sum + s.weight, 0),
-      totalCurrentCost: dataSheet.reduce((sum, s) => sum + s.currentTotalCost, 0),
-      avgTransitDays: dataSheet.reduce((sum, s) => sum + s.transitDays, 0) / dataSheet.length,
+      totalShipments,
+      totalUnits,
+      totalPallets: parseFloat(totalPallets.toFixed(2)),
+      totalCuft: parseFloat(totalCuft.toFixed(2)),
+      totalWeight: parseFloat(totalWeight.toFixed(2)),
+      avgTransitDays: parseFloat(avgTransitDays.toFixed(1)),
 
-      hazmat: {
-        products: {
-          total: hazmatClassification.summary.hazmatCount,
-          percentage: ((hazmatClassification.summary.hazmatCount / hazmatClassification.total) * 100).toFixed(2),
-          byType: hazmatClassification.summary.byType,
-          byConfidence: hazmatClassification.summary.byConfidence
-        },
-        shipments: {
-          total: hazmatShipments.length,
-          mixed: mixedShipments.length,
-          pureHazmat: hazmatShipments.length - mixedShipments.length,
-          percentage: ((hazmatShipments.length / dataSheet.length) * 100).toFixed(2),
-          ...hazmatTotals
-        },
-        nonHazmat: {
-          shipments: nonHazmatShipments.length,
-          percentage: ((nonHazmatShipments.length / dataSheet.length) * 100).toFixed(2),
-          ...nonHazmatTotals
-        }
+      // Hazmat summary
+      hazmatProducts: hazmatClassification?.summary?.hazmatCount || 0,
+      nonHazmatProducts: hazmatClassification?.summary?.nonHazmatCount || 0,
+
+      // Date range
+      dateRange: {
+        start: startDate ? startDate.toISOString().split('T')[0] : null,
+        end: endDate ? endDate.toISOString().split('T')[0] : null
       }
     };
   }

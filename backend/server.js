@@ -248,6 +248,12 @@ async function parseMuscleMacFormat(filePath, hazmatFilter = 'all', costConfig =
       rateMode: costConfig.rateMode || 'FTL',
       destination: costConfig.destination || null,
       palletCost: costConfig.palletCost || 150,
+
+      analysisYear: costConfig.analysisYear || new Date().getFullYear(),
+      analysisStartMonth: costConfig.analysisStartMonth || 1,
+      analysisEndMonth: costConfig.analysisEndMonth || 12,
+      shipFromFilter: costConfig.shipFromFilter || [],
+
       ftlCost: costConfig.freightCost || 3000,
       useFTL: costConfig.rateMode !== 'PALLET'
     };
@@ -319,6 +325,11 @@ async function parseSmashFoodsFormat(filePath, hazmatFilter = 'all', costConfig 
 
       // Pallet cost (for PALLET mode)
       palletCost: costConfig.palletCost || 150,
+
+      analysisYear: costConfig.analysisYear || new Date().getFullYear(),
+      analysisStartMonth: costConfig.analysisStartMonth || 1,
+      analysisEndMonth: costConfig.analysisEndMonth || 12,
+      shipFromFilter: costConfig.shipFromFilter || [],
 
       // Backward compatibility
       ftlCost: costConfig.freightCost || 3000,
