@@ -31,7 +31,7 @@ const Login = () => {
       >
         {/* Light Dark Overlay for Text Visibility */}
         <div
-          className="absolute inset-0 bg-black/40 lg:rounded-r-[3rem]">
+          className="absolute inset-0 bg-black/10 lg:rounded-r-[3rem]">
         </div>
 
         {/* Content */}
