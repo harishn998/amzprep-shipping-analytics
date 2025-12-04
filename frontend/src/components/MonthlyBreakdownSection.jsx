@@ -1,9 +1,23 @@
-import React, { useState, useMemo } from 'react';
-import { Calendar, TrendingUp, Package, DollarSign } from 'lucide-react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { Calendar, TrendingUp, Package, DollarSign, ChevronDown, X } from 'lucide-react';
 
 const MonthlyBreakdownSection = ({ monthlyData, shipMethodData }) => {
   const [selectedMonths, setSelectedMonths] = useState([]);
   const [showShipMethods, setShowShipMethods] = useState(true);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Filter data based on selected months
   const filteredMonthlyData = useMemo(() => {
@@ -44,6 +58,18 @@ const MonthlyBreakdownSection = ({ monthlyData, shipMethodData }) => {
     return new Intl.NumberFormat('en-US').format(Math.round(value));
   };
 
+  const handleMonthToggle = (month) => {
+    setSelectedMonths(prev =>
+      prev.includes(month)
+        ? prev.filter(m => m !== month)
+        : [...prev, month]
+    );
+  };
+
+  const handleClearSelection = () => {
+    setSelectedMonths([]);
+  };
+
   return (
     <div className="space-y-6">
       {/* Header with Month Filter */}
@@ -55,31 +81,61 @@ const MonthlyBreakdownSection = ({ monthlyData, shipMethodData }) => {
 
         <div className="flex items-center gap-3">
           <label className="text-sm text-gray-400 whitespace-nowrap">Filter by month:</label>
-          <div className="relative">
-            <select
-              multiple
-              className="bg-gray-800 text-white border border-gray-700 rounded-lg px-4 py-2.5 text-sm min-w-[160px] max-w-[200px] max-h-[140px] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 cursor-pointer"
-              style={{ scrollbarWidth: 'thin' }}
-              onChange={(e) => {
-                const selected = Array.from(e.target.selectedOptions, option => option.value);
-                setSelectedMonths(selected);
-              }}
+
+          {/* Custom Dropdown */}
+          <div className="relative" ref={dropdownRef}>
+            <button
+              onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+              className="bg-gray-800 text-white border border-gray-700 rounded-lg px-4 py-2 text-sm min-w-[160px] flex items-center justify-between hover:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
             >
-              {monthlyData.map(m => (
-                <option key={m.month} value={m.month} className="py-2 px-2 hover:bg-gray-700">
-                  {new Date(m.month + '-01').toLocaleDateString('en-US', { year: 'numeric', month: 'short' })}
-                </option>
-              ))}
-            </select>
+              <span className="text-gray-300">
+                {selectedMonths.length === 0
+                  ? 'All months'
+                  : `${selectedMonths.length} selected`}
+              </span>
+              <ChevronDown className={`w-4 h-4 ml-2 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            {/* Dropdown Menu */}
+            {isDropdownOpen && (
+              <div className="absolute right-0 mt-2 w-[200px] bg-gray-800 border border-gray-700 rounded-lg shadow-xl z-50 max-h-[280px] overflow-y-auto">
+                <div className="py-1">
+                  {monthlyData.map(m => {
+                    const monthLabel = new Date(m.month + '-01').toLocaleDateString('en-US', {
+                      year: 'numeric',
+                      month: 'short'
+                    });
+
+                    return (
+                      <label
+                        key={m.month}
+                        className="flex items-center px-4 py-2 hover:bg-gray-700 cursor-pointer transition-colors"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedMonths.includes(m.month)}
+                          onChange={() => handleMonthToggle(m.month)}
+                          className="w-4 h-4 rounded border-gray-600 text-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-offset-0 bg-gray-700 cursor-pointer"
+                        />
+                        <span className="ml-3 text-sm text-white">{monthLabel}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
+
+          {/* Clear Button */}
           {selectedMonths.length > 0 && (
             <button
-              onClick={() => setSelectedMonths([])}
-              className="text-sm px-4 py-2 rounded-md transition-colors font-medium"
+              onClick={handleClearSelection}
+              className="flex items-center gap-1 text-sm px-3 py-2 rounded-md transition-colors font-medium"
               style={{ color: '#00a8ff' }}
               onMouseEnter={(e) => e.target.style.color = '#0088cc'}
               onMouseLeave={(e) => e.target.style.color = '#00a8ff'}
             >
+              <X className="w-4 h-4" />
               Clear
             </button>
           )}
