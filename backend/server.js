@@ -1020,7 +1020,11 @@ function convertSmashFoodsToReportFormat(analysis) {
         title: 'Smash Foods Freight Analysis',
         subtitle: `${totalShipments} Shipments | ${totalUnits.toLocaleString()} Units | ${totalPallets} Pallets`,
         keyFindings: []
-      }
+      },
+
+      // 🆕 Monthly breakdown data
+      monthlyBreakdown: analysis.metadata?.monthlyBreakdown || analysis.monthlyBreakdown || null,
+      shipMethodBreakdown: analysis.metadata?.shipMethodBreakdown || analysis.shipMethodBreakdown || null
     }
   };
 }

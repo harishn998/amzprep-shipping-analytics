@@ -6,6 +6,7 @@
 
 import React from 'react';
 import { TrendingDown, TrendingUp, Clock, Package, DollarSign, MapPin } from 'lucide-react';
+import MonthlyBreakdownSection from './components/MonthlyBreakdownSection';
 
 /**
  * Main Smash Foods Dashboard Component
@@ -13,7 +14,8 @@ import { TrendingDown, TrendingUp, Clock, Package, DollarSign, MapPin } from 'lu
  */
 export const SmashFoodsDashboard = ({ data }) => {
   const metadata = data.metadata || {};
-  const isSmashFoods = metadata.dataFormat === 'smash_foods_actual';
+  const isSmashFoods = metadata.dataFormat === 'smash_foods_actual' || metadata.dataFormat === 'smash_foods_with_hazmat';
+
 
   if (!isSmashFoods) {
     return null; // Fall back to standard dashboard
@@ -28,13 +30,23 @@ export const SmashFoodsDashboard = ({ data }) => {
     <div className="smash-foods-dashboard">
       {/* Key Metrics Section */}
       <SmashFoodsKeyMetrics data={data} metadata={metadata} />
-
       {/* Cost Comparison Section */}
       <SmashFoodsCostComparison
         currentCosts={currentCosts}
         proposedCosts={proposedCosts}
         savings={savings}
       />
+
+
+      {/* Monthly Breakdown Section */}
+      {data.metadata?.monthlyBreakdown && (
+      <div className="mt-8">
+      <MonthlyBreakdownSection
+        monthlyData={data.metadata.monthlyBreakdown}
+        shipMethodData={data.metadata.shipMethodBreakdown}
+      />
+      </div>
+      )}
 
       {/* Summary Table Section */}
       <SmashFoodsSummarySection metadata={metadata} data={data} />
@@ -83,7 +95,7 @@ const SmashFoodsKeyMetrics = ({ data, metadata }) => {
       <div className="bg-gray-800 p-6 rounded-lg">
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-gray-400 text-sm font-medium">Total Pallets</h3>
-          <Package className="text-purple-400" size={20} />
+          <Package className="text-brand-blue" size={20} />
         </div>
         <div className="text-3xl font-bold text-white">{metadata.totalPallets}</div>
         <div className="text-sm text-gray-400 mt-1">
@@ -250,14 +262,9 @@ const SmashFoodsKeyMetrics = ({ data, metadata }) => {
  */
  const SmashFoodsSummarySection = ({ metadata, data }) => {
    // Debug logging (remove after fixing)
-   console.log('🔍 Hazmat data available?', {
-     hasHazmat: !!data?.hazmat,
-     productsCount: data?.hazmat?.products?.hazmat,
-     typeBreakdownLength: data?.hazmat?.typeBreakdown?.length
-   });
 
    return (
-     <div className="bg-gray-800 rounded-lg p-6 mb-6">
+     <div className="bg-gray-800 rounded-lg p-6 mb-6 mt-8">
        <h2 className="text-xl font-bold text-white mb-4">Summary Metrics</h2>
 
        {/* EXISTING SUMMARY CARDS */}
@@ -346,7 +353,7 @@ const SmashFoodsKeyMetrics = ({ data, metadata }) => {
                <div className="text-sm text-gray-300 mb-2 font-medium">
                  DG Classifications
                </div>
-               <div className="text-4xl font-bold text-purple-400 mb-2">
+               <div className="text-4xl font-bold text-brand-blue mb-2">
                  {data.hazmat.dgClassBreakdown?.length || 0}
                </div>
                <div className="text-sm text-gray-400">

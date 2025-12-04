@@ -200,6 +200,13 @@ class SmashFoodsIntegration {
         costAnalysisForAnalytics
       );
 
+      // Generate monthly breakdown with aggregate costs
+      const breakdowns = this.generateMonthlyBreakdown(shipments, sopCalculation.summary);
+      console.log('📊 Monthly breakdown generated:');
+      console.log(`   Months: ${breakdowns.monthlyBreakdown.length}`);
+      console.log(`   Ship methods: ${breakdowns.shipMethodBreakdown.length}`);
+
+
       const completeAnalysis = {
         // Basic metrics
         totalShipments: summary.totalShipments,
@@ -367,7 +374,9 @@ class SmashFoodsIntegration {
           originalShipmentCount,
           hasHazmatSheet: parsedData.hazmatSheet !== null,
           sopCompliant: true,
-          rateCardVersion: '2025-SOP'
+          rateCardVersion: '2025-SOP',
+          monthlyBreakdown: breakdowns.monthlyBreakdown,
+          shipMethodBreakdown: breakdowns.shipMethodBreakdown,
         }
       };
 
@@ -389,6 +398,137 @@ class SmashFoodsIntegration {
       throw error;
     }
   }
+
+  // In smashFoodsIntegration.js - Add this new method
+generateMonthlyBreakdown(shipments, aggregateCosts = null) {
+  const monthlyData = {};
+  const shipMethodData = {};
+
+  // Calculate total cuft for proportional cost distribution
+  const totalCuft = shipments.reduce((sum, s) => sum + (s.cuft || 0), 0);
+
+  // If aggregate costs provided, we'll distribute them proportionally
+  const hasAggregateCosts = aggregateCosts && aggregateCosts.totalMM;
+  console.log(`📊 Aggregate costs available: ${hasAggregateCosts}`);
+  if (hasAggregateCosts) {
+    console.log(`   Total MM Cost: $${aggregateCosts.totalMM.toFixed(2)}`);
+    console.log(`   Total IT Cost: $${aggregateCosts.totalInternalTransfer.toFixed(2)}`);
+    console.log(`   Total Freight: $${aggregateCosts.totalFreightCost.toFixed(2)}`);
+  }
+
+
+  shipments.forEach(shipment => {
+    // Extract month from createdDate
+    const month = shipment.createdDate
+      ? new Date(shipment.createdDate).toISOString().slice(0, 7) // "2025-01"
+      : 'Unknown';
+
+    // Calculate per-shipment proposed costs based on cuft proportion
+    let shipmentProposedCosts = {
+      patternCost: 0,
+      internalCost: 0,
+      totalCost: 0
+    };
+
+    if (hasAggregateCosts && totalCuft > 0) {
+      const cuftProportion = (shipment.cuft || 0) / totalCuft;
+      shipmentProposedCosts = {
+        patternCost: aggregateCosts.totalMM * cuftProportion,
+        internalCost: aggregateCosts.totalInternalTransfer * cuftProportion,
+        totalCost: aggregateCosts.totalFreightCost * cuftProportion
+      };
+    }
+
+    // Monthly aggregation
+    if (!monthlyData[month]) {
+      monthlyData[month] = {
+        month,
+        fbaIdCount: 0,
+        shipmentCount: 0,
+        transitTime: 0,
+        qty: 0,
+        palletCount: 0,
+        totalCuft: 0,
+        clientPlacementFees: 0,
+        clientCarrierCost: 0,
+        clientTotalFees: 0,
+        mmCost: 0,
+        internalTransfer: 0,
+        totalFreightCost: 0,
+        mmCostPT: 0,
+        savings: 0
+      };
+    }
+
+    monthlyData[month].shipmentCount += 1;
+    monthlyData[month].fbaIdCount += 1; // Assuming 1 shipment = 1 FBA ID
+    monthlyData[month].transitTime += shipment.transitDays || 0;
+    monthlyData[month].qty += shipment.units || 0;
+    monthlyData[month].palletCount += shipment.calculatedPallets || 0;
+    monthlyData[month].totalCuft += shipment.cuft || 0;
+    monthlyData[month].clientPlacementFees += shipment.placementFees || 0;
+    monthlyData[month].clientCarrierCost += shipment.carrierCost || 0;
+    monthlyData[month].clientTotalFees += shipment.currentTotalCost || 0;
+    // Add proportionally distributed AMZ Prep costs
+    monthlyData[month].mmCost += shipmentProposedCosts.patternCost;
+    monthlyData[month].internalTransfer += shipmentProposedCosts.internalCost;
+    monthlyData[month].totalFreightCost += shipmentProposedCosts.totalCost;
+
+    // Ship Method aggregation
+    const shipMethod = shipment.shipMethod || 'Unknown';
+    if (!shipMethodData[shipMethod]) {
+      shipMethodData[shipMethod] = {
+        method: shipMethod,
+        fbaIdCount: 0,
+        shipmentCount: 0,
+        transitTime: 0,
+        qty: 0,
+        palletCount: 0,
+        totalCuft: 0,
+        clientPlacementFees: 0,
+        clientCarrierCost: 0,
+        clientTotalFees: 0,
+        mmCost: 0,
+        internalTransfer: 0,
+        totalFreightCost: 0
+      };
+    }
+
+    shipMethodData[shipMethod].shipmentCount += 1;
+    shipMethodData[shipMethod].fbaIdCount += 1;
+    shipMethodData[shipMethod].transitTime += shipment.transitDays || 0;
+    shipMethodData[shipMethod].qty += shipment.units || 0;
+    shipMethodData[shipMethod].palletCount += shipment.calculatedPallets || 0;
+    shipMethodData[shipMethod].totalCuft += shipment.cuft || 0;
+    shipMethodData[shipMethod].clientPlacementFees += shipment.placementFees || 0;
+    shipMethodData[shipMethod].clientCarrierCost += shipment.carrierCost || 0;
+    shipMethodData[shipMethod].clientTotalFees += shipment.currentTotalCost || 0;
+    shipMethodData[shipMethod].mmCost += shipmentProposedCosts.patternCost;
+    shipMethodData[shipMethod].internalTransfer += shipmentProposedCosts.internalCost;
+    shipMethodData[shipMethod].totalFreightCost += shipmentProposedCosts.totalCost;
+  });
+
+  // Calculate averages and percentages
+  const totalShipments = shipments.length;
+
+  Object.keys(monthlyData).forEach(month => {
+    const data = monthlyData[month];
+    data.avgTransitTime = Math.round(data.transitTime / data.shipmentCount);
+    data.shipmentDistribution = ((data.shipmentCount / totalShipments) * 100).toFixed(2) + '%';
+    data.savings = data.clientTotalFees - data.totalFreightCost;
+  });
+
+  Object.keys(shipMethodData).forEach(method => {
+    const data = shipMethodData[method];
+    data.avgTransitTime = Math.round(data.transitTime / data.shipmentCount);
+    data.shipmentDistribution = ((data.shipmentCount / totalShipments) * 100).toFixed(2) + '%';
+  });
+
+  return {
+    monthlyBreakdown: Object.values(monthlyData).sort((a, b) => a.month.localeCompare(b.month)),
+    shipMethodBreakdown: Object.values(shipMethodData)
+  };
+}
 
   /**
    * Calculate current costs
