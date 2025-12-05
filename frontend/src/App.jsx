@@ -324,81 +324,58 @@ const ShippingAnalytics = () => {
   }
 };
 
-const PremiumSidebar = () => (
+const PremiumSidebar = () => {
+  // Function to download template
+  const handleDownloadTemplate = async () => {
+    try {
+      const response = await fetch(`${API_URL}/templates/mm-rate-template`, {
+        method: 'GET',
+      });
+
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'MM-Rate-Sample-Template.xlsx';
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      } else {
+        console.error('Failed to download template');
+      }
+    } catch (error) {
+      console.error('Error downloading template:', error);
+    }
+  };
+
+  return (
   <div className={`fixed left-0 top-0 h-full transition-all duration-500 ease-in-out z-50 ${
-    sidebarCollapsed ? 'w-20' : 'w-80'
+    sidebarCollapsed ? 'w-20' : 'w-72'
   }`}>
-    {/* Glassmorphism Background with Gradient */}
-    <div className="absolute inset-0 bg-gradient-to-br from-[#0B1426] via-[#0F1C3A] to-[#1A2847] backdrop-blur-xl">
-      <div className="absolute inset-0 bg-gradient-to-r from-[#00A8FF]/5 via-transparent to-[#00A8FF]/5"></div>
-      <div className="absolute inset-0 border-r border-[#00A8FF]/20"></div>
+    {/* Background */}
+    <div className="absolute inset-0 bg-[#000000]">
+      {/* Subtle right border */}
+      <div className="absolute top-0 right-0 bottom-0 w-px bg-white/10"></div>
     </div>
 
     {/* Content */}
-    <div className="relative flex flex-col h-full bg-[#1a1f2e]">
-      {/* Header Section - Premium Logo Area */}
-      <div className="p-6 border-b border-[#00A8FF]/10">
-        <div className="flex items-center gap-4">
-          {/* Logo with Glow Effect */}
-          <div className="relative group">
-            <div className="absolute inset-0"></div>
-            <div className="relative p-3 rounded-xl">
-              <img
-                src={amzprepLogo}
-                alt="AMZ Prep"
-                className="h-8 w-auto object-contain filter drop-shadow-lg"
-              />
-            </div>
-          </div>
+    <div className="relative flex flex-col h-full">
+      {/* Header Section - Logo Area */}
+      <div className="p-6">
+        <div className="flex items-center gap-3">
+          <img
+            src={amzprepLogo}
+            alt="AMZ Prep"
+            className="h-8 w-auto object-contain"
+          />
         </div>
       </div>
 
-      {/* User Profile Section - Enhanced */}
-      {!sidebarCollapsed && (
-        <div className="p-6 border-b border-[#00A8FF]/10">
-          <div className="relative group">
-            {/* Background Glow */}
-            <div className="absolute inset-0 bg-gradient-to-r from-[#00A8FF]/5 to-transparent rounded-2xl blur-sm group-hover:from-[#00A8FF]/10 transition-all duration-300"></div>
-
-            <div className="relative bg-gradient-to-r from-[#1A2847]/80 to-[#0F1C3A]/80 backdrop-blur-sm p-4 rounded-2xl border border-[#00A8FF]/20 hover:border-[#00A8FF]/40 transition-all duration-300">
-              <div className="flex items-center gap-4">
-                {/* Avatar with Status Ring */}
-                <div className="relative">
-                  <div className="absolute inset-0 bg-gradient-to-r from-[#00A8FF] to-[#0080FF] rounded-full blur-sm"></div>
-                  {user.picture ? (
-                    <img
-                      src={user.picture}
-                      alt={user.name}
-                      className="relative w-12 h-12 rounded-full border-2 border-[#00A8FF]/50 object-cover"
-                    />
-                  ) : (
-                    <div className="relative w-12 h-12 rounded-full bg-gradient-to-br from-[#00A8FF] to-[#0080FF] flex items-center justify-center text-white font-bold text-lg">
-                      {user.name?.charAt(0)?.toUpperCase() || 'U'}
-                    </div>
-                  )}
-                  {/* Status Indicator */}
-                  <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-400 rounded-full border-2 border-[#1A2847]"></div>
-                </div>
-
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-white font-semibold text-sm truncate">{user.name}</h3>
-                  <p className="text-[#00A8FF]/70 text-xs truncate">{user.email}</p>
-                  <div className="flex items-center gap-2 mt-1">
-                    <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full"></div>
-                    <span className="text-emerald-400 text-xs font-medium">Online</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Navigation Menu - Premium Design */}
-      <div className="flex-1 p-6 space-y-2">
-
-        {/* Navigation Items */}
-        <div className="space-y-2">
+      {/* Navigation Menu */}
+      <div className="flex-1 px-4 py-2">
+        <div className="space-y-1">
           <NavItem
             icon={BarChart3}
             label="Dashboard"
@@ -415,15 +392,26 @@ const PremiumSidebar = () => (
             badge="2"
           />
 
-          {/* Divider */}
-          <div className="h-px bg-gradient-to-r from-transparent via-[#00A8FF]/20 to-transparent my-4"></div>
-
           {/* Admin Section */}
           {user?.role === 'admin' && (
             <>
-              <div className={`${sidebarCollapsed ? 'hidden' : 'block'} mb-3`}>
-                <p className="text-[#00A8FF]/60 text-xs font-medium uppercase tracking-wider px-4">Administration</p>
-              </div>
+              {/* Divider with more spacing */}
+              <div className="h-px mt-6 mb-4 bg-white/10"></div>
+
+              {!sidebarCollapsed && (
+                <p
+                  className="text-xs font-medium uppercase tracking-wider px-4 mb-3"
+                  style={{
+                    marginTop: '1.25rem',
+                    background: 'linear-gradient(to right, #0386FE, #9507FF)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    backgroundClip: 'text',
+                  }}
+                >
+                  Administration
+                </p>
+              )}
               <NavItem
                 icon={Users}
                 label="Manage Users"
@@ -431,145 +419,283 @@ const PremiumSidebar = () => (
                 onClick={() => setShowUserManagement(!showUserManagement)}
                 collapsed={sidebarCollapsed}
               />
-              <NavItem
-                icon={Settings}
-                label="Settings"
-                active={false}
-                onClick={() => {}}
-                collapsed={sidebarCollapsed}
-              />
             </>
           )}
+
+          {/* Resources Section - Download Templates */}
+          <>
+            <div className="h-px mt-6 mb-4 bg-white/10"></div>
+
+            {!sidebarCollapsed && (
+              <p
+                className="text-xs font-medium uppercase tracking-wider px-4 mb-3"
+                style={{
+                  marginTop: '1.25rem',
+                  marginBottom: '0.85rem',
+                  background: 'linear-gradient(to right, #0386FE, #9507FF)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text',
+                }}
+              >
+                Resources
+              </p>
+            )}
+
+            {/* Download Template Card */}
+            {!sidebarCollapsed ? (
+              <div
+                className="mx-2 p-4 rounded-xl transition-all duration-300 hover:scale-[1.02] cursor-pointer group"
+                style={{
+                  background: 'linear-gradient(135deg, rgba(3, 134, 254, 0.08), rgba(149, 7, 255, 0.05))',
+                  border: '1px solid rgba(3, 134, 254, 0.2)'
+                }}
+                onClick={handleDownloadTemplate}
+              >
+                <div className="flex items-center gap-3 mb-3">
+                  <div
+                    className="p-2 rounded-lg"
+                    style={{
+                      background: 'linear-gradient(135deg, #0386FE, #9507FF)'
+                    }}
+                  >
+                    <Download size={16} className="text-white" />
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="text-white text-sm font-medium">Rate Template</h4>
+                    <p className="text-gray-400 text-xs">Sample Excel format</p>
+                  </div>
+                </div>
+
+                <button
+                  className="w-full py-2 px-3 rounded-lg text-xs font-medium transition-all duration-300 flex items-center justify-center gap-2 group-hover:scale-[1.02]"
+                  style={{
+                    background: 'rgba(3, 134, 254, 0.15)',
+                    border: '1px solid rgba(3, 134, 254, 0.3)',
+                    color: '#0386FE'
+                  }}
+                >
+                  <Download size={14} />
+                  Download MM Template
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={handleDownloadTemplate}
+                className="w-full flex items-center justify-center p-3 rounded-xl transition-all duration-300 hover:bg-white/5"
+                title="Download Rate Template"
+              >
+                <Download size={20} style={{ color: '#0386FE' }} />
+              </button>
+            )}
+          </>
         </div>
       </div>
 
-      {/* Bottom Section */}
-      <div className="p-6 border-t border-[#00A8FF]/10 space-y-3">
+      {/* Bottom Section - User Profile */}
+      <div className="p-4">
+        {!sidebarCollapsed && (
+          <div
+            className="p-3 rounded-xl mb-3"
+            style={{
+              background: 'rgba(255, 255, 255, 0.03)',
+              border: '1px solid rgba(255, 255, 255, 0.08)'
+            }}
+          >
+            <div className="flex items-center gap-3">
+              {/* Avatar with Gradient Border */}
+              <div className="relative flex-shrink-0">
+                <div
+                  className="w-11 h-11 rounded-full p-[2px]"
+                  style={{
+                    background: 'linear-gradient(135deg, #0386FE, #9507FF)'
+                  }}
+                >
+                  {user.picture ? (
+                    <img
+                      src={user.picture}
+                      alt={user.name}
+                      className="w-full h-full rounded-full object-cover bg-[#0a0f1a]"
+                    />
+                  ) : (
+                    <div
+                      className="w-full h-full rounded-full flex items-center justify-center text-white font-semibold text-sm bg-[#0a0f1a]"
+                    >
+                      {user.name?.charAt(0)?.toUpperCase() || 'U'}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* User Info - Fully visible, no truncate */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <Users size={12} className="text-gray-400 flex-shrink-0" />
+                  <h3 className="text-white font-medium text-xs">{user.name}</h3>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-gray-400 text-xs flex-shrink-0">✉</span>
+                  <p className="text-white text-xs">{user.email}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Logout Button */}
         <button
           onClick={() => {
             logout();
             window.location.href = '/login';
           }}
-          className="group relative w-full flex items-center gap-3 p-3 rounded-xl transition-all duration-300 hover:bg-red-500/10 border border-transparent hover:border-red-500/30"
+          className="w-full flex items-center justify-center gap-2 p-2.5 rounded-xl transition-all duration-300 hover:bg-white/5"
+          style={{
+            border: '1px solid rgba(255, 255, 255, 0.08)'
+          }}
         >
-          <div className="bg-red-500/20 p-2 rounded-lg group-hover:bg-red-500/30 transition-all duration-300">
-            <LogOut size={16} className="text-red-400" />
-          </div>
+          <LogOut size={18} className="text-gray-400" />
           {!sidebarCollapsed && (
-            <span className="text-red-400 font-medium">Logout</span>
+            <span className="text-gray-400 text-sm">Logout</span>
           )}
         </button>
 
-        {/* Collapse Toggle */}
-        <button
-          onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-          className="group relative w-full flex items-center justify-center p-3 rounded-xl transition-all duration-300 hover:bg-[#00A8FF]/10 border border-[#00A8FF]/20 hover:border-[#00A8FF]/40"
-        >
-          <div className="bg-[#00A8FF]/20 p-2 rounded-lg group-hover:bg-[#00A8FF]/30 transition-all duration-300">
-            {sidebarCollapsed ? (
-              <ChevronRight size={16} className="text-[#00A8FF]" />
-            ) : (
-              <ChevronLeft size={16} className="text-[#00A8FF]" />
-            )}
+        {/* Footer */}
+        {!sidebarCollapsed && (
+          <div className="mt-4 text-center">
+            <p className="text-xs text-gray-500">amzprep.com</p>
+            <p className="text-xs text-gray-600">@2025 All Rights Reserved</p>
           </div>
-        </button>
+        )}
       </div>
     </div>
   </div>
-);
+  );
+};
 
 const NavItem = ({ icon: Icon, label, active, onClick, collapsed, badge }) => (
   <button
     onClick={onClick}
-    className={`group relative w-full flex items-center gap-4 p-4 rounded-2xl transition-all duration-300 ${
-      active
-        ? 'bg-gradient-to-r from-[#00A8FF]/20 via-[#00A8FF]/10 to-transparent border-[#00A8FF]/40 text-white shadow-lg shadow-[#00A8FF]/20'
-        : 'hover:bg-gradient-to-r hover:from-[#00A8FF]/5 hover:to-transparent hover:border-[#00A8FF]/20 text-[#00A8FF]/70 hover:text-white'
-    } border ${active ? 'border-[#00A8FF]/40' : 'border-transparent'}`}
+    className={`group relative w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 ${
+      active ? 'text-white' : 'text-gray-400 hover:text-white hover:bg-white/5'
+    }`}
+    style={{
+      background: active ? 'rgba(3, 134, 254, 0.08)' : 'transparent'
+    }}
   >
-    {/* Background Glow Effect */}
+    {/* Left Indicator Line - Only visible when active */}
     {active && (
-      <div className="absolute inset-0 bg-gradient-to-r from-[#00A8FF]/10 to-transparent rounded-2xl blur-sm"></div>
+      <div
+        className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-7 rounded-r-full"
+        style={{
+          background: 'linear-gradient(to bottom, #0386FE, #9507FF)'
+        }}
+      />
     )}
 
-    <div className="relative flex items-center gap-4 w-full">
-      {/* Icon with Background */}
-      <div className={`relative p-2 rounded-xl transition-all duration-300 ${
-        active
-          ? 'bg-[#00A8FF]/20 shadow-lg shadow-[#00A8FF]/20'
-          : 'bg-[#00A8FF]/5 group-hover:bg-[#00A8FF]/15'
-      }`}>
-        <Icon size={18} className={`${active ? 'text-[#00A8FF]' : 'text-[#00A8FF]/70 group-hover:text-[#00A8FF]'} transition-colors duration-300`} />
-      </div>
-
-      {!collapsed && (
-        <div className="flex items-center justify-between flex-1">
-          <span className={`font-medium text-sm transition-colors duration-300 ${
-            active ? 'text-white' : 'text-[#00A8FF]/70 group-hover:text-white'
-          }`}>
-            {label}
-          </span>
-
-          {badge && (
-            <div className={`px-2 py-1 rounded-full text-xs font-bold transition-all duration-300 ${
-              active
-                ? 'bg-[#00A8FF] text-white shadow-lg shadow-[#00A8FF]/30'
-                : 'bg-[#00A8FF]/20 text-[#00A8FF] group-hover:bg-[#00A8FF]/30'
-            }`}>
-              {badge}
-            </div>
-          )}
-        </div>
-      )}
+    {/* Icon Container */}
+    <div
+      className="relative p-2 rounded-lg transition-all duration-300"
+      style={{
+        background: active
+          ? 'linear-gradient(135deg, #0386FE, #9507FF)'
+          : 'rgba(255, 255, 255, 0.05)',
+        boxShadow: active ? '0 4px 12px rgba(3, 134, 254, 0.3)' : 'none'
+      }}
+    >
+      <Icon
+        size={16}
+        className={active ? 'text-white' : 'text-gray-400 group-hover:text-white'}
+      />
     </div>
+
+    {!collapsed && (
+      <div className="flex items-center justify-between flex-1">
+        <span className={`font-medium text-sm transition-colors duration-300 ${
+          active ? 'text-white' : 'text-gray-400 group-hover:text-white'
+        }`}>
+          {label}
+        </span>
+
+        {badge && (
+          <div
+            className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold"
+            style={{
+              background: active
+                ? 'linear-gradient(135deg, #0386FE, #9507FF)'
+                : 'rgba(3, 134, 254, 0.15)',
+              color: active ? 'white' : '#0386FE'
+            }}
+          >
+            {badge}
+          </div>
+        )}
+      </div>
+    )}
   </button>
 );
 
 // REPLACE your existing Alert component with:
 const PremiumAlert = ({ type, message, onClose }) => {
-const isError = type === 'error';
-const baseClasses = "relative rounded-2xl p-6 mb-8 animate-slideIn border backdrop-blur-sm";
-const typeClasses = isError
-  ? "bg-gradient-to-r from-red-500/10 via-red-500/5 to-transparent border-red-500/30 shadow-xl shadow-red-500/10"
-  : "bg-gradient-to-r from-[#00A8FF]/10 via-[#00A8FF]/5 to-transparent border-[#00A8FF]/30 shadow-xl shadow-[#00A8FF]/10";
+  const isError = type === 'error';
 
-return (
-  <div className={`${baseClasses} ${typeClasses}`}>
-    {/* Background Glow */}
-    <div className={`absolute inset-0 rounded-2xl blur-sm ${
-      isError ? 'bg-gradient-to-r from-red-500/5 to-transparent' : 'bg-gradient-to-r from-[#00A8FF]/5 to-transparent'
-    }`}></div>
+  return (
+    <div
+      className="relative rounded-2xl p-6 mb-8 animate-slideIn backdrop-blur-sm"
+      style={{
+        background: isError
+          ? 'linear-gradient(135deg, rgba(220, 38, 38, 0.1), rgba(220, 38, 38, 0.05))'
+          : 'linear-gradient(135deg, rgba(3, 134, 254, 0.1), rgba(149, 7, 255, 0.05))',
+        border: '1px solid',
+        borderColor: isError ? 'rgba(220, 38, 38, 0.3)' : 'rgba(3, 134, 254, 0.3)',
+        boxShadow: isError ? '0 10px 25px rgba(220, 38, 38, 0.1)' : '0 10px 25px rgba(3, 134, 254, 0.1)'
+      }}
+    >
+      <div className="relative flex items-start gap-4">
+        <div
+          className="p-3 rounded-xl"
+          style={{
+            background: isError ? 'rgba(220, 38, 38, 0.2)' : 'rgba(3, 134, 254, 0.2)'
+          }}
+        >
+          {isError ? (
+            <AlertCircle className="text-red-400" size={24} />
+          ) : (
+            <CheckCircle
+              size={24}
+              style={{
+                background: 'linear-gradient(to right, #0386FE, #9507FF)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent'
+              }}
+            />
+          )}
+        </div>
 
-    <div className="relative flex items-start gap-4">
-      <div className={`p-3 rounded-xl ${
-        isError ? 'bg-red-500/20' : 'bg-[#00A8FF]/20'
-      }`}>
-        {isError ? (
-          <AlertCircle className="text-red-400" size={24} />
-        ) : (
-          <CheckCircle className="text-[#00A8FF]" size={24} />
+        <div className="flex-1">
+          <p
+            className="font-medium text-lg"
+            style={isError ? { color: '#FCA5A5' } : {
+              background: 'linear-gradient(to right, #0386FE, #9507FF)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent'
+            }}
+          >
+            {isError ? 'Error' : 'Success'}
+          </p>
+          <p className="text-white/80 mt-1">{message}</p>
+        </div>
+
+        {onClose && (
+          <button
+            onClick={onClose}
+            className="p-2 rounded-lg hover:bg-white/10 transition-colors duration-200 text-white/60 hover:text-white"
+          >
+            <X size={20} />
+          </button>
         )}
       </div>
-
-      <div className="flex-1">
-        <p className={`font-medium text-lg ${isError ? 'text-red-100' : 'text-[#00A8FF]'}`}>
-          {isError ? 'Error' : 'Success'}
-        </p>
-        <p className="text-white/80 mt-1">{message}</p>
-      </div>
-
-      {onClose && (
-        <button
-          onClick={onClose}
-          className="p-2 rounded-lg hover:bg-white/10 transition-colors duration-200 text-white/60 hover:text-white"
-        >
-          <X size={20} />
-        </button>
-      )}
     </div>
-  </div>
-);
+  );
 };
 
 const Alert = PremiumAlert;
@@ -801,353 +927,549 @@ const Alert = PremiumAlert;
 
   return (
     <div className="min-h-[calc(100vh-200px)] p-8">
-    {/* Show admin panel only for admin users */}
-    {user?.role === 'admin' && <AdminRatePanel />}
+      {/* ============================================================================
+          ADMIN RATE MANAGEMENT - HIDDEN (Preserved for future integration)
+          Uncomment the line below to enable for admin users:
+          {user?.role === 'admin' && <AdminRatePanel />}
+      ============================================================================ */}
 
-      {/* Header */}
-      <div className="text-center mb-8">
-        <h2 className="text-4xl font-bold text-white mb-3">Upload Shipping Data</h2>
-        <p className="text-gray-400 text-lg">
-          Choose your platform and rate type to begin analysis
-        </p>
+      {/* Header with Gradient Text */}
+      <div className="text-center mb-12">
+        <h2
+          className="text-3xl lg:text-4xl font-bold tracking-wide uppercase"
+          style={{
+            background: 'linear-gradient(to right, #FFFFFF, #B0B0B0)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            backgroundClip: 'text'
+          }}
+        >
+          Choose Your Platform and Rate Type to Begin Analysis
+        </h2>
       </div>
 
       {/* Alerts */}
       {error && <PremiumAlert type="error" message={error} onClose={() => setError(null)} />}
       {success && <Alert type="success" message={success} onClose={() => setSuccess(null)} />}
 
-      {/* Dual Column Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 max-w-7xl mx-auto">
+      {/* Dual Column Layout with Center Divider */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-7xl mx-auto relative">
+
+        {/* Vertical Divider Line */}
+        <div
+          className="hidden lg:block absolute left-1/2 top-0 bottom-0 w-px -translate-x-1/2"
+          style={{
+            background: 'linear-gradient(to bottom, transparent, rgba(3, 134, 254, 0.4), rgba(149, 7, 255, 0.4), transparent)'
+          }}
+        />
 
         {/* ============== AMAZON UPLOAD CARD ============== */}
-        <div className="bg-[#1a1f2e] rounded-2xl p-8 border border-gray-800 hover:border-brand-blue/60 transition-all shadow-2xl hover:shadow-brand-blue/20">
-
-          {/* Amazon Logo & Header */}
-          <div className="text-center mb-6">
-          <div className="bg-white rounded-2xl w-24 h-24 flex items-center justify-center mx-auto mb-4 shadow-lg">
-            {/* ACTUAL LOGO IMAGE */}
-            <img
-              src={amazonLogo}
-              alt="Amazon"
-              className="w-full h-full object-contain"
-              onError={(e) => {
-                // Fallback to icon if image fails to load
-                e.target.style.display = 'none';
-                e.target.nextSibling.style.display = 'flex';
-              }}
-            />
-            {/* Fallback icon (hidden by default) */}
-            <div className="hidden bg-gradient-to-br from-orange-500 to-orange-700 rounded-xl w-full h-full items-center justify-center">
-              <Package size={48} className="text-white" />
-            </div>
-            </div>
-            <h3 className="text-2xl font-bold text-white mb-2">Amazon Upload</h3>
-            <p className="text-gray-400">Amazon FBA Data</p>
-          </div>
-
-          {/* Rate Type Dropdown */}
-          <div className="mb-6">
-            <label className="block text-sm font-semibold text-gray-300 mb-2">
-              Select Rate Type
-            </label>
-            <select
-              value={amazonRateType}
-              onChange={(e) => setAmazonRateType(e.target.value)}
-              disabled={amazonLoading}
-              className="w-full bg-[#0f1419] border border-gray-700 rounded-lg px-4 py-3 text-white focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-500/20 transition-all disabled:opacity-50"
-            >
-              <option value="prep">Prep Services</option>
-              <option value="middleMile">Middle Mile</option>
-              <option value="fbaShipment">FBA Shipment</option>
-              <option value="combined">Complete Solution</option>
-            </select>
-            <p className="text-xs text-gray-500 mt-2">
-              {amazonRateType === 'prep' && 'Preparation & inspection services'}
-              {amazonRateType === 'middleMile' && 'Warehouse to fulfillment center'}
-              {amazonRateType === 'fbaShipment' && 'Fulfillment by Amazon shipping'}
-              {amazonRateType === 'combined' && 'Complete Solution by Amazon shipping'}
-            </p>
-          </div>
-
-          {/* 🆕 Cost Configuration Panel */}
-          <CostConfigPanel
-          onConfigChange={handleCostConfigChange}
-          disabled={amazonLoading}
-          expanded={costConfigExpanded}
-          onExpandedChange={setCostConfigExpanded}
-          initialConfig={costConfig}
+        <div
+          className="rounded-2xl p-8 backdrop-blur-sm transition-all duration-300 hover:shadow-2xl relative group"
+          style={{
+            background: 'linear-gradient(135deg, rgba(10, 15, 26, 0.8), rgba(15, 20, 25, 0.6))',
+            border: '2px solid transparent',
+            backgroundImage: `
+              linear-gradient(135deg, rgb(255 255 255 / 4%), rgb(255 255 255 / 0%)),
+              linear-gradient(135deg, rgb(255 255 255 / 4%), rgb(255 255 255 / 0%))
+            `,
+            backgroundOrigin: 'border-box',
+            backgroundClip: 'padding-box, border-box'
+          }}
+        >
+          {/* Subtle Glow on Hover */}
+          <div
+            className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
+            style={{
+              background: 'radial-gradient(ellipse at center, rgba(3, 134, 254, 0.06), transparent 70%)'
+            }}
           />
 
-          {/* Hazmat Filter Selection */}
-          <div className="hazmat-filter-section" style={{
-            marginTop: '20px',
-            padding: '15px',
-            borderRadius: '8px',
-            border: '1px solid #00a8ff70',
-            marginBottom: '30px',
-            color: '#ffffff'
-          }}>
-            <h4 style={{ marginBottom: '12px', fontSize: '14px', fontWeight: '600' }}>
-              Filter Shipments by Hazmat Status
-            </h4>
-
-            <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap' }}>
-              <label style={{
-                display: 'flex',
-                alignItems: 'center',
-                cursor: 'pointer',
-                fontSize: '14px'
-              }}>
-                <input
-                  type="radio"
-                  name="hazmatFilter"
-                  value="all"
-                  checked={hazmatFilter === 'all'}
-                  onChange={(e) => setHazmatFilter(e.target.value)}
-                  style={{ marginRight: '8px' }}
+          <div className="relative z-10">
+            {/* Amazon Logo & Header */}
+            <div className="text-center mb-6">
+              <div
+                className="rounded-2xl w-20 h-20 flex items-center justify-center mx-auto mb-4 relative overflow-hidden"
+                style={{
+                  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)'
+                }}
+              >
+                <img
+                  src={amazonLogo}
+                  alt="Amazon"
+                  className="w-full h-full object-contain"
+                  onError={(e) => {
+                    e.target.style.display = 'none';
+                    e.target.nextSibling.style.display = 'flex';
+                  }}
                 />
-                <span>All Shipments</span>
-              </label>
-
-              <label style={{
-                display: 'flex',
-                alignItems: 'center',
-                cursor: 'pointer',
-                fontSize: '14px'
-              }}>
-                <input
-                  type="radio"
-                  name="hazmatFilter"
-                  value="hazmat"
-                  checked={hazmatFilter === 'hazmat'}
-                  onChange={(e) => setHazmatFilter(e.target.value)}
-                  style={{ marginRight: '8px' }}
-                />
-                <span>Hazmat Only</span>
-              </label>
-
-              <label style={{
-                display: 'flex',
-                alignItems: 'center',
-                cursor: 'pointer',
-                fontSize: '14px'
-              }}>
-                <input
-                  type="radio"
-                  name="hazmatFilter"
-                  value="non-hazmat"
-                  checked={hazmatFilter === 'non-hazmat'}
-                  onChange={(e) => setHazmatFilter(e.target.value)}
-                  style={{ marginRight: '8px' }}
-                />
-                <span>Non-Hazmat Only</span>
-              </label>
+                <div className="hidden bg-gradient-to-br from-orange-500 to-orange-700 rounded-xl w-full h-full items-center justify-center">
+                  <Package size={40} className="text-white" />
+                </div>
+              </div>
+              <h3 className="text-2xl font-bold text-white mb-1">Amazon Upload</h3>
+              <p className="text-gray-400 text-sm">Amazon FBA Data</p>
             </div>
 
-            {hazmatFilter !== 'all' && (
-              <p style={{
-                marginTop: '10px',
-                fontSize: '12px',
-                color: '#6c757d',
-                fontStyle: 'italic'
-              }}>
-                ℹ️ Analysis will only include {hazmatFilter === 'hazmat' ? 'hazmat' : 'non-hazmat'} shipments
+            {/* Rate Type Dropdown */}
+            <div className="mb-6">
+              <label className="block text-sm font-semibold text-gray-300 mb-2">
+                Select Rate Type
+              </label>
+              <div className="relative">
+                <select
+                  value={amazonRateType}
+                  onChange={(e) => setAmazonRateType(e.target.value)}
+                  disabled={amazonLoading}
+                  className="w-full px-4 py-3.5 rounded-xl text-white appearance-none cursor-pointer transition-all duration-300 disabled:opacity-50 outline-none"
+                  style={{
+                    background: 'rgba(15, 20, 25, 0.8)',
+                    border: '1px solid rgba(3, 134, 254, 0.3)',
+                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)'
+                  }}
+                  onFocus={(e) => {
+                    e.target.style.borderColor = 'rgba(3, 134, 254, 0.6)';
+                    e.target.style.boxShadow = '0 0 0 3px rgba(3, 134, 254, 0.1)';
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = 'rgba(3, 134, 254, 0.3)';
+                    e.target.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.2)';
+                  }}
+                >
+                  <option value="prep">Prep Services</option>
+                  <option value="middleMile">Middle Mile</option>
+                  <option value="fbaShipment">FBA Shipment</option>
+                  <option value="combined">Complete Solution</option>
+                </select>
+                <div
+                  className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none"
+                  style={{
+                    background: 'linear-gradient(135deg, #0386FE, #9507FF)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent'
+                  }}
+                >
+                  ▼
+                </div>
+              </div>
+              <p className="text-xs text-gray-500 mt-2">
+                {amazonRateType === 'prep' && 'Preparation & inspection services'}
+                {amazonRateType === 'middleMile' && 'Warehouse to fulfillment center'}
+                {amazonRateType === 'fbaShipment' && 'Fulfillment by Amazon shipping'}
+                {amazonRateType === 'combined' && 'Complete Solution by Amazon shipping'}
               </p>
-            )}
-          </div>
-
-          {/* File Upload Button */}
-          <label className="block">
-            <input
-              type="file"
-              accept=".xlsx,.xls,.csv"
-              onChange={handleAmazonUpload}
-              disabled={amazonLoading}
-              className="hidden"
-            />
-            <span className={`w-full bg-gradient-to-r from-brand-blue to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-6 py-4 rounded-lg cursor-pointer flex items-center justify-center gap-3 transition-all transform hover:scale-105 shadow-lg font-semibold ${
-              amazonLoading ? 'opacity-50 cursor-not-allowed' : ''
-            }`}>
-              <Upload size={20} />
-              {amazonLoading ? 'Processing...' : 'Choose Amazon File'}
-            </span>
-          </label>
-
-          {/* Selected File Info */}
-          {amazonFile && (
-            <div className="mt-4 text-sm text-gray-400 bg-[#0f1419] p-4 rounded-lg border border-gray-800">
-              <FileText className="inline mr-2" size={16} />
-              <span className="text-brand-blue font-semibold">{amazonFile.name}</span>
             </div>
-          )}
 
-          {/* Format Guide */}
-          <div className="mt-6 bg-[#0f1419] p-4 rounded-lg border border-gray-800">
-            <h4 className="text-sm font-bold text-white mb-3 flex items-center gap-2">
-              <FileText size={16} className="text-brand-blue" />
-              Expected Format
-            </h4>
-            <ul className="text-xs text-gray-400 space-y-1">
-              <li className="flex items-start gap-2">
-                <span className="text-brand-blue mt-0.5">•</span>
-                <span>Amazon FBA CSV/Excel format</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-brand-blue mt-0.5">•</span>
-                <span>State, Weight, Cost columns required</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-brand-blue mt-0.5">•</span>
-                <span>Shipping method & zone optional</span>
-              </li>
-            </ul>
-          </div>
+            {/* Cost Configuration Panel */}
+            <CostConfigPanel
+              onConfigChange={handleCostConfigChange}
+              disabled={amazonLoading}
+              expanded={costConfigExpanded}
+              onExpandedChange={setCostConfigExpanded}
+              initialConfig={costConfig}
+            />
 
-          {/* Recent Amazon Reports */}
-          <div className="mt-6">
-            <h4 className="text-xs font-semibold text-gray-400 mb-2">Recent Amazon Reports</h4>
-            <div className="space-y-2 max-h-32 overflow-y-auto">
-              {reports
-                .filter(r => r.filename.toLowerCase().includes('amz') || r.filename.toLowerCase().includes('amazon'))
-                .slice(0, 3)
-                .map((report) => (
-                  <div
-                    key={report.id}
-                    className="bg-[#0f1419] p-2 rounded text-xs flex items-center justify-between hover:bg-[#1a1f2e] transition-colors"
+            {/* Hazmat Filter Selection */}
+            <div
+              className="mt-6 mb-6 p-4 rounded-xl"
+              style={{
+                background: 'rgba(10, 15, 26, 0.4)',
+                border: '1px solid rgba(3, 134, 254, 0.2)'
+              }}
+            >
+              <h4 className="mb-3 text-sm font-semibold text-white">
+                Filter Shipments by Hazmat Status
+              </h4>
+              <div className="flex gap-4 flex-wrap">
+                {['all', 'hazmat', 'non-hazmat'].map((filter) => (
+                  <label
+                    key={filter}
+                    className="flex items-center cursor-pointer text-sm group"
                   >
-                    <span className="text-white truncate flex-1">{report.filename}</span>
-                    <button
-                      onClick={() => loadReport(report.id)}
-                      className="text-orange-500 hover:text-brand-blue font-semibold ml-2"
-                    >
-                      View
-                    </button>
-                  </div>
+                    <input
+                      type="radio"
+                      name="hazmatFilter"
+                      value={filter}
+                      checked={hazmatFilter === filter}
+                      onChange={(e) => setHazmatFilter(e.target.value)}
+                      className="mr-2 accent-[#0386FE]"
+                    />
+                    <span className="text-gray-300 group-hover:text-white transition-colors">
+                      {filter === 'all' ? 'All Shipments' :
+                       filter === 'hazmat' ? 'Hazmat Only' :
+                       'Non-Hazmat Only'}
+                    </span>
+                  </label>
                 ))}
-              {reports.filter(r => r.filename.toLowerCase().includes('amz') || r.filename.toLowerCase().includes('amazon')).length === 0 && (
-                <p className="text-xs text-gray-600">No Amazon reports yet</p>
+              </div>
+              {hazmatFilter !== 'all' && (
+                <p className="mt-3 text-xs text-gray-500 italic">
+                  ℹ️ Analysis will only include {hazmatFilter === 'hazmat' ? 'hazmat' : 'non-hazmat'} shipments
+                </p>
               )}
+            </div>
+
+            {/* File Upload Button */}
+            <label className="block cursor-pointer">
+              <input
+                type="file"
+                accept=".xlsx,.xls,.csv"
+                onChange={handleAmazonUpload}
+                disabled={amazonLoading}
+                className="hidden"
+              />
+              <div
+                className={`w-full px-6 py-4 rounded-xl flex items-center justify-center gap-3 transition-all duration-300 font-semibold ${
+                  amazonLoading ? 'opacity-50 cursor-not-allowed' : 'hover:scale-[1.02]'
+                }`}
+                style={{
+                  background: 'rgba(255, 255, 255, 0.03)',
+                  border: '2px dashed rgba(3, 134, 254, 0.4)',
+                  color: 'white'
+                }}
+                onMouseEnter={(e) => {
+                  if (!amazonLoading) {
+                    e.currentTarget.style.borderColor = 'rgba(3, 134, 254, 0.7)';
+                    e.currentTarget.style.background = 'rgba(3, 134, 254, 0.05)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = 'rgba(3, 134, 254, 0.4)';
+                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.03)';
+                }}
+              >
+                <Upload size={20} style={{ color: '#0386FE' }} />
+                <span className="text-gray-300">{amazonLoading ? 'Processing...' : 'Choose Amazon File'}</span>
+                {!amazonLoading && (
+                  <div
+                    className="w-8 h-8 rounded-lg flex items-center justify-center ml-2"
+                    style={{
+                      border: '1px dashed rgba(3, 134, 254, 0.5)',
+                      background: 'rgba(3, 134, 254, 0.1)'
+                    }}
+                  >
+                    <span style={{
+                      background: 'linear-gradient(135deg, #0386FE, #9507FF)',
+                      WebkitBackgroundClip: 'text',
+                      WebkitTextFillColor: 'transparent'
+                    }}>+</span>
+                  </div>
+                )}
+              </div>
+            </label>
+
+            {/* Selected File Info */}
+            {amazonFile && (
+              <div
+                className="mt-4 text-sm p-4 rounded-xl flex items-center gap-3"
+                style={{
+                  background: 'rgba(34, 197, 94, 0.1)',
+                  border: '1px solid rgba(34, 197, 94, 0.3)'
+                }}
+              >
+                <FileText size={18} className="text-green-400" />
+                <span className="text-green-300 font-medium truncate">{amazonFile.name}</span>
+                <CheckCircle size={16} className="text-green-400 ml-auto flex-shrink-0" />
+              </div>
+            )}
+
+            {/* Format Guide */}
+            <div
+              className="mt-6 p-4 rounded-xl"
+              style={{
+                background: 'rgba(15, 20, 25, 0.6)',
+                border: '1px solid rgba(3, 134, 254, 0.15)'
+              }}
+            >
+              <h4 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
+                <FileText size={14} style={{ color: '#0386FE' }} />
+                Expected Format
+              </h4>
+              <ul className="text-xs text-gray-400 space-y-2">
+                <li className="flex items-start gap-2">
+                  <span style={{ color: '#0386FE' }}>•</span>
+                  <span>Amazon FBA CSV/Excel format</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span style={{ color: '#0386FE' }}>•</span>
+                  <span>State, Weight, Cost columns required</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span style={{ color: '#0386FE' }}>•</span>
+                  <span>Shipping method & zone optional</span>
+                </li>
+              </ul>
+            </div>
+
+            {/* Recent Amazon Reports */}
+            <div className="mt-6">
+              <h4 className="text-xs font-semibold text-gray-400 mb-2">Recent Amazon Reports</h4>
+              <div className="space-y-2 max-h-32 overflow-y-auto">
+                {reports
+                  .filter(r => r.filename.toLowerCase().includes('amz') || r.filename.toLowerCase().includes('amazon'))
+                  .slice(0, 3)
+                  .map((report) => (
+                    <div
+                      key={report.id}
+                      className="p-2 rounded-lg text-xs flex items-center justify-between transition-all duration-200"
+                      style={{
+                        background: 'rgba(15, 20, 25, 0.6)',
+                        border: '1px solid rgba(255, 255, 255, 0.05)'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.borderColor = 'rgba(3, 134, 254, 0.3)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.05)';
+                      }}
+                    >
+                      <span className="text-white truncate flex-1">{report.filename}</span>
+                      <button
+                        onClick={() => loadReport(report.id)}
+                        className="font-semibold ml-2 transition-colors"
+                        style={{
+                          background: 'linear-gradient(to right, #0386FE, #9507FF)',
+                          WebkitBackgroundClip: 'text',
+                          WebkitTextFillColor: 'transparent'
+                        }}
+                      >
+                        View
+                      </button>
+                    </div>
+                  ))}
+                {reports.filter(r => r.filename.toLowerCase().includes('amz') || r.filename.toLowerCase().includes('amazon')).length === 0 && (
+                  <p className="text-xs text-gray-600">No Amazon reports yet</p>
+                )}
+              </div>
             </div>
           </div>
         </div>
 
         {/* ============== SHOPIFY UPLOAD CARD ============== */}
-        <div className="bg-[#1a1f2e] rounded-2xl p-8 border border-gray-800 hover:border-brand-blue/60 transition-all shadow-2xl hover:shadow-brand-blue/20">
+        <div
+          className="rounded-2xl p-8 backdrop-blur-sm transition-all duration-300 hover:shadow-2xl relative group"
+          style={{
+            background: 'linear-gradient(135deg, rgba(10, 15, 26, 0.8), rgba(15, 20, 25, 0.6))',
+            border: '2px solid transparent',
+            backgroundImage: `
+              linear-gradient(135deg, rgb(255 255 255 / 4%), rgb(255 255 255 / 0%)),
+              linear-gradient(135deg, rgb(255 255 255 / 4%), rgb(255 255 255 / 0%))
+            `,
+            backgroundOrigin: 'border-box',
+            backgroundClip: 'padding-box, border-box'
+          }}
+        >
+          {/* Subtle Glow on Hover */}
+          <div
+            className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
+            style={{
+              background: 'radial-gradient(ellipse at center, rgba(149, 7, 255, 0.06), transparent 70%)'
+            }}
+          />
 
-          {/* Shopify Logo & Header */}
-          <div className="text-center mb-6">
-          <div className="bg-white rounded-2xl w-24 h-24 flex items-center justify-center mx-auto mb-4 shadow-lg">
-            {/* ACTUAL LOGO IMAGE */}
-            <img
-              src={shopifyLogo}
-              alt="Shopify"
-              className="w-full h-full object-contain"
-              onError={(e) => {
-                // Fallback to icon if image fails to load
-                e.target.style.display = 'none';
-                e.target.nextSibling.style.display = 'flex';
-              }}
-            />
-            {/* Fallback icon (hidden by default) */}
-            <div className="hidden bg-gradient-to-br from-green-500 to-green-700 rounded-xl w-full h-full items-center justify-center">
-              <ShoppingCart size={48} className="text-white" />
+          <div className="relative z-10">
+            {/* Shopify Logo & Header */}
+            <div className="text-center mb-6">
+              <div
+                className="rounded-2xl w-20 h-20 flex items-center justify-center mx-auto mb-4 relative overflow-hidden"
+                style={{
+                  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)'
+                }}
+              >
+                <img
+                  src={shopifyLogo}
+                  alt="Shopify"
+                  className="w-full h-full object-contain"
+                  onError={(e) => {
+                    e.target.style.display = 'none';
+                    e.target.nextSibling.style.display = 'flex';
+                  }}
+                />
+                <div className="hidden bg-gradient-to-br from-green-500 to-green-700 rounded-xl w-full h-full items-center justify-center">
+                  <ShoppingCart size={40} className="text-white" />
+                </div>
+              </div>
+              <h3 className="text-2xl font-bold text-white mb-1">Shopify Upload</h3>
+              <p className="text-gray-400 text-sm">DTC & E-commerce Data</p>
             </div>
+
+            {/* Rate Type Dropdown */}
+            <div className="mb-6">
+              <label className="block text-sm font-semibold text-gray-300 mb-2">
+                Select Rate Type
+              </label>
+              <div className="relative">
+                <select
+                  value={shopifyRateType}
+                  onChange={(e) => setShopifyRateType(e.target.value)}
+                  disabled={shopifyLoading}
+                  className="w-full px-4 py-3.5 rounded-xl text-white appearance-none cursor-pointer transition-all duration-300 disabled:opacity-50 outline-none"
+                  style={{
+                    background: 'rgba(15, 20, 25, 0.8)',
+                    border: '1px solid rgba(3, 134, 254, 0.3)',
+                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)'
+                  }}
+                  onFocus={(e) => {
+                    e.target.style.borderColor = 'rgba(3, 134, 254, 0.6)';
+                    e.target.style.boxShadow = '0 0 0 3px rgba(3, 134, 254, 0.1)';
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = 'rgba(3, 134, 254, 0.3)';
+                    e.target.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.2)';
+                  }}
+                >
+                  <option value="orderUpdate">Order Update</option>
+                  <option value="productUpdate">Product Update</option>
+                </select>
+                <div
+                  className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none"
+                  style={{
+                    background: 'linear-gradient(135deg, #0386FE, #9507FF)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent'
+                  }}
+                >
+                  ▼
+                </div>
+              </div>
+              <p className="text-xs text-gray-500 mt-2">
+                {shopifyRateType === 'orderUpdate' && 'Order fulfillment & shipping updates'}
+                {shopifyRateType === 'productUpdate' && 'Product catalog & inventory updates'}
+              </p>
             </div>
-            <h3 className="text-2xl font-bold text-white mb-2">Shopify Upload</h3>
-            <p className="text-gray-400">DTC & E-commerce Data</p>
-          </div>
 
-          {/* Rate Type Dropdown */}
-          <div className="mb-6">
-            <label className="block text-sm font-semibold text-gray-300 mb-2">
-              Select Rate Type
-            </label>
-            <select
-              value={shopifyRateType}
-              onChange={(e) => setShopifyRateType(e.target.value)}
-              disabled={shopifyLoading}
-              className="w-full bg-[#0f1419] border border-gray-700 rounded-lg px-4 py-3 text-white focus:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-500/20 transition-all disabled:opacity-50"
-            >
-              <option value="orderUpdate">Order Update</option>
-              <option value="productUpdate">Product Update</option>
-            </select>
-            <p className="text-xs text-gray-500 mt-2">
-              {shopifyRateType === 'orderUpdate' && 'Order fulfillment & shipping updates'}
-              {shopifyRateType === 'productUpdate' && 'Product catalog & inventory updates'}
-            </p>
-          </div>
-
-          {/* File Upload Button */}
-          <label className="block">
-            <input
-              type="file"
-              accept=".xlsx,.xls,.csv"
-              onChange={handleShopifyUpload}
-              disabled={shopifyLoading}
-              className="hidden"
-            />
-            <span className={`w-full bg-gradient-to-r from-brand-blue to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-6 py-4 rounded-lg cursor-pointer flex items-center justify-center gap-3 transition-all transform hover:scale-105 shadow-lg font-semibold ${
-              shopifyLoading ? 'opacity-50 cursor-not-allowed' : ''
-            }`}>
-              <Upload size={20} />
-              {shopifyLoading ? 'Processing...' : 'Choose Shopify File'}
-            </span>
-          </label>
-
-          {/* Selected File Info */}
-          {shopifyFile && (
-            <div className="mt-4 text-sm text-gray-400 bg-[#0f1419] p-4 rounded-lg border border-gray-800">
-              <FileText className="inline mr-2" size={16} />
-              <span className="text-brand-blue font-semibold">{shopifyFile.name}</span>
-            </div>
-          )}
-
-          {/* Format Guide */}
-          <div className="mt-6 bg-[#0f1419] p-4 rounded-lg border border-gray-800">
-            <h4 className="text-sm font-bold text-white mb-3 flex items-center gap-2">
-              <FileText size={16} className="text-brand-blue" />
-              Expected Format
-            </h4>
-            <ul className="text-xs text-gray-400 space-y-1">
-              <li className="flex items-start gap-2">
-                <span className="text-brand-blue mt-0.5">•</span>
-                <span>Shopify Orders CSV export</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-brand-blue mt-0.5">•</span>
-                <span>Shipping Address, Line Items required</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-brand-blue mt-0.5">•</span>
-                <span>Order weight & shipping cost</span>
-              </li>
-            </ul>
-          </div>
-
-          {/* Recent Shopify Reports */}
-          <div className="mt-6">
-            <h4 className="text-xs font-semibold text-gray-400 mb-2">Recent Shopify Reports</h4>
-            <div className="space-y-2 max-h-32 overflow-y-auto">
-              {reports
-                .filter(r => r.filename.toLowerCase().includes('shopify') || r.filename.toLowerCase().includes('dtc'))
-                .slice(0, 3)
-                .map((report) => (
+            {/* File Upload Button */}
+            <label className="block cursor-pointer">
+              <input
+                type="file"
+                accept=".xlsx,.xls,.csv"
+                onChange={handleShopifyUpload}
+                disabled={shopifyLoading}
+                className="hidden"
+              />
+              <div
+                className={`w-full px-6 py-4 rounded-xl flex items-center justify-center gap-3 transition-all duration-300 font-semibold ${
+                  shopifyLoading ? 'opacity-50 cursor-not-allowed' : 'hover:scale-[1.02]'
+                }`}
+                style={{
+                  background: 'rgba(255, 255, 255, 0.03)',
+                  border: '2px dashed rgba(3, 134, 254, 0.4)',
+                  color: 'white'
+                }}
+                onMouseEnter={(e) => {
+                  if (!shopifyLoading) {
+                    e.currentTarget.style.borderColor = 'rgba(3, 134, 254, 0.7)';
+                    e.currentTarget.style.background = 'rgba(3, 134, 254, 0.05)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = 'rgba(3, 134, 254, 0.4)';
+                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.03)';
+                }}
+              >
+                <Upload size={20} style={{ color: '#0386FE' }} />
+                <span className="text-gray-300">{shopifyLoading ? 'Processing...' : 'Choose Shopify File'}</span>
+                {!shopifyLoading && (
                   <div
-                    key={report.id}
-                    className="bg-[#0f1419] p-2 rounded text-xs flex items-center justify-between hover:bg-[#1a1f2e] transition-colors"
+                    className="w-8 h-8 rounded-lg flex items-center justify-center ml-2"
+                    style={{
+                      border: '1px dashed rgba(3, 134, 254, 0.5)',
+                      background: 'rgba(3, 134, 254, 0.1)'
+                    }}
                   >
-                    <span className="text-white truncate flex-1">{report.filename}</span>
-                    <button
-                      onClick={() => loadReport(report.id)}
-                      className="text-green-500 hover:text-brand-blue font-semibold ml-2"
-                    >
-                      View
-                    </button>
+                    <span style={{
+                      background: 'linear-gradient(135deg, #0386FE, #9507FF)',
+                      WebkitBackgroundClip: 'text',
+                      WebkitTextFillColor: 'transparent'
+                    }}>+</span>
                   </div>
-                ))}
-              {reports.filter(r => r.filename.toLowerCase().includes('shopify') || r.filename.toLowerCase().includes('dtc')).length === 0 && (
-                <p className="text-xs text-gray-600">No Shopify reports yet</p>
-              )}
+                )}
+              </div>
+            </label>
+
+            {/* Selected File Info */}
+            {shopifyFile && (
+              <div
+                className="mt-4 text-sm p-4 rounded-xl flex items-center gap-3"
+                style={{
+                  background: 'rgba(34, 197, 94, 0.1)',
+                  border: '1px solid rgba(34, 197, 94, 0.3)'
+                }}
+              >
+                <FileText size={18} className="text-green-400" />
+                <span className="text-green-300 font-medium truncate">{shopifyFile.name}</span>
+                <CheckCircle size={16} className="text-green-400 ml-auto flex-shrink-0" />
+              </div>
+            )}
+
+            {/* Format Guide */}
+            <div
+              className="mt-6 p-4 rounded-xl"
+              style={{
+                background: 'rgba(15, 20, 25, 0.6)',
+                border: '1px solid rgba(3, 134, 254, 0.15)'
+              }}
+            >
+              <h4 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
+                <FileText size={14} style={{ color: '#0386FE' }} />
+                Expected Format
+              </h4>
+              <ul className="text-xs text-gray-400 space-y-2">
+                <li className="flex items-start gap-2">
+                  <span style={{ color: '#0386FE' }}>•</span>
+                  <span>Shopify Orders CSV export</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span style={{ color: '#0386FE' }}>•</span>
+                  <span>Shipping Address, Line Items required</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span style={{ color: '#0386FE' }}>•</span>
+                  <span>Order weight & shipping cost</span>
+                </li>
+              </ul>
+            </div>
+
+            {/* Recent Shopify Reports */}
+            <div className="mt-6">
+              <h4 className="text-xs font-semibold text-gray-400 mb-2">Recent Shopify Reports</h4>
+              <div className="space-y-2 max-h-32 overflow-y-auto">
+                {reports
+                  .filter(r => r.filename.toLowerCase().includes('shopify') || r.filename.toLowerCase().includes('dtc'))
+                  .slice(0, 3)
+                  .map((report) => (
+                    <div
+                      key={report.id}
+                      className="p-2 rounded-lg text-xs flex items-center justify-between transition-all duration-200"
+                      style={{
+                        background: 'rgba(15, 20, 25, 0.6)',
+                        border: '1px solid rgba(255, 255, 255, 0.05)'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.borderColor = 'rgba(3, 134, 254, 0.3)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.05)';
+                      }}
+                    >
+                      <span className="text-white truncate flex-1">{report.filename}</span>
+                      <button
+                        onClick={() => loadReport(report.id)}
+                        className="font-semibold ml-2 transition-colors"
+                        style={{
+                          background: 'linear-gradient(to right, #0386FE, #9507FF)',
+                          WebkitBackgroundClip: 'text',
+                          WebkitTextFillColor: 'transparent'
+                        }}
+                      >
+                        View
+                      </button>
+                    </div>
+                  ))}
+                {reports.filter(r => r.filename.toLowerCase().includes('shopify') || r.filename.toLowerCase().includes('dtc')).length === 0 && (
+                  <p className="text-xs text-gray-600">No Shopify reports yet</p>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -1703,301 +2025,72 @@ const USAHeatMap = ({ states, title, dataType = "volume", hazmatData = null, sho
   };
 
   const WelcomeScreen = () => (
-  <div className="relative min-h-[calc(100vh-200px)] p-6 overflow-hidden">
-    {/* UPDATED: Pure blue animated background */}
-    <div className="absolute inset-0 bg-gradient-to-br from-blue-600/20 via-blue-700/20 to-blue-900/20 animate-gradient-shift"></div>
-
-    {/* UPDATED: Blue floating orbs */}
-    <div className="absolute inset-0 overflow-hidden pointer-events-none">
-      <div className="absolute w-96 h-96 bg-blue-500/20 rounded-full blur-3xl -top-48 -left-48 animate-float"></div>
-      <div className="absolute w-96 h-96 bg-blue-600/20 rounded-full blur-3xl -bottom-48 -right-48 animate-float-delayed"></div>
-      <div className="absolute w-64 h-64 bg-blue-400/20 rounded-full blur-3xl top-1/3 right-1/4 animate-float-slow"></div>
-
-      {/* Grid pattern overlay */}
-      <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.02)_1px,transparent_1px)] bg-[size:50px_50px] [mask-image:radial-gradient(ellipse_80%_50%_at_50%_50%,#000,transparent)]"></div>
-    </div>
-
-    <div className="relative flex flex-col items-center justify-center min-h-[calc(100vh-250px)] max-w-6xl mx-auto">
-
-      {/* Main content card */}
-      <div className="w-full backdrop-blur-xl bg-[#1a1f2e]/60 rounded-3xl p-12 border border-gray-700/50 shadow-2xl shadow-blue-500/10 animate-fade-in-up">
-
-        {/* Hero Section */}
-        <div className="text-center mb-12">
-          {/* UPDATED: Pure blue gradient logo container */}
-          <div className="relative inline-block mb-8">
-            <div className="absolute inset-0 bg-gradient-to-br from-blue-500 to-blue-700 rounded-3xl blur-3xl opacity-50 animate-pulse-slow"></div>
-            <div className="relative bg-gradient-to-br from-blue-500 via-blue-600 to-blue-700 rounded-3xl w-40 h-40 flex items-center justify-center shadow-2xl shadow-blue-500/40 animate-float p-4">
-              <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/20 to-transparent animate-shine rounded-3xl"></div>
-              <img
-                src={amzprepLogo}
-                alt="AMZ Prep Logo"
-                className="w-full h-full object-contain drop-shadow-2xl relative z-10"
-              />
-            </div>
-          </div>
-
-          {/* UPDATED: Pure blue gradient title */}
-          <h1 className="text-6xl font-black mb-6 animate-fade-in">
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-blue-500 to-blue-600 animate-gradient-text">
-              Welcome to AMZ Prep
-            </span>
-          </h1>
-
-          <p className="text-2xl text-gray-300 mb-4 animate-fade-in-delayed">
-            Intelligent Shipping Analytics Platform
-          </p>
-
-          <p className="text-lg text-gray-400 max-w-3xl mx-auto animate-fade-in-more-delayed">
-            Transform your shipping data into actionable insights. Optimize warehouse locations, reduce costs, and improve delivery times with our advanced analytics engine.
-          </p>
-        </div>
-
-        {/* Feature Cards Grid - UPDATED to blue theme only */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-
-          {/* Feature 1 - Light Blue */}
-          <div className="group relative bg-gradient-to-br from-blue-500/10 to-blue-600/10 border border-blue-500/30 rounded-2xl p-6 hover:border-blue-400/60 transition-all duration-500 hover:scale-105 hover:shadow-2xl hover:shadow-blue-500/30 animate-fade-in-stagger-1">
-            <div className="absolute inset-0 bg-gradient-to-br from-blue-500/0 to-blue-500/20 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-            <div className="relative z-10">
-              <div className="bg-blue-500/20 w-16 h-16 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
-                <BarChart3 size={32} className="text-brand-blue" />
-              </div>
-              <h3 className="text-xl font-bold text-white mb-3">Advanced Analytics</h3>
-              <p className="text-gray-400 leading-relaxed">
-                Comprehensive insights on shipping costs, volumes, zones, and delivery performance metrics
-              </p>
-            </div>
-          </div>
-
-          {/* Feature 2 - Medium Blue */}
-          <div className="group relative bg-gradient-to-br from-blue-600/10 to-blue-700/10 border border-blue-600/30 rounded-2xl p-6 hover:border-blue-500/60 transition-all duration-500 hover:scale-105 hover:shadow-2xl hover:shadow-blue-600/30 animate-fade-in-stagger-2">
-            <div className="absolute inset-0 bg-gradient-to-br from-blue-600/0 to-blue-600/20 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-            <div className="relative z-10">
-              <div className="bg-blue-600/20 w-16 h-16 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
-                <TruckIcon size={32} className="text-brand-blue" />
-              </div>
-              <h3 className="text-xl font-bold text-white mb-3">Warehouse Optimization</h3>
-              <p className="text-gray-400 leading-relaxed">
-                AI-powered recommendations for optimal warehouse configurations to minimize costs
-              </p>
-            </div>
-          </div>
-
-          {/* Feature 3 - Dark Blue */}
-          <div className="group relative bg-gradient-to-br from-blue-700/10 to-blue-800/10 border border-blue-700/30 rounded-2xl p-6 hover:border-blue-600/60 transition-all duration-500 hover:scale-105 hover:shadow-2xl hover:shadow-blue-700/30 animate-fade-in-stagger-3">
-            <div className="absolute inset-0 bg-gradient-to-br from-blue-700/0 to-blue-700/20 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-            <div className="relative z-10">
-              <div className="bg-blue-700/20 w-16 h-16 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
-                <MapPin size={32} className="text-brand-blue" />
-              </div>
-              <h3 className="text-xl font-bold text-white mb-3">Geographic Insights</h3>
-              <p className="text-gray-400 leading-relaxed">
-                Interactive heat maps and state-level analysis for strategic decision making
-              </p>
-            </div>
+  <div className="relative min-h-[calc(100vh-200px)] flex items-center justify-center p-6">
+    {/* Main Content Card - wider, subtle styling */}
+    <div
+      className="w-full max-w-5xl rounded-3xl p-10 relative"
+      style={{
+        background: 'linear-gradient(135deg, rgba(10, 15, 30, 0.6), rgba(15, 25, 45, 0.4))',
+        border: '1px solid rgba(255, 255, 255, 0.06)',
+        boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)'
+      }}
+    >
+      {/* Hero Section */}
+      <div className="text-center">
+        {/* Logo - no border, clean */}
+        <div className="relative inline-block mb-8">
+          <div className="w-36 h-36 flex items-center justify-center p-4 rounded-2xl bg-[#0a1428]/80">
+            <img
+              src={amzprepLogo}
+              alt="AMZ Prep Logo"
+              className="w-full h-full object-contain"
+            />
           </div>
         </div>
 
-        {/* Stats Banner - UPDATED pure blue theme */}
-        <div className="bg-gradient-to-r from-blue-600/20 via-blue-700/20 to-blue-800/20 border border-gray-700/50 rounded-2xl p-8 mb-10 animate-fade-in-stagger-4">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 text-center">
-            <div className="group hover:scale-110 transition-transform duration-300">
-              <div className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-blue-600 mb-2">
-                100K+
-              </div>
-              <div className="text-gray-400 text-sm font-semibold">Shipments Analyzed</div>
-            </div>
-            <div className="group hover:scale-110 transition-transform duration-300">
-              <div className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-500 to-blue-700 mb-2">
-                $2M+
-              </div>
-              <div className="text-gray-400 text-sm font-semibold">Cost Savings Identified</div>
-            </div>
-            <div className="group hover:scale-110 transition-transform duration-300">
-              <div className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-blue-800 mb-2">
-                50+
-              </div>
-              <div className="text-gray-400 text-sm font-semibold">States Covered</div>
-            </div>
-            <div className="group hover:scale-110 transition-transform duration-300">
-              <div className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-green-600 mb-2">
-                24/7
-              </div>
-              <div className="text-gray-400 text-sm font-semibold">Real-time Processing</div>
-            </div>
-          </div>
-        </div>
+        {/* Welcome Title */}
+        <h1
+          className="text-4xl md:text-5xl font-bold mb-3"
+          style={{
+            background: 'linear-gradient(90deg, #00D4FF, #0386FE, #00D4FF)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            backgroundClip: 'text'
+          }}
+        >
+          Welcome to AMZ Prep
+        </h1>
 
-        {/* UPDATED: Pure Blue CTA Button - matches screenshot style */}
-        <div className="text-center animate-fade-in-stagger-5">
-          <button
-            onClick={() => setActiveView('upload')}
-            className="group relative inline-flex items-center gap-4 px-12 py-6 bg-gradient-to-r from-sky-500 via-blue-600 to-blue-700 rounded-2xl text-white font-bold text-xl shadow-2xl shadow-blue-500/40 hover:shadow-blue-500/60 transition-all duration-500 hover:scale-105 overflow-hidden"
-          >
-            {/* Animated shine effect */}
-            <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent transform -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></span>
+        <p className="text-lg md:text-xl text-white font-medium mb-4">
+          Intelligent Shipping Analytics Platform
+        </p>
 
-            <Upload size={28} className="group-hover:rotate-12 transition-transform duration-300 relative z-10" />
-            <span className="relative z-10">Get Started - Upload Data</span>
-            <svg className="w-6 h-6 group-hover:translate-x-2 transition-transform duration-300 relative z-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-            </svg>
-          </button>
+        <p className="text-sm text-gray-400 max-w-2xl mx-auto mb-10 leading-relaxed">
+          Transform your shipping data into actionable insights. Optimize warehouse locations,
+          reduce costs, and improve delivery times with our advanced analytics engine.
+        </p>
 
-          <p className="text-gray-500 text-sm mt-6">
-            No credit card required • Upload your data securely • Generate reports instantly
-          </p>
-        </div>
+        {/* CTA Button - smaller */}
+        <button
+          onClick={() => setActiveView('upload')}
+          className="group relative inline-flex items-center gap-3 px-8 py-4 rounded-xl text-white font-semibold text-base transition-all duration-300 hover:scale-105"
+          style={{
+            background: 'linear-gradient(135deg, #0386FE, #0066DD)',
+            boxShadow: '0 8px 30px rgba(3, 134, 254, 0.3)'
+          }}
+        >
+          <Upload size={20} />
+          <span>Get Started - Upload Data</span>
+          <svg className="w-4 h-4 group-hover:translate-x-1 transition-transform duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+          </svg>
+        </button>
 
+        <p className="text-gray-500 text-xs mt-6">
+          No credit card required • Upload your data securely • Generate reports instantly
+        </p>
       </div>
-
-      {/* UPDATED: Blue floating elements */}
-      <div className="absolute top-20 left-10 w-20 h-20 bg-blue-500/10 rounded-lg backdrop-blur-sm border border-blue-500/20 animate-float-element-1 hidden lg:block"></div>
-      <div className="absolute bottom-20 right-10 w-24 h-24 bg-blue-600/10 rounded-lg backdrop-blur-sm border border-blue-600/20 animate-float-element-2 hidden lg:block"></div>
-      <div className="absolute top-1/2 right-20 w-16 h-16 bg-blue-700/10 rounded-lg backdrop-blur-sm border border-blue-700/20 animate-float-element-3 hidden lg:block"></div>
-
     </div>
-
-    <style>{`
-      @keyframes gradient-shift {
-        0%, 100% { background-position: 0% 50%; }
-        50% { background-position: 100% 50%; }
-      }
-
-      @keyframes float {
-        0%, 100% { transform: translateY(0px) translateX(0px); }
-        50% { transform: translateY(-20px) translateX(10px); }
-      }
-
-      @keyframes float-delayed {
-        0%, 100% { transform: translateY(0px) translateX(0px); }
-        50% { transform: translateY(20px) translateX(-10px); }
-      }
-
-      @keyframes float-slow {
-        0%, 100% { transform: translateY(0px) scale(1); }
-        50% { transform: translateY(-30px) scale(1.1); }
-      }
-
-      @keyframes pulse-slow {
-        0%, 100% { opacity: 0.5; }
-        50% { opacity: 0.8; }
-      }
-
-      @keyframes shine {
-        from { transform: translateX(-100%) skewX(-15deg); }
-        to { transform: translateX(200%) skewX(-15deg); }
-      }
-
-      @keyframes fade-in {
-        from { opacity: 0; transform: translateY(-20px); }
-        to { opacity: 1; transform: translateY(0); }
-      }
-
-      @keyframes fade-in-up {
-        from { opacity: 0; transform: translateY(40px); }
-        to { opacity: 1; transform: translateY(0); }
-      }
-
-      @keyframes gradient-text {
-        0%, 100% { background-position: 0% 50%; }
-        50% { background-position: 100% 50%; }
-      }
-
-      @keyframes float-element-1 {
-        0%, 100% { transform: translateY(0px) rotate(0deg); }
-        50% { transform: translateY(-15px) rotate(5deg); }
-      }
-
-      @keyframes float-element-2 {
-        0%, 100% { transform: translateY(0px) rotate(0deg); }
-        50% { transform: translateY(15px) rotate(-5deg); }
-      }
-
-      @keyframes float-element-3 {
-        0%, 100% { transform: translateY(0px) rotate(0deg); }
-        50% { transform: translateY(-10px) rotate(3deg); }
-      }
-
-      .animate-gradient-shift {
-        background-size: 200% 200%;
-        animation: gradient-shift 15s ease infinite;
-      }
-
-      .animate-float {
-        animation: float 6s ease-in-out infinite;
-      }
-
-      .animate-float-delayed {
-        animation: float-delayed 8s ease-in-out infinite;
-      }
-
-      .animate-float-slow {
-        animation: float-slow 10s ease-in-out infinite;
-      }
-
-      .animate-pulse-slow {
-        animation: pulse-slow 4s ease-in-out infinite;
-      }
-
-      /*.animate-shine {
-        animation: shine 3s ease-in-out infinite;
-      }*/
-
-      .animate-fade-in {
-        animation: fade-in 1s ease-out;
-      }
-
-      .animate-fade-in-up {
-        animation: fade-in-up 1s ease-out;
-      }
-
-      .animate-fade-in-delayed {
-        animation: fade-in 1s ease-out 0.2s both;
-      }
-
-      .animate-fade-in-more-delayed {
-        animation: fade-in 1s ease-out 0.4s both;
-      }
-
-      .animate-fade-in-stagger-1 {
-        animation: fade-in-up 0.8s ease-out 0.2s both;
-      }
-
-      .animate-fade-in-stagger-2 {
-        animation: fade-in-up 0.8s ease-out 0.4s both;
-      }
-
-      .animate-fade-in-stagger-3 {
-        animation: fade-in-up 0.8s ease-out 0.6s both;
-      }
-
-      .animate-fade-in-stagger-4 {
-        animation: fade-in-up 0.8s ease-out 0.8s both;
-      }
-
-      .animate-fade-in-stagger-5 {
-        animation: fade-in-up 0.8s ease-out 1s both;
-      }
-
-      .animate-gradient-text {
-        background-size: 200% 200%;
-        animation: gradient-text 3s ease infinite;
-      }
-
-      .animate-float-element-1 {
-        animation: float-element-1 5s ease-in-out infinite;
-      }
-
-      .animate-float-element-2 {
-        animation: float-element-2 6s ease-in-out infinite;
-      }
-
-      .animate-float-element-3 {
-        animation: float-element-3 7s ease-in-out infinite;
-      }
-    `}</style>
   </div>
 );
 
@@ -2197,48 +2290,88 @@ const AdminUserManagement = () => {
   if (!showUserManagement) return null;
 
   return (
-    <div className="bg-[#1a1f2e] rounded-xl p-6 border border-gray-800 mb-6">
-      <h3 className="text-white text-2xl font-bold mb-4">User Management</h3>
-
+    <div className="rounded-xl">
       {loading ? (
-        <div className="text-gray-400">Loading users...</div>
+        <div className="text-gray-400 text-center py-8">Loading users...</div>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-left">
-            <thead className="bg-[#242936]">
-              <tr>
-                <th className="px-4 py-3 text-gray-300">Email</th>
-                <th className="px-4 py-3 text-gray-300">Name</th>
-                <th className="px-4 py-3 text-gray-300">Role</th>
-                <th className="px-4 py-3 text-gray-300">Last Login</th>
-                <th className="px-4 py-3 text-gray-300">Actions</th>
+            <thead>
+              <tr className="border-b border-white/10">
+                <th className="px-6 py-4">
+                  <span
+                    className="text-sm font-semibold flex items-center gap-1"
+                    style={{
+                      background: 'linear-gradient(90deg, #0386FE, #9507FF)',
+                      WebkitBackgroundClip: 'text',
+                      WebkitTextFillColor: 'transparent'
+                    }}
+                  >
+                    Email
+                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20" style={{color: '#0386FE'}}>
+                      <path d="M5 8l5-5 5 5H5zm0 4l5 5 5-5H5z"/>
+                    </svg>
+                  </span>
+                </th>
+                <th className="px-6 py-4">
+                  <span
+                    className="text-sm font-semibold flex items-center gap-1"
+                    style={{
+                      background: 'linear-gradient(90deg, #9507FF, #0386FE)',
+                      WebkitBackgroundClip: 'text',
+                      WebkitTextFillColor: 'transparent'
+                    }}
+                  >
+                    Name
+                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20" style={{color: '#9507FF'}}>
+                      <path d="M5 8l5-5 5 5H5zm0 4l5 5 5-5H5z"/>
+                    </svg>
+                  </span>
+                </th>
+                <th className="px-6 py-4 text-white text-sm font-semibold">Role</th>
+                <th className="px-6 py-4">
+                  <span className="text-white text-sm font-semibold flex items-center gap-1">
+                    Last Login
+                    <svg className="w-3 h-3 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                      <path d="M5 8l5-5 5 5H5zm0 4l5 5 5-5H5z"/>
+                    </svg>
+                  </span>
+                </th>
+                <th className="px-6 py-4 text-white text-sm font-semibold">Actions</th>
               </tr>
             </thead>
             <tbody>
               {users.map(u => (
-                <tr key={u._id} className="border-t border-gray-700">
-                  <td className="px-4 py-3 text-gray-200">{u.email}</td>
-                  <td className="px-4 py-3 text-gray-200">{u.name}</td>
-                  <td className="px-4 py-3">
-                    <span className={`px-2 py-1 rounded text-xs ${
+                <tr key={u._id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
+                  <td className="px-6 py-5 text-white font-medium">{u.email}</td>
+                  <td className="px-6 py-5 text-white">{u.name}</td>
+                  <td className="px-6 py-5">
+                    <span className={`font-bold ${
                       u.role === 'admin'
-                        ? 'bg-blue-700 text-white'
-                        : 'bg-gray-600 text-gray-200'
+                        ? 'text-green-400'
+                        : 'text-white'
                     }`}>
-                      {u.role}
+                      {u.role === 'admin' ? 'Admin' : 'User'}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-gray-200">
-                    {new Date(u.lastLogin).toLocaleDateString()}
+                  <td className="px-6 py-5 text-white">
+                    {new Date(u.lastLogin).toLocaleDateString('en-GB', {
+                      day: '2-digit',
+                      month: '2-digit',
+                      year: 'numeric'
+                    }).replace(/\//g, '/')}
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-6 py-5">
                     <button
                       onClick={() => toggleUserRole(u._id, u.role)}
-                      className={`px-3 py-1 rounded text-sm ${
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
                         u.role === 'admin'
-                          ? 'bg-red-600 hover:bg-red-700'
-                          : 'bg-green-600 hover:bg-green-700'
-                      } text-white transition-colors`}
+                          ? 'text-red-400 border border-red-400/40 hover:bg-red-400/10'
+                          : 'text-green-400 border border-green-400/40 hover:bg-green-400/10'
+                      }`}
+                      style={{
+                        background: 'transparent'
+                      }}
                       disabled={u.email === user?.email}
                     >
                       {u.role === 'admin' ? 'Remove Admin' : 'Make Admin'}
@@ -2594,13 +2727,18 @@ return (
       stats={processingStats}
     />
 
-    <div className="min-h-screen bg-gradient-to-br from-[#0B1426] via-[#0F1C3A] to-[#1A2847] flex">
+    <div
+     className="min-h-screen flex"
+     style={{
+       background: 'linear-gradient(to bottom right, #000000 0%, #000000 39%, #091332 100%)'
+     }}
+     >
       {/* Premium Sidebar */}
       <PremiumSidebar />
 
       {/* Main Content Area */}
       <div className={`flex-1 transition-all duration-500 ease-in-out ${
-        sidebarCollapsed ? 'ml-20' : 'ml-80'
+        sidebarCollapsed ? 'ml-20' : 'ml-72'
       }`}>
 
         {/* Main Content */}
@@ -2609,32 +2747,34 @@ return (
         </div>
       </div>
 
-      {/* User Management Modal - your existing modal code */}
+      {/* User Management Modal */}
       {showUserManagement && user?.role === 'admin' && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="relative max-w-6xl w-full max-h-[90vh] overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-br from-[#1A2847] via-[#0F1C3A] to-[#0B1426] rounded-3xl"></div>
-            <div className="absolute inset-0 border border-[#00A8FF]/30 rounded-3xl"></div>
-
-            <div className="relative backdrop-blur-sm">
-              <div className="p-8 border-b border-[#00A8FF]/20 bg-gradient-to-r from-[#00A8FF]/10 to-transparent">
-                <div className="flex justify-between items-center">
-                  <h2 className="text-3xl font-bold text-white flex items-center gap-4">
-                    <Users size={32} className="text-[#00A8FF]" />
-                    User Management
-                  </h2>
-                  <button
-                    onClick={() => setShowUserManagement(false)}
-                    className="p-3 hover:bg-white/10 rounded-2xl transition-colors text-white/60 hover:text-white"
-                  >
-                    <X size={24} />
-                  </button>
-                </div>
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div
+            className="relative max-w-5xl w-full max-h-[85vh] overflow-hidden rounded-2xl"
+            style={{
+              background: 'linear-gradient(135deg, rgba(8, 12, 24, 0.98), rgba(12, 18, 32, 0.95))',
+              border: '1px solid rgba(255, 255, 255, 0.08)'
+            }}
+          >
+            {/* Header */}
+            <div className="p-8 pb-6">
+              <div className="flex justify-between items-center">
+                <h2 className="text-4xl font-bold text-white">
+                  User Management
+                </h2>
+                <button
+                  onClick={() => setShowUserManagement(false)}
+                  className="p-2 hover:bg-white/10 rounded-xl transition-colors text-gray-400 hover:text-white"
+                >
+                  <X size={24} />
+                </button>
               </div>
+            </div>
 
-              <div className="p-8 overflow-y-auto max-h-[70vh]">
-                <AdminUserManagement />
-              </div>
+            {/* Content */}
+            <div className="px-8 pb-8 overflow-y-auto max-h-[calc(85vh-120px)]">
+              <AdminUserManagement />
             </div>
           </div>
         </div>
@@ -2642,30 +2782,46 @@ return (
 
       {/* Premium Animations & Styles */}
       <style>{`
-        @keyframes slideIn {
-          from { opacity: 0; transform: translateY(-20px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        .animate-slideIn {
-          animation: slideIn 0.5s ease-out;
-        }
+      @keyframes slideIn {
+        from { opacity: 0; transform: translateY(-20px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      .animate-slideIn {
+        animation: slideIn 0.5s ease-out;
+      }
 
-        /* Custom Scrollbar */
-        ::-webkit-scrollbar {
-          width: 6px;
-        }
-        ::-webkit-scrollbar-track {
-          background: rgba(0, 168, 255, 0.1);
-          border-radius: 10px;
-        }
-        ::-webkit-scrollbar-thumb {
-          background: rgba(0, 168, 255, 0.3);
-          border-radius: 10px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-          background: rgba(0, 168, 255, 0.5);
-        }
-      `}</style>
+      /* Custom Scrollbar with Pink Gradient */
+      ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+      }
+      ::-webkit-scrollbar-track {
+        background: rgba(3, 134, 254, 0.05);
+        border-radius: 10px;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: linear-gradient(to bottom, #0386FE, #9507FF);
+        border-radius: 10px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: linear-gradient(to bottom, #0386FE, #B520FF);
+      }
+
+      /* Select dropdown styling */
+      select option {
+        background: #0f1419;
+        color: white;
+      }
+
+      /* Remove autofill yellow background */
+      input:-webkit-autofill,
+      input:-webkit-autofill:hover,
+      input:-webkit-autofill:focus,
+      input:-webkit-autofill:active {
+        -webkit-box-shadow: 0 0 0 30px rgba(15, 20, 25, 0.9) inset !important;
+        -webkit-text-fill-color: white !important;
+      }
+    `}</style>
     </div>
   </>
 );

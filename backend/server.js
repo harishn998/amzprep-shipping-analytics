@@ -74,6 +74,11 @@ if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir);
 }
 
+const templatesDir = path.join(__dirname, 'templates');
+if (!fs.existsSync(templatesDir)) {
+  fs.mkdirSync(templatesDir);
+}
+
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, uploadsDir),
   filename: (req, file, cb) => {
@@ -3044,6 +3049,60 @@ app.use('/api/upload', uploadEnhancedRoutes);
 app.use('/api/admin/rates', adminRateUploadRoutes);
 
 app.use('/api/admin', adminUserManagementRoutes);
+
+// Download MM Rate Template
+app.get('/api/templates/mm-rate-template', (req, res) => {
+  try {
+    const templatePath = path.join(__dirname, 'templates', 'MM-Rate-Sample-Template.xlsx');
+
+    // Check if file exists
+    if (!fs.existsSync(templatePath)) {
+      return res.status(404).json({
+        success: false,
+        error: 'Template file not found'
+      });
+    }
+
+    // Set headers for file download
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename=MM-Rate-Sample-Template.xlsx');
+
+    // Stream the file
+    const fileStream = fs.createReadStream(templatePath);
+    fileStream.pipe(res);
+
+  } catch (error) {
+    console.error('Error downloading template:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to download template'
+    });
+  }
+});
+
+// Get list of available templates (optional - for future expansion)
+app.get('/api/templates', (req, res) => {
+  try {
+    const templates = [
+      {
+        id: 'mm-rate-template',
+        name: 'MM Rate Template',
+        description: 'Sample rate template for shipping cost analysis',
+        filename: 'MM-Rate-Sample-Template.xlsx',
+        downloadUrl: '/api/templates/mm-rate-template'
+      }
+      // Add more templates here as needed
+    ];
+
+    res.json({ success: true, templates });
+  } catch (error) {
+    console.error('Error fetching templates:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch templates'
+    });
+  }
+});
 
 app.listen(PORT, () => {
   console.log(`🚀 AMZ Prep Analytics API running on http://localhost:${PORT}`);
