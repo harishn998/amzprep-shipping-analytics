@@ -44,6 +44,7 @@ export const SmashFoodsDashboard = ({ data }) => {
       <MonthlyBreakdownSection
         monthlyData={data.metadata.monthlyBreakdown}
         shipMethodData={data.metadata.shipMethodBreakdown}
+        fromZipData={data.metadata.fromZipBreakdown}
       />
       </div>
       )}
@@ -104,7 +105,7 @@ const SmashFoodsKeyMetrics = ({ data, metadata }) => {
       </div>
 
       {/* Savings/Additional Cost */}
-      <div className={`p-6 rounded-lg ${isSavings ? 'bg-green-900/20' : 'bg-red-900/20'}`}>
+      <div className={`p-6 rounded-lg bg-gray-800`}>
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-gray-400 text-sm font-medium">
             {isSavings ? 'Potential Savings' : 'Additional Cost'}

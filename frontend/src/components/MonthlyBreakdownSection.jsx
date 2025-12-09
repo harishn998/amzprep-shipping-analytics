@@ -1,7 +1,9 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Calendar, TrendingUp, Package, DollarSign, ChevronDown, X } from 'lucide-react';
+import FromZipSection from './FromZipSection';
 
-const MonthlyBreakdownSection = ({ monthlyData, shipMethodData }) => {
+// 🆕 FIXED: Added fromZipData to props
+const MonthlyBreakdownSection = ({ monthlyData, shipMethodData, fromZipData }) => {
   const [selectedMonths, setSelectedMonths] = useState([]);
   const [showShipMethods, setShowShipMethods] = useState(true);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -169,10 +171,10 @@ const MonthlyBreakdownSection = ({ monthlyData, shipMethodData }) => {
                 <th className="px-6 py-4 text-right text-xs font-semibold text-gray-400 uppercase tracking-wider">
                   Current Cost
                 </th>
-                <th className="px-6 py-4 text-right text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                <th className="px-6 py-4 text-right text-xs font-semibold uppercase tracking-wider" style={{ color: '#00a8ff' }}>
                   AMZ Prep Cost
                 </th>
-                <th className="px-6 py-4 text-right text-xs font-semibold text-green-400 uppercase tracking-wider">
+                <th className="px-6 py-4 text-right text-xs font-semibold uppercase tracking-wider" style={{ color: '#10b981' }}>
                   Savings
                 </th>
               </tr>
@@ -269,6 +271,11 @@ const MonthlyBreakdownSection = ({ monthlyData, shipMethodData }) => {
             </table>
           </div>
         </div>
+      )}
+
+      {/* 🆕 FROM ZIP DISTRIBUTION SECTION */}
+      {fromZipData && fromZipData.length > 0 && (
+        <FromZipSection fromZipData={fromZipData} />
       )}
 
       {/* Quick Stats Cards - Conditional Colors */}

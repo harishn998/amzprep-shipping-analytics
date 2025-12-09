@@ -151,6 +151,7 @@ const reportSchema = new mongoose.Schema({
     default: null
   }
   // Stores: { freightCost, freightMarkup, mmBaseCost, mmMarkup, rateMode, destination }
+  // - fromZipBreakdown (array of From Zip pivot data)
 
 }, {
   timestamps: true  // Automatically adds createdAt and updatedAt

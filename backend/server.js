@@ -839,7 +839,7 @@ function convertSmashFoodsToReportFormat(analysis) {
   const currentFreight = safeNumber(analysis.currentCosts?.totalFreight, 0);
   const currentPlacementFees = safeNumber(analysis.currentCosts?.totalPlacementFees, 0);
 
-  // ✅ FIXED: Proposed costs - using SOP structure
+  // Proposed costs - using SOP structure
   const proposedTotalCost = safeNumber(analysis.proposedCosts?.sop?.totalFreightCost, 0);
   const mmCost = safeNumber(analysis.proposedCosts?.sop?.mmCost, 0);
   const internalTransferCost = safeNumber(analysis.proposedCosts?.sop?.internalTransferCost, 0);
@@ -849,10 +849,70 @@ function convertSmashFoodsToReportFormat(analysis) {
   const savingsAmount = safeNumber(analysis.savings?.amount, 0);
   const savingsPercent = safeNumber(analysis.savings?.percent, 0);
 
-  // Transit times
-  const avgTransitTime = safeNumber(analysis.avgTransitTime, 0);
-  const amzPrepTransitTime = safeNumber(analysis.amzPrepTransitTime, 6);
-  const transitImprovement = safeNumber(analysis.transitImprovement, 0);
+  // 🆕 FIX #1: Transit times - get from transitImprovement object
+  const avgTransitTime = safeNumber(
+    analysis.transitImprovement?.currentTransitDays || analysis.avgTransitTime,
+    0
+  );
+  const amzPrepTransitTime = safeNumber(
+    analysis.transitImprovement?.amzPrepTransitDays || analysis.amzPrepTransitTime,
+    6
+  );
+  const transitImprovement = safeNumber(
+    analysis.transitImprovement?.improvementDays || analysis.transitImprovement,
+    0
+  );
+  const transitImprovementPercent = safeNumber(
+    analysis.transitImprovement?.improvementPercent || analysis.transitImprovementPercent,
+    0
+  );
+
+  // 🆕 FIX #2: Convert stateBreakdown object to topStates array
+  const topStates = Object.values(analysis.stateBreakdown || {})
+    .map(state => ({
+      name: state.state || 'Unknown',
+      code: state.state || 'XX',
+      volume: safeNumber(state.count, 0),
+      percentage: totalShipments > 0
+        ? Math.round((safeNumber(state.count, 0) / totalShipments) * 100)
+        : 0,
+      avgCost: safeNumber(state.count, 0) > 0
+        ? Math.round(safeNumber(state.currentCost, 0) / safeNumber(state.count, 0))
+        : 0
+    }))
+    .sort((a, b) => b.volume - a.volume);
+
+  // 🆕 FIX #3: Get recommendations from insights
+  const recommendations = (analysis.insights?.recommendations || analysis.recommendations || [])
+    .map(rec => ({
+      type: rec.type || 'general',
+      title: rec.title || 'Recommendation',
+      description: rec.description || '',
+      impact: rec.impact || 'medium',
+      savings: rec.savings ? Math.round(safeNumber(rec.savings, 0)) : undefined,
+      improvement: rec.improvement ? safeNumber(rec.improvement, 0) : undefined
+    }));
+
+  // 🆕 FIX #4: Transform hazmat data to expected structure
+  const hazmatData = analysis.hazmatAnalysis ? {
+    overview: {
+      totalProducts: safeNumber(analysis.hazmatAnalysis.products?.total, 0),
+      totalHazmatProducts: safeNumber(analysis.hazmatAnalysis.products?.hazmat, 0),
+      totalNonHazmatProducts: safeNumber(analysis.hazmatAnalysis.products?.nonHazmat, 0),
+      hazmatPercentage: safeNumber(analysis.hazmatAnalysis.products?.percentHazmat, 0),
+      shipmentsAnalyzed: safeNumber(analysis.hazmatAnalysis.shipments?.total, totalShipments),
+      totalHazmatShipments: safeNumber(analysis.hazmatAnalysis.shipments?.hazmat, 0),
+      totalNonHazmatShipments: safeNumber(analysis.hazmatAnalysis.shipments?.nonHazmat, 0),
+      shipmentHazmatPercentage: safeNumber(analysis.hazmatAnalysis.shipments?.percentHazmat, 0)
+    },
+    typeBreakdown: (analysis.hazmatAnalysis.typeBreakdown || []).map(item => ({
+      type: item.type || 'Unknown',
+      count: safeNumber(item.count, 0),
+      percentage: safeNumber(item.percentage, 0)
+    })),
+    compliance: analysis.hazmatAnalysis.compliance || [],
+    products: analysis.hazmatAnalysis.products || {}
+  } : null;
 
   return {
     // Basic metrics
@@ -867,7 +927,7 @@ function convertSmashFoodsToReportFormat(analysis) {
       end: analysis.dateRange?.end || new Date().toISOString().split('T')[0]
     },
 
-    // Domestic vs International (all domestic for Smash Foods)
+    // Domestic vs International
     domesticVsInternational: {
       domestic: totalShipments,
       international: 0,
@@ -875,18 +935,10 @@ function convertSmashFoodsToReportFormat(analysis) {
       internationalPercent: '0%'
     },
 
-    // Top states (from Smash Foods geographic analysis)
-    topStates: (analysis.topStates || []).map(state => ({
-      name: state.state || 'Unknown',
-      code: state.state || 'XX',
-      volume: safeNumber(state.count, 1),
-      percentage: safeNumber(state.percentage, 0),
-      avgCost: safeNumber(state.count, 1) > 0
-        ? Math.round(safeNumber(state.currentCost, 0) / safeNumber(state.count, 1))
-        : 0
-    })),
+    // 🆕 FIX #2: Use converted topStates array
+    topStates: topStates,
 
-    // Warehouse comparison with AMZ Prep
+    // Warehouse comparison
     warehouseComparison: [
       {
         name: 'Current Provider',
@@ -918,14 +970,14 @@ function convertSmashFoodsToReportFormat(analysis) {
       }
     ],
 
-    // Shipping methods (from carrier analysis)
+    // Shipping methods
     shippingMethods: (analysis.carriers || []).map(carrier => ({
       name: carrier.name || 'Unknown',
       count: safeNumber(carrier.count, 0),
       percentage: safeNumber(carrier.percentage, 0)
     })),
 
-    // Weight distribution (estimated)
+    // Weight distribution
     weightDistribution: [
       { range: '0-10 lbs', count: Math.round(totalShipments * 0.3) },
       { range: '10-50 lbs', count: Math.round(totalShipments * 0.4) },
@@ -933,7 +985,7 @@ function convertSmashFoodsToReportFormat(analysis) {
       { range: '150+ lbs', count: Math.round(totalShipments * 0.1) }
     ],
 
-    // Zone distribution (from state data)
+    // Zone distribution
     zoneDistribution: [
       { zone: 4, count: Math.round(totalShipments * 0.2), percentage: '20%' },
       { zone: 5, count: Math.round(totalShipments * 0.3), percentage: '30%' },
@@ -941,9 +993,10 @@ function convertSmashFoodsToReportFormat(analysis) {
       { zone: 7, count: Math.round(totalShipments * 0.2), percentage: '20%' }
     ],
 
-    hazmat: analysis.hazmat || null,
+    // 🆕 FIX #4: Use transformed hazmat data
+    hazmat: hazmatData,
 
-    // ✅ FIXED: ENHANCED METADATA - Store complete Smash Foods analysis with SOP structure
+    // ENHANCED METADATA
     metadata: {
       dataFormat: 'smash_foods_actual',
 
@@ -957,7 +1010,7 @@ function convertSmashFoodsToReportFormat(analysis) {
         costPerPallet: safeNumber(analysis.currentCosts?.costPerPallet, 0)
       },
 
-      // ✅ FIXED: Proposed costs using SOP structure
+      // Proposed costs using SOP structure
       proposedCosts: {
         sop: {
           mmCost: Math.round(mmCost),
@@ -983,15 +1036,8 @@ function convertSmashFoodsToReportFormat(analysis) {
         proposedTotal: Math.round(proposedTotalCost)
       },
 
-      // Recommendations
-      recommendations: (analysis.recommendations || []).map(rec => ({
-        type: rec.type || 'general',
-        title: rec.title || 'Recommendation',
-        description: rec.description || '',
-        impact: rec.impact || 'medium',
-        savings: rec.savings ? Math.round(safeNumber(rec.savings, 0)) : undefined,
-        improvement: rec.improvement ? safeNumber(rec.improvement, 0) : undefined
-      })),
+      // 🆕 FIX #3: Recommendations from insights
+      recommendations: recommendations,
 
       // Carrier information
       carriers: (analysis.carriers || []).map(carrier => ({
@@ -1000,12 +1046,12 @@ function convertSmashFoodsToReportFormat(analysis) {
         percentage: safeNumber(carrier.percentage, 0)
       })),
 
-      // Timeline metrics
+      // 🆕 FIX #1: Timeline metrics from transitImprovement
       avgPrepTime: safeNumber(analysis.avgPrepTime, 0),
       avgTransitTime: Math.round(avgTransitTime),
       amzPrepTransitTime: amzPrepTransitTime,
       transitImprovement: transitImprovement,
-      transitImprovementPercent: safeNumber(analysis.transitImprovementPercent, 0),
+      transitImprovementPercent: transitImprovementPercent,
 
       // Shipment splitting analysis
       splitShipments: safeNumber(analysis.splitShipments, 0),
@@ -1021,15 +1067,18 @@ function convertSmashFoodsToReportFormat(analysis) {
       stateDetails: analysis.stateBreakdown || {},
 
       // Executive summary
-      executiveSummary: analysis.executiveSummary || {
+      executiveSummary: analysis.insights?.executiveSummary || analysis.executiveSummary || {
         title: 'Smash Foods Freight Analysis',
         subtitle: `${totalShipments} Shipments | ${totalUnits.toLocaleString()} Units | ${totalPallets} Pallets`,
         keyFindings: []
       },
 
-      // 🆕 Monthly breakdown data
+      // Monthly breakdown data
       monthlyBreakdown: analysis.metadata?.monthlyBreakdown || analysis.monthlyBreakdown || null,
-      shipMethodBreakdown: analysis.metadata?.shipMethodBreakdown || analysis.shipMethodBreakdown || null
+      shipMethodBreakdown: analysis.metadata?.shipMethodBreakdown || analysis.shipMethodBreakdown || null,
+
+      // 🆕 FIX #5: Add fromZipBreakdown
+      fromZipBreakdown: analysis.metadata?.fromZipBreakdown || analysis.fromZipBreakdown || null
     }
   };
 }
@@ -1051,12 +1100,81 @@ function convertSmashFoodsToReportFormat(analysis) {
    const totalShipments = safeNumber(analysis.totalShipments, 0);
    const totalWeight = safeNumber(analysis.totalWeight, 0);
    const totalUnits = safeNumber(analysis.totalUnits, 0);
+   const totalPallets = safeNumber(analysis.totalPallets, 0);
+   const totalCuft = safeNumber(analysis.totalCuft, 0);
+
    const currentTotalCost = safeNumber(analysis.currentCosts?.totalCost, 0);
-   const proposedTotalCost = safeNumber(analysis.proposedCosts?.combined?.totalCost, 0);
+   const proposedTotalCost = safeNumber(
+     analysis.proposedCosts?.sop?.totalFreightCost || analysis.proposedCosts?.combined?.totalCost,
+     0
+   );
    const savingsAmount = safeNumber(analysis.savings?.amount, 0);
    const savingsPercent = safeNumber(analysis.savings?.percent, 0);
-   const avgTransitTime = safeNumber(analysis.avgTransitTime, 0);
-   const amzPrepTransitTime = safeNumber(analysis.amzPrepTransitTime, 6);
+
+   // 🆕 FIX #1: Transit times from transitImprovement object
+   const avgTransitTime = safeNumber(
+     analysis.transitImprovement?.currentTransitDays || analysis.avgTransitTime,
+     0
+   );
+   const amzPrepTransitTime = safeNumber(
+     analysis.transitImprovement?.amzPrepTransitDays || analysis.amzPrepTransitTime,
+     6
+   );
+   const transitImprovement = safeNumber(
+     analysis.transitImprovement?.improvementDays,
+     0
+   );
+   const transitImprovementPercent = safeNumber(
+     analysis.transitImprovement?.improvementPercent,
+     0
+   );
+
+   // 🆕 FIX #2: Convert stateBreakdown object to topStates array
+   const topStates = Object.values(analysis.stateBreakdown || {})
+     .map(state => ({
+       name: state.state || 'Unknown',
+       code: state.state || 'XX',
+       volume: safeNumber(state.count, 0),
+       percentage: totalShipments > 0
+         ? Math.round((safeNumber(state.count, 0) / totalShipments) * 100)
+         : 0,
+       avgCost: safeNumber(state.count, 0) > 0
+         ? Math.round(safeNumber(state.currentCost, 0) / safeNumber(state.count, 0))
+         : 0
+     }))
+     .sort((a, b) => b.volume - a.volume);
+
+   // 🆕 FIX #3: Get recommendations from insights
+   const recommendations = (analysis.insights?.recommendations || analysis.recommendations || [])
+     .map(rec => ({
+       type: rec.type || 'general',
+       title: rec.title || 'Recommendation',
+       description: rec.description || '',
+       impact: rec.impact || 'medium',
+       savings: rec.savings ? Math.round(safeNumber(rec.savings, 0)) : undefined,
+       improvement: rec.improvement ? safeNumber(rec.improvement, 0) : undefined
+     }));
+
+   // 🆕 FIX #4: Transform hazmat data
+   const hazmatData = analysis.hazmatAnalysis ? {
+     overview: {
+       totalProducts: safeNumber(analysis.hazmatAnalysis.products?.total, 0),
+       totalHazmatProducts: safeNumber(analysis.hazmatAnalysis.products?.hazmat, 0),
+       totalNonHazmatProducts: safeNumber(analysis.hazmatAnalysis.products?.nonHazmat, 0),
+       hazmatPercentage: safeNumber(analysis.hazmatAnalysis.products?.percentHazmat, 0),
+       shipmentsAnalyzed: safeNumber(analysis.hazmatAnalysis.shipments?.total, totalShipments),
+       totalHazmatShipments: safeNumber(analysis.hazmatAnalysis.shipments?.hazmat, 0),
+       totalNonHazmatShipments: safeNumber(analysis.hazmatAnalysis.shipments?.nonHazmat, 0),
+       shipmentHazmatPercentage: safeNumber(analysis.hazmatAnalysis.shipments?.percentHazmat, 0)
+     },
+     typeBreakdown: (analysis.hazmatAnalysis.typeBreakdown || []).map(item => ({
+       type: item.type || 'Unknown',
+       count: safeNumber(item.count, 0),
+       percentage: safeNumber(item.percentage, 0)
+     })),
+     compliance: analysis.hazmatAnalysis.compliance || [],
+     products: analysis.hazmatAnalysis.products || {}
+   } : null;
 
    return {
      // Basic metrics
@@ -1071,7 +1189,7 @@ function convertSmashFoodsToReportFormat(analysis) {
        end: analysis.dateRange?.end || new Date().toISOString().split('T')[0]
      },
 
-     // Domestic vs International (all domestic for Smash Foods)
+     // Domestic vs International
      domesticVsInternational: {
        domestic: totalShipments,
        international: 0,
@@ -1079,19 +1197,8 @@ function convertSmashFoodsToReportFormat(analysis) {
        internationalPercent: '0%'
      },
 
-     // Top states (from Smash Foods geographic analysis)
-     topStates: (analysis.topStates || []).map(state => {
-       const stateCount = safeNumber(state.count, 1);
-       const stateCost = safeNumber(state.currentCost, 0);
-
-       return {
-         name: state.state || 'Unknown',
-         code: state.state || 'XX',
-         volume: stateCount,
-         percentage: safeNumber(state.percentage, 0),
-         avgCost: stateCount > 0 ? Math.round(stateCost / stateCount) : 0
-       };
-     }),
+     // 🆕 FIX #2: Top states from stateBreakdown
+     topStates: topStates,
 
      // Warehouse comparison with AMZ Prep
      warehouseComparison: [
@@ -1125,14 +1232,14 @@ function convertSmashFoodsToReportFormat(analysis) {
        }
      ],
 
-     // Shipping methods (from carrier analysis)
+     // Shipping methods
      shippingMethods: (analysis.carriers || []).map(carrier => ({
        name: carrier.name || 'Unknown',
        count: safeNumber(carrier.count, 0),
        percentage: safeNumber(carrier.percentage, 0)
      })),
 
-     // Weight distribution (estimated)
+     // Weight distribution
      weightDistribution: [
        { range: '0-10 lbs', count: Math.round(totalShipments * 0.3) },
        { range: '10-50 lbs', count: Math.round(totalShipments * 0.4) },
@@ -1140,7 +1247,7 @@ function convertSmashFoodsToReportFormat(analysis) {
        { range: '150+ lbs', count: Math.round(totalShipments * 0.1) }
      ],
 
-     // Zone distribution (from state data)
+     // Zone distribution
      zoneDistribution: [
        { zone: 4, count: Math.round(totalShipments * 0.2), percentage: '20%' },
        { zone: 5, count: Math.round(totalShipments * 0.3), percentage: '30%' },
@@ -1148,9 +1255,10 @@ function convertSmashFoodsToReportFormat(analysis) {
        { zone: 7, count: Math.round(totalShipments * 0.2), percentage: '20%' }
      ],
 
-     hazmat: analysis.hazmat || null,
+     // 🆕 FIX #4: Hazmat data
+     hazmat: hazmatData,
 
-     // ENHANCED METADATA - Store complete Smash Foods analysis
+     // ENHANCED METADATA
      metadata: {
        dataFormat: 'smash_foods_actual',
 
@@ -1164,18 +1272,17 @@ function convertSmashFoodsToReportFormat(analysis) {
          costPerPallet: safeNumber(analysis.currentCosts?.costPerPallet, 0)
        },
 
-       // Proposed costs with detailed breakdown
+       // Proposed costs - support both SOP and combined formats
        proposedCosts: {
-         combined: {
-           palletCost: Math.round(safeNumber(analysis.proposedCosts?.combined?.palletCost, 0)),
-           cuftCost: Math.round(safeNumber(analysis.proposedCosts?.combined?.cuftCost, 0)),
-           prepCost: Math.round(safeNumber(analysis.proposedCosts?.combined?.prepCost, 0)),
-           middleMileCost: Math.round(safeNumber(analysis.proposedCosts?.combined?.middleMileCost, 0)),
-           totalCost: Math.round(proposedTotalCost),
-           costPerCuft: safeNumber(analysis.proposedCosts?.combined?.costPerCuft, 0),
-           costPerUnit: safeNumber(analysis.proposedCosts?.combined?.costPerUnit, 0),
-           costPerPallet: safeNumber(analysis.proposedCosts?.combined?.costPerPallet, 0),
-           breakdown: (analysis.proposedCosts?.combined?.breakdown || []).map(item => ({
+         sop: {
+           mmCost: Math.round(safeNumber(analysis.proposedCosts?.sop?.mmCost, 0)),
+           internalTransferCost: Math.round(safeNumber(analysis.proposedCosts?.sop?.internalTransferCost, 0)),
+           totalFreightCost: Math.round(proposedTotalCost),
+           mmCostPT: Math.round(safeNumber(analysis.proposedCosts?.sop?.mmCostPT, 0)),
+           costPerCuft: safeNumber(analysis.proposedCosts?.sop?.costPerCuft, 0),
+           costPerUnit: safeNumber(analysis.proposedCosts?.sop?.costPerUnit, 0),
+           costPerPallet: safeNumber(analysis.proposedCosts?.sop?.costPerPallet, 0),
+           breakdown: (analysis.proposedCosts?.sop?.breakdown || []).map(item => ({
              type: item.type || 'Unknown',
              description: item.description || '',
              cost: Math.round(safeNumber(item.cost, 0))
@@ -1191,15 +1298,8 @@ function convertSmashFoodsToReportFormat(analysis) {
          proposedTotal: Math.round(proposedTotalCost)
        },
 
-       // Recommendations
-       recommendations: (analysis.recommendations || []).map(rec => ({
-         type: rec.type || 'general',
-         title: rec.title || 'Recommendation',
-         description: rec.description || '',
-         impact: rec.impact || 'medium',
-         savings: rec.savings ? Math.round(safeNumber(rec.savings, 0)) : undefined,
-         improvement: rec.improvement ? safeNumber(rec.improvement, 0) : undefined
-       })),
+       // 🆕 FIX #3: Recommendations
+       recommendations: recommendations,
 
        // Carrier information
        carriers: (analysis.carriers || []).map(carrier => ({
@@ -1208,32 +1308,39 @@ function convertSmashFoodsToReportFormat(analysis) {
          percentage: safeNumber(carrier.percentage, 0)
        })),
 
-       // Timeline metrics
+       // 🆕 FIX #1: Timeline metrics
        avgPrepTime: safeNumber(analysis.avgPrepTime, 0),
        avgTransitTime: Math.round(avgTransitTime),
        amzPrepTransitTime: amzPrepTransitTime,
-       transitImprovement: safeNumber(analysis.transitImprovement, 0),
-       transitImprovementPercent: safeNumber(analysis.transitImprovementPercent, 0),
+       transitImprovement: transitImprovement,
+       transitImprovementPercent: transitImprovementPercent,
 
-       // Shipment splitting analysis
+       // Shipment splitting
        splitShipments: safeNumber(analysis.splitShipments, 0),
        splitShipmentRate: safeNumber(analysis.splitShipmentRate, 0),
 
        // Additional metrics
        totalUnits: safeNumber(totalUnits, 0),
-       totalPallets: safeNumber(analysis.totalPallets, 0),
-       totalCuft: safeNumber(analysis.totalCuft, 0),
+       totalPallets: safeNumber(totalPallets, 0),
+       totalCuft: safeNumber(totalCuft, 0),
        totalWeight: safeNumber(totalWeight, 0),
 
        // State-level details
        stateDetails: analysis.stateBreakdown || {},
 
        // Executive summary
-       executiveSummary: analysis.executiveSummary || {
+       executiveSummary: analysis.insights?.executiveSummary || analysis.executiveSummary || {
          title: 'Smash Foods Freight Analysis',
          subtitle: `${totalShipments} Shipments`,
          keyFindings: []
-       }
+       },
+
+       // Monthly breakdown
+       monthlyBreakdown: analysis.metadata?.monthlyBreakdown || analysis.monthlyBreakdown || null,
+       shipMethodBreakdown: analysis.metadata?.shipMethodBreakdown || analysis.shipMethodBreakdown || null,
+
+       // 🆕 FIX #5: From Zip breakdown
+       fromZipBreakdown: analysis.metadata?.fromZipBreakdown || analysis.fromZipBreakdown || null
      }
    };
  }

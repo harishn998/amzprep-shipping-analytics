@@ -2737,12 +2737,12 @@ return (
       <PremiumSidebar />
 
       {/* Main Content Area */}
-      <div className={`flex-1 transition-all duration-500 ease-in-out ${
+      <div className={`flex-1 transition-all duration-500 ease-in-out overflow-x-hidden ${
         sidebarCollapsed ? 'ml-20' : 'ml-72'
       }`}>
 
         {/* Main Content */}
-        <div className="p-8">
+        <div className="p-8 overflow-x-hidden">
           {activeView === 'upload' ? <UploadView /> : <DashboardView />}
         </div>
       </div>
