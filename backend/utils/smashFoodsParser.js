@@ -5,12 +5,14 @@
 // FIXES APPLIED:
 // 1. Check-In column detection: Added "Shipment Status: CHECKED_IN"
 // 2. Excel serial date parsing for Check-In dates
-// 3. Cuft calculation from Placement sheet (handles both direct Cuft column
-//    AND calculation from Storage item_volume × quantity)
-// 4. 🆕 Transaction date fallback for Check-In:
+// 3. Transaction date fallback for Check-In:
 //    - Primary: "Shipment Status: CHECKED_IN" from Data sheet
 //    - Fallback: "Transaction date" from Placement sheet (when Check-In = "-")
-//    This fixes the Get Welly issue: 77 → 110 shipments
+// 4. 🆕 CUFT/PALLET FIX: Use "Total Cuft" column from Placement sheet
+//    - Priority 1: Placement "Total Cuft" (line total, matches manual SUMIF)
+//    - Priority 2: Placement "Cuft" × Qty (per-unit × quantity)
+//    - Priority 3: Storage item_volume × Qty (last resort fallback)
+//    This fixes: 7816 cuft → 6396 cuft, 117 pallets → 95 pallets
 // ============================================================================
 
 import XLSX from 'xlsx';
@@ -341,7 +343,13 @@ class SmashFoodsParser {
   }
 
   /**
-   * 🆕 FIX: Enhanced parsePlacementSheet - calculates Cuft from Storage if not present
+   * 🆕 FIX: Enhanced parsePlacementSheet - uses "Total Cuft" column (line total)
+   *
+   * CRITICAL: The Placement sheet has TWO Cuft columns:
+   *   - "Cuft" = Per-unit cubic feet (e.g., 0.0404)
+   *   - "Total Cuft" = Line total (Cuft × Qty, e.g., 3.232)
+   *
+   * Manual analysis uses SUMIF on "Total Cuft" column, so we must use that!
    */
   parsePlacementSheet(sheet, storageSheet) {
     const data = XLSX.utils.sheet_to_json(sheet);
@@ -354,28 +362,45 @@ class SmashFoodsParser {
       }
     });
 
-    // Check if Placement sheet has Cuft column
+    // Check available Cuft columns
     const headers = Object.keys(data[0] || {});
+    const hasTotalCuftColumn = headers.some(h => h.toLowerCase() === 'total cuft');
     const hasCuftColumn = headers.some(h => h.toLowerCase() === 'cuft');
-    console.log(`📦 Placement sheet has direct Cuft column: ${hasCuftColumn}`);
+
+    console.log(`📦 Placement sheet columns:`);
+    console.log(`   "Total Cuft" column: ${hasTotalCuftColumn ? 'YES ✓' : 'NO'}`);
+    console.log(`   "Cuft" column: ${hasCuftColumn ? 'YES' : 'NO'}`);
 
     return data.map(row => {
       const fnsku = row['FNSKU'] || '';
       const receivedQty = parseInt(row['Actual received quantity'] || 0);
 
-      // 🆕 FIX: Get Cuft from column OR calculate from Storage
+      // 🆕 FIXED: Cuft calculation priority
       let cuftValue = 0;
       let cuftSource = 'none';
 
-      // Priority 1: Direct Cuft column in Placement
-      if (hasCuftColumn && row['Cuft']) {
-        cuftValue = parseFloat(row['Cuft'] || 0);
-        if (cuftValue > 0) {
-          cuftSource = 'placement_direct';
+      // Priority 1: Use "Total Cuft" column directly (pre-calculated line total)
+      // This matches the manual analysis SUMIF formula: =SUMIF(Placement!$C:$C,$B4,Placement!$X:$X)
+      if (hasTotalCuftColumn) {
+        const totalCuftVal = row['Total Cuft'];
+        if (totalCuftVal !== undefined && totalCuftVal !== null && totalCuftVal !== '') {
+          cuftValue = parseFloat(totalCuftVal) || 0;
+          if (cuftValue > 0) {
+            cuftSource = 'placement_total_cuft';
+          }
         }
       }
 
-      // Priority 2: Calculate from Storage item_volume × quantity
+      // Priority 2: Calculate from "Cuft" (per-unit) × Quantity
+      if (cuftValue === 0 && hasCuftColumn && receivedQty > 0) {
+        const perUnitCuft = parseFloat(row['Cuft'] || 0);
+        if (perUnitCuft > 0) {
+          cuftValue = perUnitCuft * receivedQty;
+          cuftSource = 'placement_cuft_x_qty';
+        }
+      }
+
+      // Priority 3: Calculate from Storage item_volume × quantity (LAST RESORT FALLBACK)
       if (cuftValue === 0 && fnsku && receivedQty > 0) {
         const storageInfo = storageLookup[fnsku];
         if (storageInfo && storageInfo.itemVolume > 0) {

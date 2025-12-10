@@ -91,6 +91,34 @@ const ShippingAnalytics = () => {
   // 🆕 ADD THIS LINE:
   const [costConfigExpanded, setCostConfigExpanded] = useState(false);
 
+  // 🆕 Brand name extracted from uploaded filename
+  const [brandName, setBrandName] = useState(null);
+
+  // 🆕 Helper function to extract brand name from filename
+  const extractBrandName = (filename) => {
+    if (!filename) return null;
+
+    // Remove file extension
+    let name = filename.replace(/\.[^/.]+$/, '');
+
+    // Replace underscores with spaces for consistent handling
+    name = name.replace(/_/g, ' ');
+
+    // Remove common prefixes (case-insensitive)
+    name = name.replace(/^copy\s*(of\s*)?/i, '');
+
+    // Remove common suffixes (case-insensitive)
+    name = name.replace(/[\s-]*[-–]\s*full\s*data\s*analysis$/i, '');
+    name = name.replace(/[\s-]*full\s*data\s*analysis$/i, '');
+    name = name.replace(/[\s-]*analysis$/i, '');
+
+    // Clean up extra spaces and dashes
+    name = name.replace(/^[\s-]+|[\s-]+$/g, '');
+    name = name.replace(/\s+/g, ' ').trim();
+
+    return name || null;
+  };
+
   const handleCostConfigChange = useCallback((newConfig) => {
   setCostConfig(newConfig);
 }, []);
@@ -121,6 +149,7 @@ const ShippingAnalytics = () => {
   if (!file) return;
 
   setUploadedFile(file);
+  setBrandName(extractBrandName(file.name));  // 🆕 Extract brand name from filename
   setLoading(true);
   setError(null);
   setSuccess(null);
@@ -717,6 +746,7 @@ const Alert = PremiumAlert;
     if (!file) return;
 
     setAmazonFile(file);
+    setBrandName(extractBrandName(file.name));  // 🆕 Extract brand name from filename
     setAmazonLoading(true);
     setError(null);
     setSuccess(null);
@@ -2420,7 +2450,12 @@ return (
     <div className="bg-[#1a1f2e] rounded-xl p-6 border border-gray-800">
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h2 className="text-2xl font-bold text-white mb-2">AMZ Prep Shipping Analysis</h2>
+          <h2 className="text-2xl font-bold text-white mb-2">
+            AMZ Prep Shipping Analysis
+            {brandName && (
+              <span className="text-brand-blue ml-2">— {brandName}</span>
+            )}
+          </h2>
           <p className="text-gray-400">
             Generated on {new Date().toLocaleDateString()} • Analysis Period: {dashboardData.analysisMonths} {dashboardData.analysisMonths > 1 ? 'months' : 'month'}
           </p>
