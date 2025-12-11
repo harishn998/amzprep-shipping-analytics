@@ -29,6 +29,9 @@ import adminRateUploadRoutes from './routes/adminRateUpload.js';
 import adminUserManagementRoutes from './routes/adminUserManagement.js';
 import SmashFoodsIntegration from './utils/smashFoodsIntegration.js';
 import AmazonEnhancementLayer from './utils/amazonEnhancementLayer.js';
+import separateUploadRoutes from './routes/separateUpload.js';
+import { startSessionCleanup } from './utils/sessionManager.js';
+import adminFBAZoningRoutes from './routes/adminFBAZoning.js';
 //import dotenv from 'dotenv';
 //dotenv.config();
 
@@ -44,6 +47,9 @@ const PORT = process.env.PORT || 5000;
 // DATABASE CONNECTION (NEW)
 // ============================================
 connectDB();
+
+// Start session cleanup (runs every 5 minutes)
+startSessionCleanup(5);
 
 //app.use(cors());
 
@@ -3157,6 +3163,10 @@ app.use('/api/admin/rates', adminRateUploadRoutes);
 
 app.use('/api/admin', adminUserManagementRoutes);
 
+app.use('/api', authenticateToken, separateUploadRoutes);
+
+app.use('/api/admin/fba-zoning', adminFBAZoningRoutes);
+
 // Download MM Rate Template
 app.get('/api/templates/mm-rate-template', (req, res) => {
   try {
@@ -3215,3 +3225,5 @@ app.listen(PORT, () => {
   console.log(`🚀 AMZ Prep Analytics API running on http://localhost:${PORT}`);
   console.log(`📁 Uploads directory: ${uploadsDir}`);
 });
+
+export { parseExcelFile, analyzeShipments };

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Upload, BarChart3, Package, DollarSign, Download, Settings, LogOut, AlertCircle, CheckCircle, MapPin, FileText, TruckIcon, ShoppingCart, Users, X, Menu, ChevronLeft, ChevronRight, Search, Bell, Zap, Activity, TrendingUp } from 'lucide-react';
+import { Upload, BarChart3, Package, DollarSign, Download, Settings, LogOut, AlertCircle, CheckCircle, MapPin, FileText, TruckIcon, ShoppingCart, Users, X, Menu, ChevronLeft, ChevronRight, Search, Bell, Zap, Activity, TrendingUp, FileSpreadsheet } from 'lucide-react';
 import axios from 'axios';
 import { ComposableMap, Geographies, Geography } from 'react-simple-maps';
 import amzprepLogo from './assets/amzprep_white_logo.png';
@@ -10,6 +10,9 @@ import { SmashFoodsDashboard } from './SmashFoodsDashboardComponents';
 import { ProcessingModal } from './ProcessingModal';
 import { ShippingScorecard } from './ShippingScorecard';
 import { CostConfigPanel } from './components/CostConfigPanel';
+import SeparateTabUploader from './components/SeparateTabUploader';
+import UploadModeToggle from './components/UploadModeToggle';
+import FBAZoningManager from './components/admin/FBAZoningManager';
 
 
 //const API_URL = 'http://localhost:5000/api';
@@ -87,6 +90,7 @@ const ShippingAnalytics = () => {
     analysisEndMonth: 9,    // Default to September
     shipFromFilter: []
   });
+  const [uploadMode, setUploadMode] = useState('separate');
 
   // 🆕 ADD THIS LINE:
   const [costConfigExpanded, setCostConfigExpanded] = useState(false);
@@ -441,11 +445,25 @@ const PremiumSidebar = () => {
                   Administration
                 </p>
               )}
+
+              {/* Manage Users */}
               <NavItem
                 icon={Users}
                 label="Manage Users"
-                active={false}
-                onClick={() => setShowUserManagement(!showUserManagement)}
+                active={activeView === 'admin-users'}
+                onClick={() => {
+                  setActiveView('admin-users');
+                  setShowUserManagement(true);
+                }}
+                collapsed={sidebarCollapsed}
+              />
+
+              {/* FBA Zoning - NEW */}
+              <NavItem
+                icon={FileSpreadsheet}
+                label="FBA Zoning"
+                active={activeView === 'admin-fba-zoning'}
+                onClick={() => setActiveView('admin-fba-zoning')}
                 collapsed={sidebarCollapsed}
               />
             </>
@@ -492,7 +510,7 @@ const PremiumSidebar = () => {
                   </div>
                   <div className="flex-1">
                     <h4 className="text-white text-sm font-medium">Rate Template</h4>
-                    <p className="text-gray-400 text-xs">Sample Excel format</p>
+                    <p className="text-gray-400 text-xs">Single File Upload (Sample Excel format)</p>
                   </div>
                 </div>
 
@@ -1139,54 +1157,95 @@ const Alert = PremiumAlert;
               )}
             </div>
 
-            {/* File Upload Button */}
-            <label className="block cursor-pointer">
-              <input
-                type="file"
-                accept=".xlsx,.xls,.csv"
-                onChange={handleAmazonUpload}
-                disabled={amazonLoading}
-                className="hidden"
+            {/* Upload Mode Toggle */}
+            <UploadModeToggle
+              mode={uploadMode}
+              onModeChange={setUploadMode}
+            />
+
+            {/* Conditional Upload UI */}
+            {uploadMode === 'single' ? (
+              // Single File Upload (Existing)
+              <label className="block cursor-pointer">
+                <input
+                  type="file"
+                  accept=".xlsx,.xls,.csv"
+                  onChange={handleAmazonUpload}
+                  disabled={amazonLoading}
+                  className="hidden"
+                />
+                <div
+                  className={`w-full px-6 py-4 rounded-xl flex items-center justify-center gap-3 transition-all duration-300 font-semibold ${
+                    amazonLoading ? 'opacity-50 cursor-not-allowed' : 'hover:scale-[1.02]'
+                  }`}
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.03)',
+                    border: '2px dashed rgba(3, 134, 254, 0.4)',
+                    color: 'white'
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!amazonLoading) {
+                      e.currentTarget.style.borderColor = 'rgba(3, 134, 254, 0.7)';
+                      e.currentTarget.style.background = 'rgba(3, 134, 254, 0.05)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = 'rgba(3, 134, 254, 0.4)';
+                    e.currentTarget.style.background = 'rgba(255, 255, 255, 0.03)';
+                  }}
+                >
+                  <Upload size={20} style={{ color: '#0386FE' }} />
+                  <span className="text-gray-300">{amazonLoading ? 'Processing...' : 'Choose Amazon File'}</span>
+                  {!amazonLoading && (
+                    <div
+                      className="w-8 h-8 rounded-lg flex items-center justify-center ml-2"
+                      style={{
+                        border: '1px dashed rgba(3, 134, 254, 0.5)',
+                        background: 'rgba(3, 134, 254, 0.1)'
+                      }}
+                    >
+                      <span style={{
+                        background: 'linear-gradient(135deg, #0386FE, #9507FF)',
+                        WebkitBackgroundClip: 'text',
+                        WebkitTextFillColor: 'transparent'
+                      }}>+</span>
+                    </div>
+                  )}
+                </div>
+              </label>
+            ) : (
+              // Separate Tab Upload (New)
+              <SeparateTabUploader
+                costConfig={costConfig}
+                hazmatFilter={hazmatFilter}
+                getAuthHeader={() => {
+                const token = localStorage.getItem('authToken');
+                return token ? { Authorization: `Bearer ${token}` } : {};
+                }}
+                onAnalysisComplete={(data, reportId, extractedBrandName) => {  // ✅ Add 3rd parameter
+                  const dataWithCodes = {
+                    ...data,
+                    topStates: data.topStates?.map(state => ({
+                      ...state,
+                      code: state.code || stateNameToCode[state.name] || state.name.substring(0, 2).toUpperCase()
+                    })),
+                    hazmat: data.hazmat || null,
+                    metadata: data.metadata || {},
+                    brandName: extractedBrandName || data.brandName || null  // ✅ Add brand name
+                  };
+
+                  setBrandName(extractedBrandName || data.brandName || null);  // ✅ Set brand state
+                  setDashboardData(dataWithCodes);
+                  setCurrentReportId(reportId);
+                  setSuccess('Analysis complete! View your results below.');
+                  setActiveView('dashboard');
+                  fetchReports();
+                }}
+                onError={(errorMessage) => {
+                  setError(errorMessage);
+                }}
               />
-              <div
-                className={`w-full px-6 py-4 rounded-xl flex items-center justify-center gap-3 transition-all duration-300 font-semibold ${
-                  amazonLoading ? 'opacity-50 cursor-not-allowed' : 'hover:scale-[1.02]'
-                }`}
-                style={{
-                  background: 'rgba(255, 255, 255, 0.03)',
-                  border: '2px dashed rgba(3, 134, 254, 0.4)',
-                  color: 'white'
-                }}
-                onMouseEnter={(e) => {
-                  if (!amazonLoading) {
-                    e.currentTarget.style.borderColor = 'rgba(3, 134, 254, 0.7)';
-                    e.currentTarget.style.background = 'rgba(3, 134, 254, 0.05)';
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.borderColor = 'rgba(3, 134, 254, 0.4)';
-                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.03)';
-                }}
-              >
-                <Upload size={20} style={{ color: '#0386FE' }} />
-                <span className="text-gray-300">{amazonLoading ? 'Processing...' : 'Choose Amazon File'}</span>
-                {!amazonLoading && (
-                  <div
-                    className="w-8 h-8 rounded-lg flex items-center justify-center ml-2"
-                    style={{
-                      border: '1px dashed rgba(3, 134, 254, 0.5)',
-                      background: 'rgba(3, 134, 254, 0.1)'
-                    }}
-                  >
-                    <span style={{
-                      background: 'linear-gradient(135deg, #0386FE, #9507FF)',
-                      WebkitBackgroundClip: 'text',
-                      WebkitTextFillColor: 'transparent'
-                    }}>+</span>
-                  </div>
-                )}
-              </div>
-            </label>
+            )}
 
             {/* Selected File Info */}
             {amazonFile && (
@@ -2776,9 +2835,15 @@ return (
         sidebarCollapsed ? 'ml-20' : 'ml-72'
       }`}>
 
-        {/* Main Content */}
+      {/* Main Content */}
         <div className="p-8 overflow-x-hidden">
-          {activeView === 'upload' ? <UploadView /> : <DashboardView />}
+          {activeView === 'upload' ? (
+            <UploadView />
+          ) : activeView === 'admin-fba-zoning' && user?.role === 'admin' ? (
+            <FBAZoningManager getAuthHeader={getAuthHeader} />
+          ) : (
+            <DashboardView />
+          )}
         </div>
       </div>
 

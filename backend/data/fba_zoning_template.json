@@ -1,0 +1,2632 @@
+[
+  {
+    "Ship to": "975 Powder Plan� Road, Bessemer, Alabama 35022",
+    "Zip": "35022",
+    "Province": "AL",
+    "FBA": "BHM1",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 35
+  },
+  {
+    "Ship to": "605 143RD AVE, GOODYEAR, AZ, 85338",
+    "Zip": "85338",
+    "Province": "AZ",
+    "FBA": "GYR1",
+    "2 Region": "WEST",
+    "3 Region": "West",
+    "DC": 89032,
+    "Zip Prefix": 85
+  },
+  {
+    "Ship to": "10205 W ROOSEVELT ST, AVONDALE AZ 85323",
+    "Zip": "10205",
+    "Province": "AZ",
+    "FBA": "GYR4",
+    "2 Region": "WEST",
+    "3 Region": "West",
+    "DC": 89032,
+    "Zip Prefix": 85
+  },
+  {
+    "Ship to": "6835 WEST BUCKEYE RD, PHOENIX AZ, 85043-4428 85043",
+    "Zip": "85043",
+    "Province": "AZ",
+    "FBA": "PHX3",
+    "2 Region": "WEST",
+    "3 Region": "West",
+    "DC": 89032,
+    "Zip Prefix": 85
+  },
+  {
+    "Ship to": "16920 W. COMMERCE DR., GOODYEAR, AZ 85338-3620 85338",
+    "Zip": "16920",
+    "Province": "AZ",
+    "FBA": "PHX5",
+    "2 Region": "WEST",
+    "3 Region": "West",
+    "DC": 89032,
+    "Zip Prefix": 85
+  },
+  {
+    "Ship to": "3809 E WATKINS ST, MARICOPA, PHOENIX AZ 85034",
+    "Zip": "85034",
+    "Province": "AZ",
+    "FBA": "PPX1",
+    "2 Region": "WEST",
+    "3 Region": "West",
+    "DC": 89032,
+    "Zip Prefix": 85
+  },
+  {
+    "Ship to": "GEU2 - Glendale, AZ US 85301",
+    "Zip": "85301",
+    "Province": "AZ",
+    "FBA": "GEU2",
+    "2 Region": "WEST",
+    "3 Region": "West",
+    "DC": 89032,
+    "Zip Prefix": 85
+  },
+  {
+    "Ship to": "GEU5 - GOODYEAR, AZ US 85338",
+    "Zip": "85338",
+    "Province": "AZ",
+    "FBA": "GEU5",
+    "2 Region": "WEST",
+    "3 Region": "West",
+    "DC": 89032,
+    "Zip Prefix": 85
+  },
+  {
+    "Ship to": "GYR3 - PHOENIX, AZ US 85043",
+    "Zip": "85043",
+    "Province": "AZ",
+    "FBA": "GYR3",
+    "2 Region": "WEST",
+    "3 Region": "West",
+    "DC": 89032,
+    "Zip Prefix": 85
+  },
+  {
+    "Ship to": "1601 PETROL ROAD, BAKERSFIELD, CA, 93308",
+    "Zip": "93308",
+    "Province": "CA",
+    "FBA": "BFL1",
+    "2 Region": "WEST",
+    "3 Region": "West",
+    "DC": 89032,
+    "Zip Prefix": 93
+  },
+  {
+    "Ship to": "4500 EXPRESS AVE, SHAFTER, CA, 93263",
+    "Zip": "93263",
+    "Province": "CA",
+    "FBA": "BFL2",
+    "2 Region": "WEST",
+    "3 Region": "West",
+    "DC": 89032,
+    "Zip Prefix": 93
+  },
+  {
+    "Ship to": "3315 N. KELSEY ST, TULARE, VISAILIA, CA, 93291",
+    "Zip": "93291",
+    "Province": "CA",
+    "FBA": "FAT2",
+    "2 Region": "WEST",
+    "3 Region": "West",
+    "DC": 89032,
+    "Zip Prefix": 93
+  },
+  {
+    "Ship to": "8815 W. KIBLER AVE, VISALIA, CA, 93291",
+    "Zip": "93291",
+    "Province": "CA",
+    "FBA": "HLA6",
+    "2 Region": "WEST",
+    "3 Region": "West",
+    "DC": 89032,
+    "Zip Prefix": 93
+  },
+  {
+    "Ship to": "LAX9 - 11263 Oleander Ave 92337-7441 - FONTANA, CA - United States 92337",
+    "Zip": "11263",
+    "Province": "CA",
+    "FBA": "LAX9",
+    "2 Region": "WEST",
+    "3 Region": "West",
+    "DC": 89032,
+    "Zip Prefix": 92
+  },
+  {
+    "Ship to": "2417 E CARSON ST. LONG BEACH, CA, 90810",
+    "Zip": "90810",
+    "Province": "CA",
+    "FBA": "LGB1",
+    "2 Region": "WEST",
+    "3 Region": "West",
+    "DC": 89032,
+    "Zip Prefix": 90
+  },
+  {
+    "Ship to": "4950 GOODMAN WAY, BUILDING 1, EASTVALE, CA, 91752-5087 91752",
+    "Zip": "91752",
+    "Province": "CA",
+    "FBA": "LGB3",
+    "2 Region": "WEST",
+    "3 Region": "West",
+    "DC": 89032,
+    "Zip Prefix": 91
+  },
+  {
+    "Ship to": "LGB8 - 1568 N Linden Ave 92376-8624 - Rialto, CA - United States 92376",
+    "Zip": "92376",
+    "Province": "CA",
+    "FBA": "LGB8",
+    "2 Region": "WEST",
+    "3 Region": "West",
+    "DC": 89032,
+    "Zip Prefix": 92
+  },
+  {
+    "Ship to": "255 PARK CENTER DRIVE, PATTERSON, CA, 95363",
+    "Zip": "95363",
+    "Province": "CA",
+    "FBA": "OAK3",
+    "2 Region": "WEST",
+    "3 Region": "West",
+    "DC": 89032,
+    "Zip Prefix": 95
+  },
+  {
+    "Ship to": "1555 N. CHRISMAN ROAD, TRACY, CA, 95304",
+    "Zip": "95304",
+    "Province": "CA",
+    "FBA": "OAK4",
+    "2 Region": "WEST",
+    "3 Region": "West",
+    "DC": 89032,
+    "Zip Prefix": 95
+  },
+  {
+    "Ship to": "ONT8 - 24300 Nandina Ave 92551-9534 - Moreno Valley, CA - United States 92551",
+    "Zip": "24300",
+    "Province": "CA",
+    "FBA": "ONT8",
+    "2 Region": "WEST",
+    "3 Region": "West",
+    "DC": 89032,
+    "Zip Prefix": 92
+  },
+  {
+    "Ship to": "1565 N MACARTHUR DRIVE, TRACY, CA, 95376",
+    "Zip": "95376",
+    "Province": "CA",
+    "FBA": "PCA1",
+    "2 Region": "WEST",
+    "3 Region": "West",
+    "DC": 89032,
+    "Zip Prefix": 95
+  },
+  {
+    "Ship to": "17871 VON KARMAN AVE, IRVINE, CA, 92614",
+    "Zip": "17871",
+    "Province": "CA",
+    "FBA": "SAX1",
+    "2 Region": "WEST",
+    "3 Region": "West",
+    "DC": 89032,
+    "Zip Prefix": 92
+  },
+  {
+    "Ship to": "150 E RADIO RD, BUILDING B, CORONA, CA, 92879",
+    "Zip": "92879",
+    "Province": "CA",
+    "FBA": "SAX2",
+    "2 Region": "WEST",
+    "3 Region": "West",
+    "DC": 89032,
+    "Zip Prefix": 92
+  },
+  {
+    "Ship to": "SBD1 - 3388 S Cactus Ave 92316-3819 - BLOOMINGTON, CA - United States 92316",
+    "Zip": "92316",
+    "Province": "CA",
+    "FBA": "SBD1",
+    "2 Region": "WEST",
+    "3 Region": "West",
+    "DC": 89032,
+    "Zip Prefix": 92
+  },
+  {
+    "Ship to": "1910 E CENTRAL AVE, SAN BERNARDINO, CA, 92408",
+    "Zip": "92408",
+    "Province": "CA",
+    "FBA": "SBD2",
+    "2 Region": "WEST",
+    "3 Region": "West",
+    "DC": 89032,
+    "Zip Prefix": 92
+  },
+  {
+    "Ship to": "7601 METRO AIR PARKWAY, BUILDING 4, SACRAMENTO, CA, 95837",
+    "Zip": "95837",
+    "Province": "CA",
+    "FBA": "SCA5",
+    "2 Region": "WEST",
+    "3 Region": "West",
+    "DC": 89032,
+    "Zip Prefix": 95
+  },
+  {
+    "Ship to": "717 HARVEST ROAD BUILDING A, SAN DIEGO, CA, 92154",
+    "Zip": "92154",
+    "Province": "CA",
+    "FBA": "SCA7",
+    "2 Region": "WEST",
+    "3 Region": "West",
+    "DC": 89032,
+    "Zip Prefix": 92
+  },
+  {
+    "Ship to": "4532 NEWCASTLE ROAD, STOCKTON, CA, 95215",
+    "Zip": "95215",
+    "Province": "CA",
+    "FBA": "SCK1",
+    "2 Region": "WEST",
+    "3 Region": "West",
+    "DC": 89032,
+    "Zip Prefix": 95
+  },
+  {
+    "Ship to": "SCK4 - 6001 S AUSTIN RD 95215-8354 - STOCKTON, CA - United States 95215",
+    "Zip": "95215",
+    "Province": "CA",
+    "FBA": "SCK4",
+    "2 Region": "WEST",
+    "3 Region": "West",
+    "DC": 89032,
+    "Zip Prefix": 95
+  },
+  {
+    "Ship to": "1500 E GRANT LINE ROAD, TRACY, CA, 95304",
+    "Zip": "95304",
+    "Province": "CA",
+    "FBA": "SCK6",
+    "2 Region": "WEST",
+    "3 Region": "West",
+    "DC": 89032,
+    "Zip Prefix": 95
+  },
+  {
+    "Ship to": "188 S MOUNTAIN HOUSE PARKWAY, TRACY, CA, 95377",
+    "Zip": "95377",
+    "Province": "CA",
+    "FBA": "SJC7",
+    "2 Region": "WEST",
+    "3 Region": "West",
+    "DC": 89032,
+    "Zip Prefix": 95
+  },
+  {
+    "Ship to": "SMF3 - 3923 S B ST 95206-8202 - Stockton, CA - United States 95206",
+    "Zip": "95206",
+    "Province": "CA",
+    "FBA": "SMF3",
+    "2 Region": "WEST",
+    "3 Region": "West",
+    "DC": 89032,
+    "Zip Prefix": 95
+  },
+  {
+    "Ship to": "16047 CYPRESS AVE, CHINO, CA, 91708",
+    "Zip": "16047",
+    "Province": "CA",
+    "FBA": "XLA3",
+    "2 Region": "WEST",
+    "3 Region": "West",
+    "DC": 89032,
+    "Zip Prefix": 91
+  },
+  {
+    "Ship to": "657 NANCE STREET, PERRIS, CA, 92571",
+    "Zip": "92571",
+    "Province": "CA",
+    "FBA": "XUSO",
+    "2 Region": "WEST",
+    "3 Region": "West",
+    "DC": 89032,
+    "Zip Prefix": 92
+  },
+  {
+    "Ship to": "225 W LUGONIA AVE, REDLANDS, CA, 92374",
+    "Zip": "92374",
+    "Province": "CA",
+    "FBA": "XUSV",
+    "2 Region": "WEST",
+    "3 Region": "West",
+    "DC": 89032,
+    "Zip Prefix": 92
+  },
+  {
+    "Ship to": "POC1 - FONTANA, CA US 92335",
+    "Zip": "92335",
+    "Province": "CA",
+    "FBA": "POC1",
+    "2 Region": "WEST",
+    "3 Region": "West",
+    "DC": 89032,
+    "Zip Prefix": 92
+  },
+  {
+    "Ship to": "VGT2 - Riverside, CA US 92501",
+    "Zip": "92501",
+    "Province": "CA",
+    "FBA": "VGT2",
+    "2 Region": "WEST",
+    "3 Region": "West",
+    "DC": 89032,
+    "Zip Prefix": 92
+  },
+  {
+    "Ship to": "2100 E 13TH AVE, AURORA, CO, 80018",
+    "Zip": "80018",
+    "Province": "CO",
+    "FBA": "DEN8",
+    "2 Region": "WEST",
+    "3 Region": "West",
+    "DC": 89032,
+    "Zip Prefix": 80
+  },
+  {
+    "Ship to": "4625 BYRD AVE, LOVELAND, CO 80528",
+    "Zip": "80528",
+    "Province": "CO",
+    "FBA": "FNL1",
+    "2 Region": "WEST",
+    "3 Region": "West",
+    "DC": 89032,
+    "Zip Prefix": 80
+  },
+  {
+    "Ship to": "6050 WASHINGTON STREET, DENVER, CO, 80216",
+    "Zip": "80216",
+    "Province": "CO",
+    "FBA": "SCO1",
+    "2 Region": "WEST",
+    "3 Region": "West",
+    "DC": 89032,
+    "Zip Prefix": 80
+  },
+  {
+    "Ship to": "200 OLD IRON ORE ROAD, WINDSOR, CT, 06095",
+    "Zip": "06095",
+    "Province": "CT",
+    "FBA": "BDL2",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 6
+  },
+  {
+    "Ship to": "120 County Line Drive, Cromwell, Connecticut, USA, 06416",
+    "Zip": "06416",
+    "Province": "CT",
+    "FBA": "BDL6",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 6
+  },
+  {
+    "Ship to": "780 S DUPONT PARKWAY, NEW CASTLE, DE, 19720",
+    "Zip": "19720",
+    "Province": "DE",
+    "FBA": "ILG1",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 19
+  },
+  {
+    "Ship to": "1025 BOXWOOD ROAD, NEWPORT, WILMINGTON, DE, 19804",
+    "Zip": "19804",
+    "Province": "DE",
+    "FBA": "MTN1",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 19
+  },
+  {
+    "Ship to": "1 CENTERPOINT BLVD, NEW CASTLE, DE, 19720",
+    "Zip": "19720",
+    "Province": "DE",
+    "FBA": "PHL1",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 19
+  },
+  {
+    "Ship to": "12340 BOGGY CREEK RD, LAKE NONA, ORLANDO, FL, 32824",
+    "Zip": "12340",
+    "Province": "FL",
+    "FBA": "MCO1",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 32
+  },
+  {
+    "Ship to": "14000 NW 37TH AVE, OPALOCKA, FL, 33054",
+    "Zip": "14000",
+    "Province": "FL",
+    "FBA": "MIA1",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 33
+  },
+  {
+    "Ship to": "1001 13TH AVENUE EAST, BRADENTON, FL, 34208",
+    "Zip": "34208",
+    "Province": "FL",
+    "FBA": "PFL1",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 34
+  },
+  {
+    "Ship to": "8060 STATE ROAD 33 N, LAKELAND, FL 33809",
+    "Zip": "33809",
+    "Province": "FL",
+    "FBA": "PFL2",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 33
+  },
+  {
+    "Ship to": "6701 NW 7TH ST, SUITE 199, MIAMI, FL 33126",
+    "Zip": "33126",
+    "Province": "FL",
+    "FBA": "PMI2",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 33
+  },
+  {
+    "Ship to": "6337 COUNTY ROAD 579, SEFFNER, FL, 33584",
+    "Zip": "33584",
+    "Province": "FL",
+    "FBA": "SFL4",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 33
+  },
+  {
+    "Ship to": "4902 W WATERS ROAD, TAMPA, FL, 33634",
+    "Zip": "33634",
+    "Province": "FL",
+    "FBA": "SFL7",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 33
+  },
+  {
+    "Ship to": "2635 VINELAND DRIVER, LEON, TALLAHASSEE, FL, 32308",
+    "Zip": "32308",
+    "Province": "FL",
+    "FBA": "TLH2",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 32
+  },
+  {
+    "Ship to": "TMB8 - 27505 SW 132nd AVE 33032-8597 - HOMESTEAD, FL - United States 33032",
+    "Zip": "27505",
+    "Province": "FL",
+    "FBA": "TMB8",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 33
+  },
+  {
+    "Ship to": "3350 LAUREL RIDGE AVE, RUSKIN, FL, 33570",
+    "Zip": "33570",
+    "Province": "FL",
+    "FBA": "TPA1",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 33
+  },
+  {
+    "Ship to": "576 C FRED JONES BLVD, AUBURNDALE, FL, 33823",
+    "Zip": "33823",
+    "Province": "FL",
+    "FBA": "TPA3",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 33
+  },
+  {
+    "Ship to": "8727 HARNEY ROAD, TEMPLE TERRACE, FL 33637",
+    "Zip": "33637",
+    "Province": "FL",
+    "FBA": "TPA4",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 33
+  },
+  {
+    "Ship to": "901 W LANDSTREET RD, SUITE C, ORLANDO, FL, 32824",
+    "Zip": "32824",
+    "Province": "FL",
+    "FBA": "XUSF",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 32
+  },
+  {
+    "Ship to": "PBI3 - PORT SAINT LUCIE, FL 34986",
+    "Zip": "34986",
+    "Province": "FL",
+    "FBA": "PBI3",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 34
+  },
+  {
+    "Ship to": "2150 DISCOVERY DRIVE, APPLING, GA, 30802",
+    "Zip": "30802",
+    "Province": "GA",
+    "FBA": "AGS1",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 30
+  },
+  {
+    "Ship to": "2255 WEST PARK PLACE BLVD, STONE MOUNTAIN, GEORGIA, 30087",
+    "Zip": "30087",
+    "Province": "GA",
+    "FBA": "ATL2",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 30
+  },
+  {
+    "Ship to": "280 BRIDGEPORT BOULEVARD, MORELAND, NEWNAN, GA, 30259",
+    "Zip": "30259",
+    "Province": "GA",
+    "FBA": "CSG1",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 30
+  },
+  {
+    "Ship to": "5115 STONEWALL TELL RD, BUILDING 1, UNION CITY, ATLANTA, GA, 30349",
+    "Zip": "30349",
+    "Province": "GA",
+    "FBA": "HGA6",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 30
+  },
+  {
+    "Ship to": "4925 AVALON RIDGE PARKWAY, NORCROSS, GA, 30017",
+    "Zip": "30017",
+    "Province": "GA",
+    "FBA": "SGA1",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 30
+  },
+  {
+    "Ship to": "1701 BLAIRS BRIDGE RD, LITHIA SPRINGS, GA, 30122",
+    "Zip": "30122",
+    "Province": "GA",
+    "FBA": "SGA2",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 30
+  },
+  {
+    "Ship to": "RYY2 - White, GA 30184",
+    "Zip": "30184",
+    "Province": "GA",
+    "FBA": "RYY2",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 30
+  },
+  {
+    "Ship to": "500 32nd St SW, Bondurant, IA 50035",
+    "Zip": "50035",
+    "Province": "IA",
+    "FBA": "DSM5",
+    "2 Region": "EAST",
+    "3 Region": "CENTRAL",
+    "DC": 41048,
+    "Zip Prefix": 50
+  },
+  {
+    "Ship to": "2022 RESEARCH PARKWAY, DAVENPORT, IA, 52806",
+    "Zip": "52806",
+    "Province": "IA",
+    "FBA": "MLI1",
+    "2 Region": "EAST",
+    "3 Region": "CENTRAL",
+    "DC": 41048,
+    "Zip Prefix": 52
+  },
+  {
+    "Ship to": "5295 EAST FRANKLIN ROAD, NAMPA, IDAHO, 83687",
+    "Zip": "83687",
+    "Province": "ID",
+    "FBA": "BOI2",
+    "2 Region": "WEST",
+    "3 Region": "West",
+    "DC": 89032,
+    "Zip Prefix": 83
+  },
+  {
+    "Ship to": "15924 WESTERN AVE, MARKHAM, IL, 60428",
+    "Zip": "15924",
+    "Province": "IL",
+    "FBA": "ICQ1",
+    "2 Region": "EAST",
+    "3 Region": "CENTRAL",
+    "DC": 41048,
+    "Zip Prefix": 60
+  },
+  {
+    "Ship to": "23257 S CENTRAL AVE, UNIVERSITY PARK, IL, 60484",
+    "Zip": "23257",
+    "Province": "IL",
+    "FBA": "ICQ2",
+    "2 Region": "EAST",
+    "3 Region": "CENTRAL",
+    "DC": 41048,
+    "Zip Prefix": 60
+  },
+  {
+    "Ship to": "3900 S BRANDON RD, ELWOOD, IL, 60421",
+    "Zip": "60421",
+    "Province": "IL",
+    "FBA": "KIL1",
+    "2 Region": "EAST",
+    "3 Region": "CENTRAL",
+    "DC": 41048,
+    "Zip Prefix": 60
+  },
+  {
+    "Ship to": "6605 W. MONEE MANHATTAN ROAD, MONEE, IL, 60449",
+    "Zip": "60449",
+    "Province": "IL",
+    "FBA": "MDW7",
+    "2 Region": "EAST",
+    "3 Region": "CENTRAL",
+    "DC": 41048,
+    "Zip Prefix": 60
+  },
+  {
+    "Ship to": "1750 BRIDGE DRIVE, WAUKEGAN, IL, 60085",
+    "Zip": "60085",
+    "Province": "IL",
+    "FBA": "MDW8",
+    "2 Region": "EAST",
+    "3 Region": "CENTRAL",
+    "DC": 41048,
+    "Zip Prefix": 60
+  },
+  {
+    "Ship to": "2865 DUKE PARKWAY, AURORA, IL, 60563",
+    "Zip": "60563",
+    "Province": "IL",
+    "FBA": "MDW9",
+    "2 Region": "EAST",
+    "3 Region": "CENTRAL",
+    "DC": 41048,
+    "Zip Prefix": 60
+  },
+  {
+    "Ship to": "RFD2 - 11500 Freeman Road 60142 - HUNTLEY, IL - United States 60142",
+    "Zip": "11500",
+    "Province": "IL",
+    "FBA": "RFD2",
+    "2 Region": "EAST",
+    "3 Region": "CENTRAL",
+    "DC": 41048,
+    "Zip Prefix": 60
+  },
+  {
+    "Ship to": "2379 DAVEY ROAD, WOODBRIDGE, IL, 60517",
+    "Zip": "60517",
+    "Province": "IL",
+    "FBA": "SIL1",
+    "2 Region": "EAST",
+    "3 Region": "CENTRAL",
+    "DC": 41048,
+    "Zip Prefix": 60
+  },
+  {
+    "Ship to": "7555 LINDER AVE, SKOKIE, IL, 60077",
+    "Zip": "60077",
+    "Province": "IL",
+    "FBA": "SIL2",
+    "2 Region": "EAST",
+    "3 Region": "CENTRAL",
+    "DC": 41048,
+    "Zip Prefix": 60
+  },
+  {
+    "Ship to": "27W501 NORTH AVE, SUITE 100, WEST CHICAGO, IL, 60185",
+    "Zip": "60185",
+    "Province": "IL",
+    "FBA": "SIL3",
+    "2 Region": "EAST",
+    "3 Region": "CENTRAL",
+    "DC": 41048,
+    "Zip Prefix": 60
+  },
+  {
+    "Ship to": "1260 N. KOSTNER AVE, WEST HUMBOLDT PARK, CHICAGO, IL, 60651",
+    "Zip": "60651",
+    "Province": "IL",
+    "FBA": "SIL4",
+    "2 Region": "EAST",
+    "3 Region": "CENTRAL",
+    "DC": 41048,
+    "Zip Prefix": 60
+  },
+  {
+    "Ship to": "3050 GATEWAY COMMERCE CENTER DRIVE SOUTH, EDWARDSVILLE, IL, 62025",
+    "Zip": "62025",
+    "Province": "IL",
+    "FBA": "STL4",
+    "2 Region": "EAST",
+    "3 Region": "CENTRAL",
+    "DC": 41048,
+    "Zip Prefix": 62
+  },
+  {
+    "Ship to": "MDW2 - Joliet, IL US ~60435",
+    "Zip": "60435",
+    "Province": "IL",
+    "FBA": "MDW2",
+    "2 Region": "EAST",
+    "3 Region": "CENTRAL",
+    "DC": 41048,
+    "Zip Prefix": 60
+  },
+  {
+    "Ship to": "FWA4 - 9798 Smith Road -9771 - FORT WAYNE, IN - United States 46809",
+    "Zip": "46809",
+    "Province": "IN",
+    "FBA": "FWA4",
+    "2 Region": "EAST",
+    "3 Region": "CENTRAL",
+    "DC": 41048,
+    "Zip Prefix": 46
+  },
+  {
+    "Ship to": "4255 ANSON BLVD, WHITESTOWN, IN, 46075",
+    "Zip": "46075",
+    "Province": "IN",
+    "FBA": "IND1",
+    "2 Region": "EAST",
+    "3 Region": "CENTRAL",
+    "DC": 41048,
+    "Zip Prefix": 46
+  },
+  {
+    "Ship to": "IND9 - 1151 S GRAHAM RD 46143-7830 - GREENWOOD, IN - United States 46143",
+    "Zip": "46143",
+    "Province": "IN",
+    "FBA": "IND9",
+    "2 Region": "EAST",
+    "3 Region": "CENTRAL",
+    "DC": 41048,
+    "Zip Prefix": 46
+  },
+  {
+    "Ship to": "5510 EXPLORATION DR, MARION, INDIANAPOLIS, IN, 46241",
+    "Zip": "46241",
+    "Province": "IN",
+    "FBA": "PIN1",
+    "2 Region": "EAST",
+    "3 Region": "CENTRAL",
+    "DC": 41048,
+    "Zip Prefix": 46
+  },
+  {
+    "Ship to": "3620 PLAINFIELD RD, BUILDING 4, HENDRICKS, INDIANPOLIS, IN, 46231",
+    "Zip": "46231",
+    "Province": "IN",
+    "FBA": "PIN2",
+    "2 Region": "EAST",
+    "3 Region": "CENTRAL",
+    "DC": 41048,
+    "Zip Prefix": 46
+  },
+  {
+    "Ship to": "900 PATROL ROAD, JEFFERSONVILLE IN, 47130",
+    "Zip": "47130",
+    "Province": "IN",
+    "FBA": "SDF8",
+    "2 Region": "EAST",
+    "3 Region": "CENTRAL",
+    "DC": 41048,
+    "Zip Prefix": 47
+  },
+  {
+    "Ship to": "305 CHANEY AVE, GREENWOOD, IN, 46143",
+    "Zip": "46143",
+    "Province": "IN",
+    "FBA": "SIN9",
+    "2 Region": "EAST",
+    "3 Region": "CENTRAL",
+    "DC": 41048,
+    "Zip Prefix": 46
+  },
+  {
+    "Ship to": "MQJ1 - Plainfield, IN US 46168",
+    "Zip": "46168",
+    "Province": "IN",
+    "FBA": "MQJ1",
+    "2 Region": "EAST",
+    "3 Region": "CENTRAL",
+    "DC": 41048,
+    "Zip Prefix": 46
+  },
+  {
+    "Ship to": "PPO4 - Crown Point, IN 46307",
+    "Zip": "46307",
+    "Province": "IN",
+    "FBA": "PPO4",
+    "2 Region": "EAST",
+    "3 Region": "CENTRAL",
+    "DC": 41048,
+    "Zip Prefix": 46
+  },
+  {
+    "Ship to": "9700 LEAVENWORTH ROAD, BUILDING A, KANSAS CITY, KS, 66109",
+    "Zip": "66109",
+    "Province": "KS",
+    "FBA": "FOE1",
+    "2 Region": "WEST",
+    "3 Region": "CENTRAL",
+    "DC": 41048,
+    "Zip Prefix": 66
+  },
+  {
+    "Ship to": "7130 NORTH BROADWAY AVE, PARK CITY, WICHITA, KS, 67219",
+    "Zip": "67219",
+    "Province": "KS",
+    "FBA": "ICT2",
+    "2 Region": "WEST",
+    "3 Region": "CENTRAL",
+    "DC": 41048,
+    "Zip Prefix": 67
+  },
+  {
+    "Ship to": "19400 MONTROSE ST, EDGERTON,, EDGERTON, KS, 66021",
+    "Zip": "19400",
+    "Province": "KS",
+    "FBA": "MKC4",
+    "2 Region": "WEST",
+    "3 Region": "CENTRAL",
+    "DC": 41048,
+    "Zip Prefix": 66
+  },
+  {
+    "Ship to": "6925 RIVERVIEW AVE., KANSAS CITY, KS, 66021",
+    "Zip": "66021",
+    "Province": "KS",
+    "FBA": "MKC6",
+    "2 Region": "WEST",
+    "3 Region": "CENTRAL",
+    "DC": 41048,
+    "Zip Prefix": 66
+  },
+  {
+    "Ship to": "30901 W. 185TH ST. EDGERTON, KS, 66021",
+    "Zip": "30901",
+    "Province": "KS",
+    "FBA": "PKC1",
+    "2 Region": "WEST",
+    "3 Region": "CENTRAL",
+    "DC": 41048,
+    "Zip Prefix": 66
+  },
+  {
+    "Ship to": "172 TRADE ST. LEXINGTON, KY, 40511",
+    "Zip": "40511",
+    "Province": "KY",
+    "FBA": "LEX2",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 40
+  },
+  {
+    "Ship to": "4600 OLYMPIC BLVD, ERLANGER, KY, 41018",
+    "Zip": "41018",
+    "Province": "KY",
+    "FBA": "LEX5",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 41
+  },
+  {
+    "Ship to": "1050 SOUTH COLUMBIA AVE, CAMPBELLSVILLE, KY, 42718",
+    "Zip": "42718",
+    "Province": "KY",
+    "FBA": "SDF1",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 42
+  },
+  {
+    "Ship to": "376 AMAZON.COM BLVD, SHEPHERDSVILLE, KY, 40165",
+    "Zip": "40165",
+    "Province": "KY",
+    "FBA": "SDF4",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 40
+  },
+  {
+    "Ship to": "3620 NE EVANGELINE THROUGHWAY, CARENCRO, LAFAYETTE, LA, 70520",
+    "Zip": "70520",
+    "Province": "LA",
+    "FBA": "LFT1",
+    "2 Region": "EAST",
+    "3 Region": "CENTRAL",
+    "DC": 41048,
+    "Zip Prefix": 70
+  },
+  {
+    "Ship to": "7970 S. VALLEY VIEW BLVD, SUITE 130, LAS VEGAS, NV, 89139",
+    "Zip": "89139",
+    "Province": "NV",
+    "FBA": "SNV1",
+    "2 Region": "WEST",
+    "3 Region": "West",
+    "DC": 89032,
+    "Zip Prefix": 89
+  },
+  {
+    "Ship to": "1600 OSGOOD ST., NORTH ANDOVER, MA, 01845",
+    "Zip": "01845",
+    "Province": "MA",
+    "FBA": "BOS3",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 1
+  },
+  {
+    "Ship to": "1180 INNOVATION WAY, FALL RIVER, MA, 02722",
+    "Zip": "02722",
+    "Province": "MA",
+    "FBA": "BOS7",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 2
+  },
+  {
+    "Ship to": "64 OTIS STREET, WESTBOROUGH, MA, 01581",
+    "Zip": "01581",
+    "Province": "MA",
+    "FBA": "SMA1",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 1
+  },
+  {
+    "Ship to": "1025 ELM STREET, BRIDGEATER, MA, 02324",
+    "Zip": "02324",
+    "Province": "MA",
+    "FBA": "SMA2",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 2
+  },
+  {
+    "Ship to": "6001 BETHLEHEM BLVD, SPARROW'S POINT, EDGEMERE, MD, 21219",
+    "Zip": "21219",
+    "Province": "MD",
+    "FBA": "DCA6",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 21
+  },
+  {
+    "Ship to": "811 WESEL BOULEVARD, BUILDING 2, HAGERSTOWN, MD, 21740",
+    "Zip": "21740",
+    "Province": "MD",
+    "FBA": "MTN8",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 21
+  },
+  {
+    "Ship to": "7200 DORSEY RUN ROAD, ELKRIDGE, MD, 21075",
+    "Zip": "21075",
+    "Province": "MD",
+    "FBA": "SMD1",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 21
+  },
+  {
+    "Ship to": "HGR6 - HAGERSTOWN, MD US 21740",
+    "Zip": "21740",
+    "Province": "MD",
+    "FBA": "HGR6",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 21
+  },
+  {
+    "Ship to": "39000 AMRHEIN RD., LIVONIA, MI, 48150",
+    "Zip": "39000",
+    "Province": "MI",
+    "FBA": "DET1",
+    "2 Region": "EAST",
+    "3 Region": "CENTRAL",
+    "DC": 41048,
+    "Zip Prefix": 48
+  },
+  {
+    "Ship to": "50500 MOUND ROAD, SHELBY TOWNSHIP, MI, 48317",
+    "Zip": "50500",
+    "Province": "MI",
+    "FBA": "DET2",
+    "2 Region": "EAST",
+    "3 Region": "CENTRAL",
+    "DC": 41048,
+    "Zip Prefix": 48
+  },
+  {
+    "Ship to": "20110 WOODWARD AVE, DETROIT, MI, 48203",
+    "Zip": "20110",
+    "Province": "MI",
+    "FBA": "DET6",
+    "2 Region": "EAST",
+    "3 Region": "CENTRAL",
+    "DC": 41048,
+    "Zip Prefix": 48
+  },
+  {
+    "Ship to": "LAN2 - Wyoming, MI US 48917",
+    "Zip": "48917",
+    "Province": "MI",
+    "FBA": "LAN2",
+    "2 Region": "EAST",
+    "3 Region": "CENTRAL",
+    "DC": 41048,
+    "Zip Prefix": 48
+  },
+  {
+    "Ship to": "3200 EAST SAWYERR ROAD, REPUBLIC, MO, 65619",
+    "Zip": "65619",
+    "Province": "MO",
+    "FBA": "STL3",
+    "2 Region": "EAST",
+    "3 Region": "CENTRAL",
+    "DC": 41048,
+    "Zip Prefix": 65
+  },
+  {
+    "Ship to": "4000 PREMIER PARKWAY, ST. CHARLES, MO, 63301",
+    "Zip": "63301",
+    "Province": "MO",
+    "FBA": "STL8",
+    "2 Region": "EAST",
+    "3 Region": "CENTRAL",
+    "DC": 41048,
+    "Zip Prefix": 63
+  },
+  {
+    "Ship to": "219 MADISON COUNTY PARKWAY, CANTON, MS, 39046",
+    "Zip": "39046",
+    "Province": "MS",
+    "FBA": "JAN1.",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 39
+  },
+  {
+    "Ship to": "191 NORFOLK SOUTHERN WAY, BYHALIA, MS, 38611",
+    "Zip": "38611",
+    "Province": "MS",
+    "FBA": "MEM2",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 38
+  },
+  {
+    "Ship to": "11505 PROGRESS WAY, OLIVE BRAND, MS, 38654",
+    "Zip": "11505",
+    "Province": "MS",
+    "FBA": "MEM6",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 38
+  },
+  {
+    "Ship to": "850 GATEWAY GLOBAL DRIVE, BYHALIA, MS, 38611",
+    "Zip": "38611",
+    "Province": "MS",
+    "FBA": "MEM8",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 38
+  },
+  {
+    "Ship to": "6500 Davidson Hwy, Concord, North Carolina, USA, 28027",
+    "Zip": "28027",
+    "Province": "NC",
+    "FBA": "CLT3",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 28
+  },
+  {
+    "Ship to": "8000 Tuckaseegee Road, Charlotte, North Carolina, USA, 28208",
+    "Zip": "28208",
+    "Province": "NC",
+    "FBA": "CLT4",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 28
+  },
+  {
+    "Ship to": "1656 Old Greensboro Road, Kernersville, North Carolina, USA, 27284",
+    "Zip": "27284",
+    "Province": "NC",
+    "FBA": "GSO1",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 27
+  },
+  {
+    "Ship to": "4055 New Allen Road, Raleigh, North Carolina, USA, 39129-2718 39129",
+    "Zip": "39129",
+    "Province": "NC",
+    "FBA": "MEM4",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 39
+  },
+  {
+    "Ship to": "4851 Jones Sausage Road, Garner, North Carolina, USA, 27529-9438 27529",
+    "Zip": "27529",
+    "Province": "NC",
+    "FBA": "RDU1",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 27
+  },
+  {
+    "Ship to": "2560 Taren Street, Frtary, Fayetteville, North Carolina, USA, 28303",
+    "Zip": "28303",
+    "Province": "NC",
+    "FBA": "RDU4",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 28
+  },
+  {
+    "Ship to": "CLT2 - Charlotte, NC US 28214",
+    "Zip": "28214",
+    "Province": "NC",
+    "FBA": "CLT2",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 28
+  },
+  {
+    "Ship to": "RDU2 - SMITHFIELD, NC US 28303",
+    "Zip": "28303",
+    "Province": "NC",
+    "FBA": "RDU2",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 28
+  },
+  {
+    "Ship to": "3737 44th Ave. N, Fargo, North Dakota, USA, 58102",
+    "Zip": "58102",
+    "Province": "ND",
+    "FBA": "FAR1",
+    "2 Region": "WEST",
+    "3 Region": "CENTRAL",
+    "DC": 41048,
+    "Zip Prefix": 58
+  },
+  {
+    "Ship to": "14248 NE-370, PAPILLION, OMAHA, NE, 68138",
+    "Zip": "14248",
+    "Province": "NE",
+    "FBA": "OMA2",
+    "2 Region": "WEST",
+    "3 Region": "CENTRAL",
+    "DC": 41048,
+    "Zip Prefix": 68
+  },
+  {
+    "Ship to": "1225 Forest Pkwy, West Deptford, New Jersey, USA, 08066",
+    "Zip": "08066",
+    "Province": "NJ",
+    "FBA": "IVSC",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 8
+  },
+  {
+    "Ship to": "800 Arlingtion Blvd, Swedesboro, New Jersey, USA, 08085",
+    "Zip": "08085",
+    "Province": "NJ",
+    "FBA": "IVSD",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 8
+  },
+  {
+    "Ship to": "2170 Lincoln Highway (NJ-27), Edison, New Jersey, USA, 08817-3332 08817",
+    "Zip": "08817",
+    "Province": "NJ",
+    "FBA": "LGA9",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 8
+  },
+  {
+    "Ship to": "1150 McBride Avenue, Woodland Park, New Jersey, USA, 07424",
+    "Zip": "07424",
+    "Province": "NJ",
+    "FBA": "SNJ1",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 7
+  },
+  {
+    "Ship to": "22 Hightstown-Cranbury Station Road, Cranbury, New Jersey, USA, 08512",
+    "Zip": "08512",
+    "Province": "NJ",
+    "FBA": "TEB6",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 8
+  },
+  {
+    "Ship to": "TEB9 - 601 Randolph Road 08873 - SOMERSET, NJ - United States 08873",
+    "Zip": "08873",
+    "Province": "NJ",
+    "FBA": "TEB9",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 8
+  },
+  {
+    "Ship to": "152 Route 206, Hillsborough, New Jersey, USA, 08844",
+    "Zip": "08844",
+    "Province": "NJ",
+    "FBA": "XJSG",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 8
+  },
+  {
+    "Ship to": "ABE8 - Florence, NJ US 08518",
+    "Zip": "08518",
+    "Province": "NJ",
+    "FBA": "ABE8",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 8
+  },
+  {
+    "Ship to": "12945 Ladera Dr NW, Albuquerque, New Mexico, USA, 87120",
+    "Zip": "12945",
+    "Province": "NM",
+    "FBA": "ABQ1",
+    "2 Region": "WEST",
+    "3 Region": "West",
+    "DC": 89032,
+    "Zip Prefix": 87
+  },
+  {
+    "Ship to": "6251 Pioneer Trail NW, Los Lunas, New Mexico, USA, 87031",
+    "Zip": "87031",
+    "Province": "NM",
+    "FBA": "ABQ2",
+    "2 Region": "WEST",
+    "3 Region": "West",
+    "DC": 89032,
+    "Zip Prefix": 87
+  },
+  {
+    "Ship to": "2951 MARION DRIVE, UNIT 101, NORTH LAS VEGAS, NV, 89115",
+    "Zip": "89115",
+    "Province": "NV",
+    "FBA": "IVSE",
+    "2 Region": "WEST",
+    "3 Region": "West",
+    "DC": 89032,
+    "Zip Prefix": 89
+  },
+  {
+    "Ship to": "2921 MARION DRIVE, UNIT 109, NORTH LAS VEGAS, NV, 89115",
+    "Zip": "89115",
+    "Province": "NV",
+    "FBA": "IVSF",
+    "2 Region": "WEST",
+    "3 Region": "West",
+    "DC": 89032,
+    "Zip Prefix": 89
+  },
+  {
+    "Ship to": "5802 E. TROPICAL PARKWAY, NORTH LAS VEGAS, NV, 89115",
+    "Zip": "89115",
+    "Province": "NV",
+    "FBA": "VGT1",
+    "2 Region": "WEST",
+    "3 Region": "West",
+    "DC": 89032,
+    "Zip Prefix": 89
+  },
+  {
+    "Ship to": "LAS1 - HENDERSON, NV US 89044",
+    "Zip": "89044",
+    "Province": "NV",
+    "FBA": "LAS1",
+    "2 Region": "WEST",
+    "3 Region": "West",
+    "DC": 89032,
+    "Zip Prefix": 89
+  },
+  {
+    "Ship to": "34 35th Street, Suite 4BSW, Brooklyn, New York, USA, 11232",
+    "Zip": "11232",
+    "Province": "NY",
+    "FBA": "PNY2",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 11
+  },
+  {
+    "Ship to": "2600 Manitou Road, Gates, Rochester, New York, USA, 14624",
+    "Zip": "14624",
+    "Province": "NY",
+    "FBA": "ROC1",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 14
+  },
+  {
+    "Ship to": "90 Ruland Road, Melville, New York, USA, 11747",
+    "Zip": "11747",
+    "Province": "NY",
+    "FBA": "SNY5",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 11
+  },
+  {
+    "Ship to": "535 International Blvd, Rock Tavern, Montgomery, New York, USA, 12575-5150 12575",
+    "Zip": "12575",
+    "Province": "NY",
+    "FBA": "SWF1",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 12
+  },
+  {
+    "Ship to": "SWF2 - 76 Patriot Way 12533-6159 - Hopewell Junction, NY - United States 12533",
+    "Zip": "12533",
+    "Province": "NY",
+    "FBA": "SWF2",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 12
+  },
+  {
+    "Ship to": "7211 Morgan Road, Liverpool, Onondaga County, New York, USA, 13090-4334 13090",
+    "Zip": "13090",
+    "Province": "NY",
+    "FBA": "SYR1",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 13
+  },
+  {
+    "Ship to": "2450 Romig Road, Akron, Ohio, USA, 44320",
+    "Zip": "44320",
+    "Province": "OH",
+    "FBA": "AKC1",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 44
+  },
+  {
+    "Ship to": "11903 National Rd SW, Etna, Ohio, USA, 43062",
+    "Zip": "11903",
+    "Province": "OH",
+    "FBA": "CMH1",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 43
+  },
+  {
+    "Ship to": "6050 Gateway Court, Groveport, Ohio, USA, 43125",
+    "Zip": "43125",
+    "Province": "OH",
+    "FBA": "CMH2",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 43
+  },
+  {
+    "Ship to": "700 Gateway Blvd., Monroe, Ohio, USA, 43050",
+    "Zip": "43050",
+    "Province": "OH",
+    "FBA": "CMH3",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 43
+  },
+  {
+    "Ship to": "2630 W Main St, West Jefferson, Ohio, USA, 43162",
+    "Zip": "43162",
+    "Province": "OH",
+    "FBA": "CMH4",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 43
+  },
+  {
+    "Ship to": "3880 Groveport Road, Obetz, Ohio, USA, 43207",
+    "Zip": "43207",
+    "Province": "OH",
+    "FBA": "POH1",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 43
+  },
+  {
+    "Ship to": "2155 Rohr Road, Franklin, Lockbourne, Ohio, USA, 43137-7560 43137",
+    "Zip": "43137",
+    "Province": "OH",
+    "FBA": "POH2",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 43
+  },
+  {
+    "Ship to": "6895 Engle Rd, Middleburg Heights, Ohio, USA, 44130",
+    "Zip": "44130",
+    "Province": "OH",
+    "FBA": "SOH1",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 44
+  },
+  {
+    "Ship to": "650 Boulder Drive, Breinigsville, Pennsylvania, USA, 18031",
+    "Zip": "18031",
+    "Province": "PA",
+    "FBA": "ABE3",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 18
+  },
+  {
+    "Ship to": "1610 Van Buren Road, Easton, Palmer Township, Pennsylvania, USA, 18045",
+    "Zip": "18045",
+    "Province": "PA",
+    "FBA": "ABE4",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 18
+  },
+  {
+    "Ship to": "AVP1 - 550 Oak Ridge Road 18202-9361 - Hazle Township, PA - United States 18202",
+    "Zip": "18202",
+    "Province": "PA",
+    "FBA": "AVP1",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 18
+  },
+  {
+    "Ship to": "500 McCarthy Dr., Lewisberry, Pennsylvania, USA, 17339-8725 17339",
+    "Zip": "17339",
+    "Province": "PA",
+    "FBA": "PHL5",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 17
+  },
+  {
+    "Ship to": "675 Allen Rd., Carlisle, Pennsylvania, USA, 17015-7788 17015",
+    "Zip": "17015",
+    "Province": "PA",
+    "FBA": "PHL6",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 17
+  },
+  {
+    "Ship to": "1200 Westport Road, Findlay Township, Imperial, Pennsylvania, USA, 15126-2402 15126",
+    "Zip": "15126",
+    "Province": "PA",
+    "FBA": "PIT2",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 15
+  },
+  {
+    "Ship to": "1057 Hanover Street, Hanover Township, Pennsylvania, USA, 18706",
+    "Zip": "18706",
+    "Province": "PA",
+    "FBA": "PPA2",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 18
+  },
+  {
+    "Ship to": "3563 Mountain Rd, Hamburg, Upper Bern Township, Pennsylvania, USA, 19526-7948 19526",
+    "Zip": "19526",
+    "Province": "PA",
+    "FBA": "RDG1",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 19
+  },
+  {
+    "Ship to": "40 Logistics Drive, Carlisle, Pennsylvania, USA, 17013-7901 17013",
+    "Zip": "17013",
+    "Province": "PA",
+    "FBA": "XUSC",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 17
+  },
+  {
+    "Ship to": "9645 West Hills Court, Murkeytown, Pennsylvania, USA, 19530-8644 19530",
+    "Zip": "19530",
+    "Province": "PA",
+    "FBA": "XUSG",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 19
+  },
+  {
+    "Ship to": "HIA1 - MIDDLETOWN, PA US 17057",
+    "Zip": "17057",
+    "Province": "PA",
+    "FBA": "HIA1",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 17
+  },
+  {
+    "Ship to": "LBE1 - NEW STANTON, PA US 15672",
+    "Zip": "15672",
+    "Province": "PA",
+    "FBA": "LBE1",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 15
+  },
+  {
+    "Ship to": "4400 12th Street Extension, West Columbia, South Carolina, USA, 29172",
+    "Zip": "29172",
+    "Province": "SC",
+    "FBA": "CAE1",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 29
+  },
+  {
+    "Ship to": "222 Old Wire Rd, West Columbia, South Carolina, USA, 29172",
+    "Zip": "29172",
+    "Province": "SC",
+    "FBA": "CAE3",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 29
+  },
+  {
+    "Ship to": "402 John Dodd Rd, Spartanburg, South Carolina, USA, 29303",
+    "Zip": "29303",
+    "Province": "SC",
+    "FBA": "GSP1",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 29
+  },
+  {
+    "Ship to": "845 Paragon Way, Rock Hill, South Carolina, USA, 29730",
+    "Zip": "29730",
+    "Province": "SC",
+    "FBA": "XUSU",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 29
+  },
+  {
+    "Ship to": "6700 N Marion Rd, Minnehaha, Sioux Falls, South Dakota, USA, 57107",
+    "Zip": "57107",
+    "Province": "SD",
+    "FBA": "FSD1",
+    "2 Region": "WEST",
+    "3 Region": "CENTRAL",
+    "DC": 41048,
+    "Zip Prefix": 57
+  },
+  {
+    "Ship to": "500 Duke Dr, Lebanon, Tennessee, USA, 37090",
+    "Zip": "37090",
+    "Province": "TN",
+    "FBA": "BNA2",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 37
+  },
+  {
+    "Ship to": "MEM1 - 3292 E Holmes Rd 38118-8102 - Memphis, TN - United States 38118",
+    "Zip": "38118",
+    "Province": "TN",
+    "FBA": "MEM1",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 38
+  },
+  {
+    "Ship to": "6060 Golden Bear Gateway, Mount Juliet, Tennessee, USA, 37122-1413 37122",
+    "Zip": "37122",
+    "Province": "TN",
+    "FBA": "MQX1",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 37
+  },
+  {
+    "Ship to": "4101 S Singleton Station Rd, Alcoa, Rockford, Tennessee, USA, 37854",
+    "Zip": "37854",
+    "Province": "TN",
+    "FBA": "TYS1",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 37
+  },
+  {
+    "Ship to": "BNA6 - Nashville, TN US 37040",
+    "Zip": "37040",
+    "Province": "TN",
+    "FBA": "BNA6",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 37
+  },
+  {
+    "Ship to": "1851 NE Loop 820 Fort Worth, Texas, USA, 76106",
+    "Zip": "76106",
+    "Province": "TX",
+    "FBA": "AFW1",
+    "2 Region": "WEST",
+    "3 Region": "CENTRAL",
+    "DC": 41048,
+    "Zip Prefix": 76
+  },
+  {
+    "Ship to": "2000 E. Pecan Street Pflugerville, Austin, Texas, 78660",
+    "Zip": "78660",
+    "Province": "TX",
+    "FBA": "AUS2",
+    "2 Region": "WEST",
+    "3 Region": "CENTRAL",
+    "DC": 41048,
+    "Zip Prefix": 78
+  },
+  {
+    "Ship to": "2000 Exchange Parkway Waco, Texas, USA, 76712",
+    "Zip": "76712",
+    "Province": "TX",
+    "FBA": "AUS3",
+    "2 Region": "WEST",
+    "3 Region": "CENTRAL",
+    "DC": 41048,
+    "Zip Prefix": 76
+  },
+  {
+    "Ship to": "2601 S. Airfield Drive Irving, Dallas, Texas, USA, 75261",
+    "Zip": "75261",
+    "Province": "TX",
+    "FBA": "DAL2",
+    "2 Region": "WEST",
+    "3 Region": "CENTRAL",
+    "DC": 41048,
+    "Zip Prefix": 75
+  },
+  {
+    "Ship to": "4121 International Pkwy, Carrollton, Texas, USA, 75007",
+    "Zip": "75007",
+    "Province": "TX",
+    "FBA": "DFW5",
+    "2 Region": "WEST",
+    "3 Region": "CENTRAL",
+    "DC": 41048,
+    "Zip Prefix": 75
+  },
+  {
+    "Ship to": "940 W. Bethel Road, Coppell, Texas, USA, 75019",
+    "Zip": "75019",
+    "Province": "TX",
+    "FBA": "DFW6",
+    "2 Region": "WEST",
+    "3 Region": "CENTRAL",
+    "DC": 41048,
+    "Zip Prefix": 75
+  },
+  {
+    "Ship to": "700 Westport Parkway, Haslet, Fort Worth, Texas, USA, 76177",
+    "Zip": "76177",
+    "Province": "TX",
+    "FBA": "DFW7",
+    "2 Region": "WEST",
+    "3 Region": "CENTRAL",
+    "DC": 41048,
+    "Zip Prefix": 76
+  },
+  {
+    "Ship to": "1475 Akron Way Kaufman, Forney, Texas, USA, 75126",
+    "Zip": "75126",
+    "Province": "TX",
+    "FBA": "FTW5",
+    "2 Region": "WEST",
+    "3 Region": "CENTRAL",
+    "DC": 41048,
+    "Zip Prefix": 75
+  },
+  {
+    "Ship to": "3351 Balmorhea Dr, Dallas, Texas, USA, 75241",
+    "Zip": "75241",
+    "Province": "TX",
+    "FBA": "FTW8",
+    "2 Region": "WEST",
+    "3 Region": "CENTRAL",
+    "DC": 41048,
+    "Zip Prefix": 75
+  },
+  {
+    "Ship to": "10550 Ella Boulevard, Houston, Texas, USA, 77038",
+    "Zip": "10550",
+    "Province": "TX",
+    "FBA": "HOU2",
+    "2 Region": "WEST",
+    "3 Region": "CENTRAL",
+    "DC": 41048,
+    "Zip Prefix": 77
+  },
+  {
+    "Ship to": "31555 US-90, Katy, Brookshire, Texas, USA, 77423",
+    "Zip": "31555",
+    "Province": "TX",
+    "FBA": "HOU3",
+    "2 Region": "WEST",
+    "3 Region": "CENTRAL",
+    "DC": 41048,
+    "Zip Prefix": 77
+  },
+  {
+    "Ship to": "10507 Harlem Road, Richmond, Texas, USA, 77407",
+    "Zip": "10507",
+    "Province": "TX",
+    "FBA": "HOU6",
+    "2 Region": "WEST",
+    "3 Region": "CENTRAL",
+    "DC": 41048,
+    "Zip Prefix": 77
+  },
+  {
+    "Ship to": "9155 Southlink Drive Dallas, Texas, USA, 75241",
+    "Zip": "75241",
+    "Province": "TX",
+    "FBA": "IAH1",
+    "2 Region": "WEST",
+    "3 Region": "CENTRAL",
+    "DC": 41048,
+    "Zip Prefix": 75
+  },
+  {
+    "Ship to": "IAH3 - 15525 Milner Road  - HOUSTON, TX - United States 77032",
+    "Zip": "15525",
+    "Province": "TX",
+    "FBA": "IAH3",
+    "2 Region": "WEST",
+    "3 Region": "CENTRAL",
+    "DC": 41048,
+    "Zip Prefix": 77
+  },
+  {
+    "Ship to": "4500 S. Pleasant Valley Road, Ste. 201, Austin, Texas, USA, 78744",
+    "Zip": "78744",
+    "Province": "TX",
+    "FBA": "PAU2",
+    "2 Region": "WEST",
+    "3 Region": "CENTRAL",
+    "DC": 41048,
+    "Zip Prefix": 78
+  },
+  {
+    "Ship to": "6000 Schertz Parkway, Schertz, Texas, USA, 78154",
+    "Zip": "78154",
+    "Province": "TX",
+    "FBA": "SAT1",
+    "2 Region": "WEST",
+    "3 Region": "CENTRAL",
+    "DC": 41048,
+    "Zip Prefix": 78
+  },
+  {
+    "Ship to": "1401 East McCarty Lane, San Marcos, Texas, USA, 78666-8969 78666",
+    "Zip": "78666",
+    "Province": "TX",
+    "FBA": "SAT2",
+    "2 Region": "WEST",
+    "3 Region": "CENTRAL",
+    "DC": 41048,
+    "Zip Prefix": 78
+  },
+  {
+    "Ship to": "1625 Hutton Drive, Carrollton, Texas, USA, 75006-6610 75006",
+    "Zip": "75006",
+    "Province": "TX",
+    "FBA": "STX2",
+    "2 Region": "WEST",
+    "3 Region": "CENTRAL",
+    "DC": 41048,
+    "Zip Prefix": 75
+  },
+  {
+    "Ship to": "4445 Rock ʘuarry Road, 400, Dallas, Texas, USA, 75211-1409 75211",
+    "Zip": "75211",
+    "Province": "TX",
+    "FBA": "STX3",
+    "2 Region": "WEST",
+    "3 Region": "CENTRAL",
+    "DC": 41048,
+    "Zip Prefix": 75
+  },
+  {
+    "Ship to": "9900 Decker Lane, Austin, Texas, USA, 78724",
+    "Zip": "78724",
+    "Province": "TX",
+    "FBA": "STX9",
+    "2 Region": "WEST",
+    "3 Region": "CENTRAL",
+    "DC": 41048,
+    "Zip Prefix": 78
+  },
+  {
+    "Ship to": "14900 Frye Road, Fort Worth, Texas, USA, 76155-2726 76155",
+    "Zip": "14900",
+    "Province": "TX",
+    "FBA": "XUSB",
+    "2 Region": "WEST",
+    "3 Region": "CENTRAL",
+    "DC": 41048,
+    "Zip Prefix": 76
+  },
+  {
+    "Ship to": "777 N. 5600 West, Salt Lake City, Utah, USA, 84116",
+    "Zip": "84116",
+    "Province": "UT",
+    "FBA": "SLC1",
+    "2 Region": "WEST",
+    "3 Region": "West",
+    "DC": 89032,
+    "Zip Prefix": 84
+  },
+  {
+    "Ship to": "45121 Global Plaza, Sterling, Virginia, USA, 20166",
+    "Zip": "45121",
+    "Province": "VA",
+    "FBA": "BWI1",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 20
+  },
+  {
+    "Ship to": "165 Business Blvd, Frederick, Clear Brook, Virginia, USA, 22624",
+    "Zip": "22624",
+    "Province": "VA",
+    "FBA": "BWI4",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 22
+  },
+  {
+    "Ship to": "7000 Hardware Dr, Prince George, Virginia, USA, 23875",
+    "Zip": "23875",
+    "Province": "VA",
+    "FBA": "KRB2",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 23
+  },
+  {
+    "Ship to": "ORF2 - 5045 PORTSMOUTH BLVD 23321-1425 - CHESAPEAKE, VA - United States 23321",
+    "Zip": "23321",
+    "Province": "VA",
+    "FBA": "ORF2",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 23
+  },
+  {
+    "Ship to": "5901 Richmond Henrico Turnpike, Richmond, Virginia, USA, 23227",
+    "Zip": "23227",
+    "Province": "VA",
+    "FBA": "RIC4",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 23
+  },
+  {
+    "Ship to": "RMN3 - 220 Centreport Parkway 22406 - FREDERICKSBURG, VA - United States 22406",
+    "Zip": "22406",
+    "Province": "VA",
+    "FBA": "RMN3",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 22
+  },
+  {
+    "Ship to": "CHO1 - FISHERSVILLE, VA US 22939",
+    "Zip": "22939",
+    "Province": "VA",
+    "FBA": "CHO1",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 22
+  },
+  {
+    "Ship to": "10010 West Geiger Blvd., West Plains, Spokane, Washington, USA, 99224",
+    "Zip": "10010",
+    "Province": "WA",
+    "FBA": "GEG1",
+    "2 Region": "WEST",
+    "3 Region": "West",
+    "DC": 89032,
+    "Zip Prefix": 99
+  },
+  {
+    "Ship to": "18007 E. Garland Ave., Spokane, Washington, USA, 99216",
+    "Zip": "18007",
+    "Province": "WA",
+    "FBA": "GEG2",
+    "2 Region": "WEST",
+    "3 Region": "West",
+    "DC": 89032,
+    "Zip Prefix": 99
+  },
+  {
+    "Ship to": "2309 Milwaukee Way, Tacoma, Washington, USA, 98421",
+    "Zip": "98421",
+    "Province": "WA",
+    "FBA": "PWA1",
+    "2 Region": "WEST",
+    "3 Region": "West",
+    "DC": 89032,
+    "Zip Prefix": 98
+  },
+  {
+    "Ship to": "1905 Raymond Ave SW, Renton, Washington, USA, 98057",
+    "Zip": "98057",
+    "Province": "WA",
+    "FBA": "SWA2",
+    "2 Region": "WEST",
+    "3 Region": "West",
+    "DC": 89032,
+    "Zip Prefix": 98
+  },
+  {
+    "Ship to": "10601 38th Street , Kenosha, Wisconsin, USA, 53144",
+    "Zip": "10601",
+    "Province": "WI",
+    "FBA": "HMW3",
+    "2 Region": "EAST",
+    "3 Region": "CENTRAL",
+    "DC": 41048,
+    "Zip Prefix": 53
+  },
+  {
+    "Ship to": "1255 Gateway Boulevard, Rockford, Beloit, Wisconsin, USA, 53511",
+    "Zip": "53511",
+    "Province": "WI",
+    "FBA": "JVL1",
+    "2 Region": "EAST",
+    "3 Region": "CENTRAL",
+    "DC": 41048,
+    "Zip Prefix": 53
+  },
+  {
+    "Ship to": "3501 120th Ave, Kenosha, Wisconsin, USA, 53144-7502 53144",
+    "Zip": "53144",
+    "Province": "WI",
+    "FBA": "MKE1",
+    "2 Region": "EAST",
+    "3 Region": "CENTRAL",
+    "DC": 41048,
+    "Zip Prefix": 53
+  },
+  {
+    "Ship to": "9700 South 13th Street, Oak Creek, Wisconsin, USA, 53154",
+    "Zip": "53154",
+    "Province": "WI",
+    "FBA": "MKE2",
+    "2 Region": "EAST",
+    "3 Region": "CENTRAL",
+    "DC": 41048,
+    "Zip Prefix": 53
+  },
+  {
+    "Ship to": "W232 N2950 Roundy Circle East, Pewaukee, Wisconsin, USA, 53072",
+    "Zip": "53072",
+    "Province": "WI",
+    "FBA": "SWI1",
+    "2 Region": "EAST",
+    "3 Region": "CENTRAL",
+    "DC": 41048,
+    "Zip Prefix": 53
+  },
+  {
+    "Ship to": "8991 S Portland Ave, Oklahoma City, OK 73159",
+    "Zip": "73159",
+    "Province": "OK",
+    "FBA": "OKC2",
+    "2 Region": "WEST",
+    "3 Region": "CENTRAL",
+    "DC": 89032,
+    "Zip Prefix": 73
+  },
+  {
+    "Ship to": "17172 W Indian School Rd, Goodyear, AZ 85338",
+    "Zip": "17172",
+    "Province": "AZ",
+    "FBA": "GYR2",
+    "2 Region": "WEST",
+    "3 Region": "West",
+    "DC": 89032,
+    "Zip Prefix": 85
+  },
+  {
+    "Ship to": "33333 Lyndon B Johnson Fwy, Dallas, TX 75241",
+    "Zip": "33333",
+    "Province": "TX",
+    "FBA": "FTW1",
+    "2 Region": "WEST",
+    "3 Region": "CENTRAL",
+    "DC": 41048,
+    "Zip Prefix": 76
+  },
+  {
+    "Ship to": "1351 S Rd 40 E, Pasco, WA 99301",
+    "Zip": "99301",
+    "Province": "WA",
+    "FBA": "PSC2",
+    "2 Region": "WEST",
+    "3 Region": "West",
+    "DC": 89032,
+    "Zip Prefix": 98
+  },
+  {
+    "Ship to": "747 Courses Landing Rd, Penns Grove, NJ 08069",
+    "Zip": "08069",
+    "Province": "NJ",
+    "FBA": "TEB4",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 8
+  },
+  {
+    "Ship to": "2651 Oldmans Crk Rd, Logan Township, NJ 08085",
+    "Zip": "08085",
+    "Province": "NJ",
+    "FBA": "TEB3",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 8
+  },
+  {
+    "Ship to": "2500 W Walnut Ave, Rialto, CA 92376",
+    "Zip": "92376",
+    "Province": "CA",
+    "FBA": "SNA4",
+    "2 Region": "WEST",
+    "3 Region": "West",
+    "DC": 89032,
+    "Zip Prefix": 95
+  },
+  {
+    "Ship to": "4700 Wilbur Ave, Oakley, CA 94561",
+    "Zip": "94561",
+    "Province": "CA",
+    "FBA": "SCK8",
+    "2 Region": "WEST",
+    "3 Region": "West",
+    "DC": 89032,
+    "Zip Prefix": 95
+  },
+  {
+    "Ship to": "18900 W McDowell Rd, Buckeye, AZ 85396",
+    "Zip": "18900",
+    "Province": "AZ",
+    "FBA": "GEU3",
+    "2 Region": "WEST",
+    "3 Region": "West",
+    "DC": 89032,
+    "Zip Prefix": 85
+  },
+  {
+    "Ship to": "600 Ernie Dr, Hollister, CA 95023",
+    "Zip": "95023",
+    "Province": "CA",
+    "FBA": "HLI2",
+    "2 Region": "WEST",
+    "3 Region": "West",
+    "DC": 89032,
+    "Zip Prefix": 95
+  },
+  {
+    "Ship to": "2690 Arch Airport Rd, Stockton, CA 95206",
+    "Zip": "95206",
+    "Province": "CA",
+    "FBA": "TCY1",
+    "2 Region": "WEST",
+    "3 Region": "West",
+    "DC": 89032,
+    "Zip Prefix": 95
+  },
+  {
+    "Ship to": "6120 Clinker Dr, Jurupa Valley, CA 92509",
+    "Zip": "92509",
+    "Province": "CA",
+    "FBA": "POC3",
+    "2 Region": "WEST",
+    "3 Region": "West",
+    "DC": 89032,
+    "Zip Prefix": 95
+  },
+  {
+    "Ship to": "5408 Express Ave, Shafter, CA 93263",
+    "Zip": "93263",
+    "Province": "CA",
+    "FBA": "MIT2",
+    "2 Region": "WEST",
+    "3 Region": "West",
+    "DC": 89032,
+    "Zip Prefix": 95
+  },
+  {
+    "Ship to": "1760 County Line Rd, Lakeland, FL 33811",
+    "Zip": "33811",
+    "Province": "FL",
+    "FBA": "TPA2",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 34
+  },
+  {
+    "Ship to": "2600 N Normandy Blvd, Deltona, FL 32725",
+    "Zip": "32725",
+    "Province": "FL",
+    "FBA": "MCO2",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 34
+  },
+  {
+    "Ship to": "13333 103rd St, Jacksonville, FL 32221",
+    "Zip": "13333",
+    "Province": "FL",
+    "FBA": "JAX3",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 34
+  },
+  {
+    "Ship to": "2700 Center Drive, DuPont, WA 98327",
+    "Zip": "98327",
+    "Province": "WA",
+    "FBA": "BFI3",
+    "2 Region": "WEST",
+    "3 Region": "West",
+    "DC": 89032,
+    "Zip Prefix": 98
+  },
+  {
+    "Ship to": "23714 W Amoco Rd, Channahon, IL 60410",
+    "Zip": "23714",
+    "Province": "IL",
+    "FBA": "ORD2",
+    "2 Region": "EAST",
+    "3 Region": "CENTRAL",
+    "DC": 41048,
+    "Zip Prefix": 60
+  },
+  {
+    "Ship to": "1125 Remington Blvd, Romeoville, IL 60446",
+    "Zip": "60446",
+    "Province": "IL",
+    "FBA": "MDW6",
+    "2 Region": "EAST",
+    "3 Region": "CENTRAL",
+    "DC": 41048,
+    "Zip Prefix": 60
+  },
+  {
+    "Ship to": "23257 S Central Ave, Monee, IL 60449",
+    "Zip": "23257",
+    "Province": "IL",
+    "FBA": "IGQ2",
+    "2 Region": "EAST",
+    "3 Region": "CENTRAL",
+    "DC": 41048,
+    "Zip Prefix": 60
+  },
+  {
+    "Ship to": "2395 N Lakeside Dr, Amarillo, TX 79108",
+    "Zip": "79108",
+    "Province": "TX",
+    "FBA": "AMA1",
+    "2 Region": "WEST",
+    "3 Region": "CENTRAL",
+    "DC": 41048,
+    "Zip Prefix": 76
+  },
+  {
+    "Ship to": "10384 W US Hwy 90, San Antonio, TX 78245",
+    "Zip": "10384",
+    "Province": "TX",
+    "FBA": "SAT4",
+    "2 Region": "WEST",
+    "3 Region": "CENTRAL",
+    "DC": 41048,
+    "Zip Prefix": 76
+  },
+  {
+    "Ship to": "20901 Krameria Ave, Riverside, CA 92518",
+    "Zip": "20901",
+    "Province": "CA",
+    "FBA": "LGB6",
+    "2 Region": "WEST",
+    "3 Region": "West",
+    "DC": 89032,
+    "Zip Prefix": 95
+  },
+  {
+    "Ship to": "3200 Fulkerth Rd, Turlock, CA 95380",
+    "Zip": "95380",
+    "Province": "CA",
+    "FBA": "MCE1",
+    "2 Region": "WEST",
+    "3 Region": "West",
+    "DC": 89032,
+    "Zip Prefix": 95
+  },
+  {
+    "Ship to": "4930 Allbaugh Dr, Sacramento, CA 95835",
+    "Zip": "95835",
+    "Province": "CA",
+    "FBA": "SMF6",
+    "2 Region": "WEST",
+    "3 Region": "West",
+    "DC": 89032,
+    "Zip Prefix": 95
+  },
+  {
+    "Ship to": "6803-6999 Skipper Rd, Macon, GA 31216",
+    "Zip": "31216",
+    "Province": "GA",
+    "FBA": "SAV3",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 30
+  },
+  {
+    "Ship to": "808 Hog Mountain Rd, Jefferson, GA 30549",
+    "Zip": "30549",
+    "Province": "GA",
+    "FBA": "MGE3",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 30
+  },
+  {
+    "Ship to": "800 Perry Rd, Plainfield, IN 46168",
+    "Zip": "46168",
+    "Province": "IN",
+    "FBA": "IND5",
+    "2 Region": "EAST",
+    "3 Region": "CENTRAL",
+    "DC": 41048,
+    "Zip Prefix": 46
+  },
+  {
+    "Ship to": "715 Airtech Pkwy, Plainfield, IN 46168",
+    "Zip": "46168",
+    "Province": "IN",
+    "FBA": "IND2",
+    "2 Region": "EAST",
+    "3 Region": "CENTRAL",
+    "DC": 41048,
+    "Zip Prefix": 46
+  },
+  {
+    "Ship to": "1101 E Pearl St, Burlington, NJ 08016",
+    "Zip": "08016",
+    "Province": "NJ",
+    "FBA": "ACY2",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 8
+  },
+  {
+    "Ship to": "800 N. 75th Ave, Phoenix, AZ 85034",
+    "Zip": "85034",
+    "Province": "AZ",
+    "FBA": "PHX7",
+    "2 Region": "WEST",
+    "3 Region": "West",
+    "DC": 89032,
+    "Zip Prefix": 85
+  },
+  {
+    "Ship to": "6802 W Old Bingham Hwy, West Jordan, UT 84094",
+    "Zip": "84094",
+    "Province": "UT",
+    "FBA": "SLC2",
+    "2 Region": "WEST",
+    "3 Region": "West",
+    "DC": 89032,
+    "Zip Prefix": 84
+  },
+  {
+    "Ship to": "4550 Nexus Way, North Las Vegas, NV 89115",
+    "Zip": "89115",
+    "Province": "NV",
+    "FBA": "LAS6",
+    "2 Region": "WEST",
+    "3 Region": "West",
+    "DC": 89032,
+    "Zip Prefix": 89
+  },
+  {
+    "Ship to": "22205 E 19th Ave., Aurora, CO 80019",
+    "Zip": "22205",
+    "Province": "CO",
+    "FBA": "DEN2",
+    "2 Region": "WEST",
+    "3 Region": "West",
+    "DC": 89032,
+    "Zip Prefix": 80
+  },
+  {
+    "Ship to": "13001 Highway 70 North, Little Rock, AR 72117",
+    "Zip": "13001",
+    "Province": "AR",
+    "FBA": "LIT2",
+    "2 Region": "WEST",
+    "3 Region": "West",
+    "DC": 89032,
+    "Zip Prefix": 85
+  },
+  {
+    "Ship to": "5000 Commerce Way, Petersburg, VA 23803",
+    "Zip": "23803",
+    "Province": "VA",
+    "FBA": "RIC1",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 22
+  },
+  {
+    "Ship to": "1835 US Route 9, Castleton (Schodack), NY 12033",
+    "Zip": "12033",
+    "Province": "NY",
+    "FBA": "ALB1",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 13
+  },
+  {
+    "Ship to": "27517 Pioneer Ave, Redlands, CA 92374",
+    "Zip": "27517",
+    "Province": "CA",
+    "FBA": "LGB4",
+    "2 Region": "WEST",
+    "3 Region": "West",
+    "DC": 89032,
+    "Zip Prefix": 95
+  },
+  {
+    "Ship to": "225 Infinity Dr, Charleston, TN 37310",
+    "Zip": "37310",
+    "Province": "TN",
+    "FBA": "CHA2",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 37
+  },
+  {
+    "Ship to": "4775 Depot Ct SE, Salem, OR 97317",
+    "Zip": "97317",
+    "Province": "OR",
+    "FBA": "PDX7",
+    "2 Region": "WEST",
+    "3 Region": "West",
+    "DC": 89032,
+    "Zip Prefix": 95
+  },
+  {
+    "Ship to": "650 Boulder Dr, Breinigsville, PA 18031",
+    "Zip": "18031",
+    "Province": "PA",
+    "FBA": "HEA2",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 15
+  },
+  {
+    "Ship to": "1300 Corporate Way, Olyphant, PA 18447",
+    "Zip": "18447",
+    "Province": "PA",
+    "FBA": "WBW2",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 15
+  },
+  {
+    "Ship to": "3230 International Pl, DuPont, WA 98327",
+    "Zip": "98327",
+    "Province": "WA",
+    "FBA": "BFI9",
+    "2 Region": "WEST",
+    "3 Region": "West",
+    "DC": 89032,
+    "Zip Prefix": 98
+  },
+  {
+    "Ship to": "1245 Beech Rd SW, New Albany, OH 43054",
+    "Zip": "43054",
+    "Province": "OH",
+    "FBA": "CMH7",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 44
+  },
+  {
+    "Ship to": "3655 Grissom Pkwy, Cocoa, FL 32926",
+    "Zip": "32926",
+    "Province": "FL",
+    "FBA": "MLB1",
+    "2 Region": "EAST",
+    "3 Region": "EAST",
+    "DC": 41048,
+    "Zip Prefix": 34
+  }
+]
