@@ -6,6 +6,7 @@
 import xlsx from 'xlsx';
 import path from 'path';
 import { getFBAZoningSheet } from './fbaZoningHelper.js';
+import { validateAndEnhanceFile, logColumnHeaders } from './fileEnhancer.js';
 
 /**
  * Merge three separate Excel files into one workbook
@@ -54,8 +55,25 @@ export async function mergeExcelTabs(dataPath, placementPath, storagePath) {
 
     xlsx.writeFile(mergedWorkbook, outputPath);
 
-    console.log(`✅ Merged workbook created: ${path.basename(outputPath)}`);
+    // Validate merged file
+    console.log('\n🔍 Validating merged workbook...');
+    const validation = validateAndEnhanceFile(outputPath);
+
+    if (!validation.valid) {
+      throw new Error('Merged workbook validation failed');
+    }
+
+    if (validation.warnings.length > 0) {
+      console.log('⚠️  Validation warnings:');
+      validation.warnings.forEach(w => console.log(`   - ${w}`));
+    }
+
+    console.log(`✅ Merged file created: ${path.basename(outputPath)}`);
     console.log(`   Sheets: Data, Placement, Storage, FBA Zoning`);
+    console.log(`   Data rows: ${validation.dataRows}`);
+    console.log(`   Placement rows: ${validation.placementRows}`);
+    console.log(`   Storage rows: ${validation.storageRows}`);
+    console.log(`   Has Total Cuft: ${validation.hasTotalCuft ? 'YES ✅' : 'NO ❌ (using fallback)'}`);
 
     return outputPath;
 

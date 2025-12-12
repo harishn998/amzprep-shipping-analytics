@@ -30,12 +30,21 @@ const router = express.Router();
 function extractBrandFromFilename(filename) {
   if (!filename) return null;
 
-  let name = filename.replace(/\.[^/.]+$/, '');
-  name = name.replace(/_/g, ' ');
+  let name = filename.replace(/\.[^/.]+$/, '');  // Remove extension
+  name = name.replace(/_/g, ' ');  // Replace underscores with spaces
+
+  // Remove common prefixes
   name = name.replace(/^copy\s*(of\s*)?/i, '');
+
+  // Remove common suffixes (in order from most specific to least)
   name = name.replace(/[\s-]*[-–]\s*full\s*data\s*analysis$/i, '');
   name = name.replace(/[\s-]*full\s*data\s*analysis$/i, '');
+  name = name.replace(/[\s-]*analysis\s*[-–]\s*data$/i, '');  // ✅ ADD: "Analysis - Data"
+  name = name.replace(/[\s-]*[-–]\s*data$/i, '');  // ✅ ADD: "- Data" or " - Data"
+  name = name.replace(/[\s-]*data$/i, '');  // ✅ ADD: " Data" at end
   name = name.replace(/[\s-]*analysis$/i, '');
+
+  // Clean up extra spaces and dashes
   name = name.replace(/^[\s-]+|[\s-]+$/g, '');
   name = name.replace(/\s+/g, ' ').trim();
 
@@ -258,6 +267,20 @@ router.post('/separate-analyze', async (req, res) => {
       session.files.storage.path
     );
 
+    // Add validation
+    console.log('🔍 Validating merged file...');
+    const { validateAndEnhanceFile } = await import('../utils/fileEnhancer.js');
+    const validation = validateAndEnhanceFile(mergedFilePath);
+
+    // Log warnings to user
+    if (validation.warnings.length > 0) {
+      console.log('⚠️  Data quality warnings:');
+      validation.warnings.forEach(w => console.log(`   - ${w}`));
+    }
+
+    // Continue with analysis
+    console.log('   📊 Parsing merged file...');
+
     console.log(`   ✅ Merged file created: ${path.basename(mergedFilePath)}`);
 
     // Import functions from server.js
@@ -284,7 +307,7 @@ router.post('/separate-analyze', async (req, res) => {
     const report = new Report({
       userId: req.user.id,
       userEmail: req.user.email,
-      filename: `Merged-${session.files.data.filename}`,
+      filename: session.files.data.originalname || session.files.data.filename,
       uploadDate: new Date(),
       uploadType: 'amazon',
       rateType: 'prep',
@@ -308,8 +331,14 @@ router.post('/separate-analyze', async (req, res) => {
 
     console.log('============================================\n');
 
+    // ✅ ADD DETAILED LOGGING HERE:
+    console.log('🏷️ ========== BRAND NAME EXTRACTION ==========');
     const dataFilename = session.files?.data?.originalname || '';
+    console.log('Original filename:', dataFilename);
+
     const brandName = extractBrandFromFilename(dataFilename);
+    console.log('Extracted brand:', brandName);
+    console.log('============================================\n');
 
     res.json({
       success: true,
@@ -385,6 +414,80 @@ router.delete('/session/:sessionId', (req, res) => {
   } catch (error) {
     console.error('Cancel session error:', error);
     res.status(500).json({ error: 'Error cancelling session' });
+  }
+});
+
+/**
+ * POST /api/validate-session
+ * Validate session data before analysis
+ */
+router.post('/validate-session', async (req, res) => {
+  try {
+    const { sessionId } = req.body;
+
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    const userId = req.user.id;
+    const session = getSession(sessionId, userId);
+
+    if (!session || !isSessionReady(sessionId)) {
+      return res.json({
+        success: true,
+        valid: false,
+        message: 'Not all tabs uploaded yet'
+      });
+    }
+
+    // Import validation function
+    const { validateAndEnhanceFile } = await import('../utils/fileEnhancer.js');
+
+    // Merge files temporarily for validation
+    const tempMergedPath = await mergeExcelTabs(
+      session.files.data.path,
+      session.files.placement.path,
+      session.files.storage.path
+    );
+
+    // Validate
+    const validation = validateAndEnhanceFile(tempMergedPath);
+
+    // Clean up temp file
+    fs.unlinkSync(tempMergedPath);
+
+    // Build warnings array
+    const warnings = [];
+
+    if (!validation.hasTotalCuft) {
+      warnings.push({
+        type: 'missing_column',
+        severity: 'high',
+        message: 'Total Cuft column not found in Placement tab',
+        impact: 'System will use fallback calculation from Storage tab (1-5% less accurate)',
+        suggestion: 'Ensure Placement tab has "Total Cuft" column for accurate results'
+      });
+    }
+
+    return res.json({
+      success: true,
+      valid: true,
+      warnings,
+      stats: {
+        dataRows: validation.dataRows,
+        placementRows: validation.placementRows,
+        storageRows: validation.storageRows,
+        hasTotalCuft: validation.hasTotalCuft,
+        hasPlacementFees: validation.hasPlacementFees
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Validation error:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Validation failed: ' + error.message
+    });
   }
 });
 

@@ -1,6 +1,6 @@
 // ============================================================================
 // PROCESSING MODAL COMPONENT - Enterprise-Level Design
-// Updated Brand Colors: #000000 → #091332 background, #0386FE → #9507FF gradient
+// Updated to use ONLY brand blue (#00A8FF) - NO pink/purple gradient
 // File: ProcessingModal.jsx
 // ============================================================================
 
@@ -33,7 +33,7 @@ export const ProcessingModal = ({
         className="rounded-2xl shadow-2xl w-full max-w-2xl mx-4 overflow-hidden"
         style={{
           background: 'linear-gradient(135deg, #000000 0%, #091332 100%)',
-          border: '1px solid rgba(3, 134, 254, 0.2)'
+          border: '1px solid rgba(0, 168, 255, 0.2)'
         }}
       >
         {/* Header - Dark with Logo */}
@@ -44,7 +44,7 @@ export const ProcessingModal = ({
               className="p-3 rounded-xl"
               style={{
                 background: 'rgba(10, 15, 30, 0.8)',
-                border: '1px solid rgba(3, 134, 254, 0.3)'
+                border: '1px solid rgba(0, 168, 255, 0.3)'
               }}
             >
               <img
@@ -57,9 +57,7 @@ export const ProcessingModal = ({
               <h2
                 className="text-2xl font-bold"
                 style={{
-                  background: 'linear-gradient(90deg, #0386FE, #9507FF)',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent'
+                  color: '#00A8FF'
                 }}
               >
                 Enterprise Shipment Export
@@ -76,26 +74,24 @@ export const ProcessingModal = ({
           {/* Animated Loader with Progress */}
           <div className="flex items-center justify-center mb-8">
             <div className="relative">
-              {/* Gradient ring background */}
+              {/* Blue ring background */}
               <div
                 className="absolute inset-0 rounded-full blur-xl opacity-30"
                 style={{
-                  background: 'linear-gradient(135deg, #0386FE, #9507FF)'
+                  background: '#00A8FF'
                 }}
               />
               <Loader2
                 className="w-16 h-16 animate-spin relative"
                 style={{
-                  color: '#0386FE'
+                  color: '#00A8FF'
                 }}
               />
               <div className="absolute inset-0 flex items-center justify-center">
                 <span
                   className="font-bold text-lg"
                   style={{
-                    background: 'linear-gradient(135deg, #0386FE, #9507FF)',
-                    WebkitBackgroundClip: 'text',
-                    WebkitTextFillColor: 'transparent'
+                    color: '#00A8FF'
                   }}
                 >
                   {Math.round(progress)}%
@@ -112,16 +108,14 @@ export const ProcessingModal = ({
             <div
               className="font-medium"
               style={{
-                background: 'linear-gradient(90deg, #0386FE, #9507FF)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent'
+                color: '#00A8FF'
               }}
             >
               {processedCount.toLocaleString()} / {totalCount.toLocaleString()} shipments processed
             </div>
           </div>
 
-          {/* Progress Bar with Gradient */}
+          {/* Progress Bar with Brand Blue */}
           <div className="mb-8">
             <div
               className="h-2 rounded-full overflow-hidden"
@@ -133,7 +127,7 @@ export const ProcessingModal = ({
                 className="h-full transition-all duration-300 ease-out rounded-full"
                 style={{
                   width: `${progress}%`,
-                  background: 'linear-gradient(90deg, #0386FE, #9507FF)'
+                  background: '#00A8FF'
                 }}
               />
             </div>
@@ -146,15 +140,14 @@ export const ProcessingModal = ({
               className="rounded-xl p-4"
               style={{
                 background: 'rgba(10, 15, 30, 0.6)',
-                border: '1px solid rgba(3, 134, 254, 0.2)'
+                border: '1px solid rgba(0, 168, 255, 0.2)'
               }}
             >
               <div className="flex items-center justify-between mb-2">
                 <Clock
                   size={22}
                   style={{
-                    stroke: 'url(#iconGradient)',
-                    color: '#0386FE'
+                    color: '#00A8FF'
                   }}
                 />
               </div>
@@ -163,7 +156,7 @@ export const ProcessingModal = ({
               </div>
               <div
                 className="text-xs mt-1 font-medium"
-                style={{ color: 'rgba(3, 134, 254, 0.7)' }}
+                style={{ color: 'rgba(0, 168, 255, 0.7)' }}
               >
                 AVG COST/UNIT
               </div>
@@ -174,13 +167,13 @@ export const ProcessingModal = ({
               className="rounded-xl p-4"
               style={{
                 background: 'rgba(10, 15, 30, 0.6)',
-                border: '1px solid rgba(3, 134, 254, 0.2)'
+                border: '1px solid rgba(0, 168, 255, 0.2)'
               }}
             >
               <div className="flex items-center justify-between mb-2">
                 <Package
                   size={22}
-                  style={{ color: '#0386FE' }}
+                  style={{ color: '#00A8FF' }}
                 />
               </div>
               <div className="text-2xl font-bold text-white">
@@ -188,7 +181,7 @@ export const ProcessingModal = ({
               </div>
               <div
                 className="text-xs mt-1 font-medium"
-                style={{ color: 'rgba(3, 134, 254, 0.7)' }}
+                style={{ color: 'rgba(0, 168, 255, 0.7)' }}
               >
                 UNITS
               </div>
@@ -199,13 +192,13 @@ export const ProcessingModal = ({
               className="rounded-xl p-4"
               style={{
                 background: 'rgba(10, 15, 30, 0.6)',
-                border: '1px solid rgba(3, 134, 254, 0.2)'
+                border: '1px solid rgba(0, 168, 255, 0.2)'
               }}
             >
               <div className="flex items-center justify-between mb-2">
                 <DollarSign
                   size={22}
-                  style={{ color: '#9507FF' }}
+                  style={{ color: '#00A8FF' }}
                 />
               </div>
               <div className="text-2xl font-bold text-white">
@@ -213,7 +206,7 @@ export const ProcessingModal = ({
               </div>
               <div
                 className="text-xs mt-1 font-medium"
-                style={{ color: 'rgba(149, 7, 255, 0.7)' }}
+                style={{ color: 'rgba(0, 168, 255, 0.7)' }}
               >
                 SHIPPING COST
               </div>
@@ -224,13 +217,13 @@ export const ProcessingModal = ({
               className="rounded-xl p-4"
               style={{
                 background: 'rgba(10, 15, 30, 0.6)',
-                border: '1px solid rgba(149, 7, 255, 0.2)'
+                border: '1px solid rgba(0, 168, 255, 0.2)'
               }}
             >
               <div className="flex items-center justify-between mb-2">
                 <MapPin
                   size={22}
-                  style={{ color: '#9507FF' }}
+                  style={{ color: '#00A8FF' }}
                 />
               </div>
               <div className="text-2xl font-bold text-white">
@@ -238,7 +231,7 @@ export const ProcessingModal = ({
               </div>
               <div
                 className="text-xs mt-1 font-medium"
-                style={{ color: 'rgba(149, 7, 255, 0.7)' }}
+                style={{ color: 'rgba(0, 168, 255, 0.7)' }}
               >
                 PLACEMENT FEES
               </div>
@@ -280,7 +273,7 @@ export const ProcessingModal = ({
 };
 
 /**
- * Processing Step Component with gradient styling
+ * Processing Step Component with brand blue styling
  */
 const ProcessingStep = ({ completed, active, label }) => {
   return (
@@ -291,12 +284,12 @@ const ProcessingStep = ({ completed, active, label }) => {
         }`}
         style={{
           background: completed
-            ? 'linear-gradient(135deg, #0386FE, #9507FF)'
+            ? '#00A8FF'
             : active
-              ? 'linear-gradient(135deg, #0386FE, #9507FF)'
+              ? '#00A8FF'
               : 'rgba(255, 255, 255, 0.1)',
           boxShadow: (completed || active)
-            ? '0 0 12px rgba(3, 134, 254, 0.4)'
+            ? '0 0 12px rgba(0, 168, 255, 0.4)'
             : 'none'
         }}
       >

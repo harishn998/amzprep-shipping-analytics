@@ -1,11 +1,10 @@
 // ============================================================================
-// TAB VALIDATOR - Validate uploaded tab formats (OPTIMIZED FOR YOUR FILES)
+// TAB VALIDATOR - Validate uploaded tab formats (FIXED - NO DUPLICATE)
 // File: backend/utils/tabValidator.js
-//
-// REPLACE your existing tabValidator.js with this file
 // ============================================================================
 
 import xlsx from 'xlsx';
+import { findColumn } from './fileEnhancer.js';
 
 /**
  * Column mapping - accepts multiple variations of column names
@@ -105,20 +104,7 @@ const TAB_SCHEMAS = {
   }
 };
 
-/**
- * Find if a column exists in the file with any of its possible names
- */
-function findColumn(columns, possibleNames) {
-  for (const colName of columns) {
-    const normalizedColName = colName.trim().toLowerCase();
-    for (const possibleName of possibleNames) {
-      if (normalizedColName === possibleName.toLowerCase()) {
-        return colName; // Return actual column name from file
-      }
-    }
-  }
-  return null;
-}
+// ✅ REMOVED DUPLICATE findColumn - it's imported from fileEnhancer.js
 
 /**
  * Validate a tab file with flexible column matching
@@ -155,7 +141,10 @@ export function validateTabFile(tabType, filePath) {
 
     for (const requiredCol of schema.requiredColumns) {
       const possibleNames = mappings[requiredCol] || [requiredCol];
-      const foundCol = findColumn(columns, possibleNames);
+
+      // ✅ Use the imported findColumn from fileEnhancer.js
+      const foundIdx = findColumn(columns, possibleNames);
+      const foundCol = foundIdx !== -1 ? columns[foundIdx] : null;
 
       if (foundCol) {
         foundColumns[requiredCol] = foundCol;

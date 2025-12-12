@@ -69,23 +69,34 @@ export function getSession(sessionId, userId) {
 
 /**
  * Update session with uploaded tab
+ * @param {string} sessionId - Session ID
+ * @param {string} tabType - Tab type (data, placement, storage)
+ * @param {string} filePath - Path to uploaded file
+ * @param {string} originalFilename - Original filename from user
  */
-export function updateSessionTab(sessionId, tabType, filePath, filename) {
+export function updateSessionTab(sessionId, tabType, filePath, originalFilename) {
   const session = uploadSessions.get(sessionId);
 
   if (!session) {
     throw new Error('Session not found');
   }
 
+  // Store file information with BOTH filename and originalname
   session.files[tabType] = {
     path: filePath,
-    filename,
+    filename: originalFilename,      // For backward compatibility
+    originalname: originalFilename,  // ✅ What separateUpload.js expects
     uploaded: true,
     uploadedAt: Date.now()
   };
 
   uploadSessions.set(sessionId, session);
-  console.log(`✅ Updated session ${sessionId} - ${tabType} tab uploaded`);
+
+  // Enhanced logging
+  console.log(`✅ Updated session ${sessionId}:`);
+  console.log(`   Tab: ${tabType}`);
+  console.log(`   Original filename: ${originalFilename}`);
+  console.log(`   Path: ${filePath}`);
 
   return session;
 }

@@ -124,6 +124,7 @@ const ShippingAnalytics = () => {
   };
 
   const handleCostConfigChange = useCallback((newConfig) => {
+  console.log('💰 Cost configuration updated:', newConfig);
   setCostConfig(newConfig);
 }, []);
 
@@ -302,25 +303,37 @@ const ShippingAnalytics = () => {
   };
 
   const loadReport = async (reportId) => {
-    setLoading(true);
-    try {
-      const response = await axios.get(`${API_URL}/reports/${reportId}`, {
-      headers: getAuthHeader()  // ← ADD THIS
-      });
-      setDashboardData(response.data);
-      setCurrentReportId(reportId);
-      setActiveView('dashboard');
-    } catch (err) {
-      // Handle auth errors
-      if (err.response?.status === 401 || err.response?.status === 403) {
-        logout();
-        window.location.href = '/login';
-        return;
-      }
-      setError('Error loading report');
-    } finally {
-      setLoading(false);
+  setLoading(true);
+  try {
+    const response = await axios.get(`${API_URL}/reports/${reportId}`, {
+      headers: getAuthHeader()
+    });
+
+    // Set dashboard data
+    setDashboardData(response.data);
+    setCurrentReportId(reportId);
+
+    // ✅ Extract brand name from report filename
+    const reportFilename = response.data.filename || '';
+    const extractedBrand = extractBrandName(reportFilename);
+    setBrandName(extractedBrand);
+
+    console.log('📂 Loaded report:', {
+      filename: reportFilename,
+      brandName: extractedBrand
+    });
+
+    setActiveView('dashboard');
+  } catch (err) {
+    if (err.response?.status === 401 || err.response?.status === 403) {
+      logout();
+      window.location.href = '/login';
+      return;
     }
+    setError('Error loading report');
+  } finally {
+    setLoading(false);
+  }
   };
 
   const deleteReport = async (reportId) => {

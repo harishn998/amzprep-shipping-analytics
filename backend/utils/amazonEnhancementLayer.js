@@ -1,23 +1,16 @@
 // ============================================================================
-// AMAZON ENHANCEMENT LAYER - COMPLETE FIX
+// AMAZON ENHANCEMENT LAYER - WITH SMART COLUMN DETECTION
 // File: backend/utils/amazonEnhancementLayer.js
 //
-// FIXES APPLIED:
-// 1. 🆕 Use "Total Cuft" column from Placement (line total, not per-unit)
-//    - Priority 1: Placement "Total Cuft" (pre-calculated line total)
-//    - Priority 2: Placement "Cuft" × Qty (per-unit × quantity)
-//    - Priority 3: Storage item_volume × Qty (last resort fallback)
-// 2. Improved dimension calculation from Storage (if needed)
-// 3. Better handling of missing data
-//
-// This fixes: 7816 cuft → 6396 cuft, 117 pallets → 95 pallets
+// ✅ FIXED: Now uses findColumn() for smart column detection
 // ============================================================================
 
 import xlsx from 'xlsx';
 import path from 'path';
+import { findColumn } from './fileEnhancer.js';
 
 /**
- * AmazonEnhancementLayer - COMPLETE FIX VERSION
+ * AmazonEnhancementLayer - FIXED VERSION with smart column detection
  */
 class AmazonEnhancementLayer {
 
@@ -124,7 +117,7 @@ class AmazonEnhancementLayer {
     const storageLookup = this.buildStorageLookup(storageRows);
     const placementByShipmentID = this.buildPlacementLookup(placementRows);
 
-    // 🆕 FIX: Build Cuft lookup - check for existing column first
+    // ✅ FIX: Build Cuft lookup with smart column detection
     const cuftByShipmentID = this.buildCuftLookupFromPlacement(placementRows, storageLookup);
 
     console.log(`🔍 Storage lookup map: ${Object.keys(storageLookup).length} unique FNSKUs`);
@@ -201,7 +194,7 @@ class AmazonEnhancementLayer {
         itemVolume = parseFloat(row['item_volume']) || 0;
       }
 
-      // 🆕 FIX: Calculate from dimensions if item_volume not available
+      // Calculate from dimensions if item_volume not available
       if (itemVolume === 0 && row['longest_side'] && row['median_side'] && row['shortest_side']) {
         const longest = parseFloat(row['longest_side']) || 0;
         const median = parseFloat(row['median_side']) || 0;
@@ -226,25 +219,60 @@ class AmazonEnhancementLayer {
   }
 
   /**
-   * 🆕 FIX: Build Cuft lookup from Placement - use "Total Cuft" column (line total)
-   *
-   * CRITICAL: The Placement sheet has TWO Cuft columns:
-   *   - "Cuft" = Per-unit cubic feet (e.g., 0.0404)
-   *   - "Total Cuft" = Line total (Cuft × Qty, e.g., 3.232)
-   *
-   * Manual analysis uses SUMIF on "Total Cuft" column, so we must use that!
+   * ✅ FIX: Build Cuft lookup from Placement - use smart column detection
    */
   buildCuftLookupFromPlacement(placementRows, storageLookup) {
     const cuftByShipment = {};
 
-    // Check available Cuft columns
+    if (placementRows.length === 0) {
+      return cuftByShipment;
+    }
+
+    // ✅ ROBUST column detection - find ANY column containing "cuft"
     const headers = Object.keys(placementRows[0] || {});
-    const hasTotalCuftColumn = headers.some(h => h.toLowerCase() === 'total cuft');
-    const hasCuftColumn = headers.some(h => h.toLowerCase() === 'cuft');
+
+    console.log('🔍 Searching for Cuft columns in Placement sheet...');
+
+    // Find ALL columns containing "cuft" (case-insensitive)
+    const cuftColumns = [];
+    headers.forEach((h, i) => {
+      const normalized = h.toLowerCase().trim();
+      if (normalized.includes('cuft')) {
+        cuftColumns.push({ index: i, name: h, normalized });
+        console.log(`   Found cuft column at index ${i}: "${h}"`);
+      }
+    });
+
+    // Find "Total Cuft" - must contain both "total" and "cuft"
+    let totalCuftIdx = -1;
+    let totalCuftColName = null;
+    for (const col of cuftColumns) {
+      if (col.normalized.includes('total')) {
+        totalCuftIdx = col.index;
+        totalCuftColName = col.name;
+        console.log(`   ✓ Selected as "Total Cuft": "${col.name}"`);
+        break;
+      }
+    }
+
+    // Find "Cuft" - contains "cuft" but NOT "total"
+    let cuftIdx = -1;
+    let cuftColName = null;
+    for (const col of cuftColumns) {
+      if (!col.normalized.includes('total')) {
+        cuftIdx = col.index;
+        cuftColName = col.name;
+        console.log(`   ✓ Selected as "Cuft": "${col.name}"`);
+        break;
+      }
+    }
+
+    const hasTotalCuftColumn = totalCuftIdx !== -1;
+    const hasCuftColumn = cuftIdx !== -1;
 
     console.log(`📦 Placement sheet columns:`);
-    console.log(`   "Total Cuft" column: ${hasTotalCuftColumn ? 'YES ✓' : 'NO'}`);
-    console.log(`   "Cuft" column: ${hasCuftColumn ? 'YES' : 'NO'}`);
+    console.log(`   "Total Cuft" column: ${hasTotalCuftColumn ? `YES ✓ (${totalCuftColName})` : 'NO'}`);
+    console.log(`   "Cuft" column: ${hasCuftColumn ? `YES (${cuftColName})` : 'NO'}`);
 
     let cuftFromTotalColumn = 0;
     let cuftFromPerUnit = 0;
@@ -257,9 +285,9 @@ class AmazonEnhancementLayer {
       let lineCuft = 0;
       const quantity = parseFloat(row['Actual received quantity']) || 0;
 
-      // 🆕 Priority 1: Use "Total Cuft" column directly (pre-calculated line total)
-      if (hasTotalCuftColumn) {
-        const totalCuftVal = row['Total Cuft'];
+      // ✅ Priority 1: Use "Total Cuft" column directly (if it exists)
+      if (hasTotalCuftColumn && totalCuftColName) {
+        const totalCuftVal = row[totalCuftColName];
         if (totalCuftVal !== undefined && totalCuftVal !== null && totalCuftVal !== '') {
           lineCuft = parseFloat(totalCuftVal) || 0;
           if (lineCuft > 0) {
@@ -268,9 +296,9 @@ class AmazonEnhancementLayer {
         }
       }
 
-      // 🆕 Priority 2: Calculate from "Cuft" (per-unit) × Quantity
-      if (lineCuft === 0 && hasCuftColumn && quantity > 0) {
-        const perUnitCuft = parseFloat(row['Cuft']) || 0;
+      // ✅ Priority 2: Calculate from "Cuft" (per-unit) × Quantity
+      if (lineCuft === 0 && hasCuftColumn && cuftColName && quantity > 0) {
+        const perUnitCuft = parseFloat(row[cuftColName]) || 0;
         if (perUnitCuft > 0) {
           lineCuft = perUnitCuft * quantity;
           cuftFromPerUnit++;

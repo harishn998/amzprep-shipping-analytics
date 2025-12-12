@@ -13,7 +13,7 @@ const TabUploadSection = ({
   progress,
   error,
   onUpload,
-  description
+  description,
 }) => {
   const fileInputRef = useRef(null);
 

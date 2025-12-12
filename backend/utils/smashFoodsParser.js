@@ -19,6 +19,7 @@ import XLSX from 'xlsx';
 import { parseISO } from 'date-fns';
 import HazmatClassifier from './hazmatClassifier.js';
 import { zipToState } from './zipToState.js';
+import { findColumn } from './fileEnhancer.js';
 
 /**
  * SmashFoodsParser - COMPLETE FIX VERSION
@@ -362,15 +363,64 @@ class SmashFoodsParser {
       }
     });
 
-    // Check available Cuft columns
+    // ✅ ROBUST column detection - find ANY column containing "cuft"
     const headers = Object.keys(data[0] || {});
-    const hasTotalCuftColumn = headers.some(h => h.toLowerCase() === 'total cuft');
-    const hasCuftColumn = headers.some(h => h.toLowerCase() === 'cuft');
+
+    console.log('🔍 Searching for Cuft columns in Placement sheet...');
+
+    // Find ALL columns containing "cuft" (case-insensitive)
+    const cuftColumns = [];
+    headers.forEach((h, i) => {
+      const normalized = h.toLowerCase().trim();
+      if (normalized.includes('cuft')) {
+        cuftColumns.push({ index: i, name: h, normalized });
+        console.log(`   Found cuft column at index ${i}: "${h}"`);
+      }
+    });
+
+    // Find "Total Cuft" - must contain both "total" and "cuft"
+    let totalCuftIdx = -1;
+    let totalCuftColName = null;
+    for (const col of cuftColumns) {
+      if (col.normalized.includes('total')) {
+        totalCuftIdx = col.index;
+        totalCuftColName = col.name;
+        console.log(`   ✓ Selected as "Total Cuft": "${col.name}"`);
+        break;
+      }
+    }
+
+    // Find "Cuft" - contains "cuft" but NOT "total"
+    let cuftIdx = -1;
+    let cuftColName = null;
+    for (const col of cuftColumns) {
+      if (!col.normalized.includes('total')) {
+        cuftIdx = col.index;
+        cuftColName = col.name;
+        console.log(`   ✓ Selected as "Cuft": "${col.name}"`);
+        break;
+      }
+    }
+
+    const hasTotalCuftColumn = totalCuftIdx !== -1;
+    const hasCuftColumn = cuftIdx !== -1;
 
     console.log(`📦 Placement sheet columns:`);
-    console.log(`   "Total Cuft" column: ${hasTotalCuftColumn ? 'YES ✓' : 'NO'}`);
-    console.log(`   "Cuft" column: ${hasCuftColumn ? 'YES' : 'NO'}`);
+    console.log(`   "Total Cuft" column: ${hasTotalCuftColumn ? `YES ✓ (${totalCuftColName})` : 'NO'}`);
+    console.log(`   "Cuft" column: ${hasCuftColumn ? `YES (${cuftColName})` : 'NO'}`);
 
+    // ✅ Add diagnostic: Check if first row actually has data
+    if (data.length > 0) {
+      const firstRow = data[0];
+      console.log(`🔍 First row diagnostic:`);
+      if (totalCuftColName) {
+        console.log(`   ${totalCuftColName}: ${firstRow[totalCuftColName]}`);
+      }
+      if (cuftColName) {
+        console.log(`   ${cuftColName}: ${firstRow[cuftColName]}`);
+      }
+      console.log(`   Actual received quantity: ${firstRow['Actual received quantity']}`);
+    }
     return data.map(row => {
       const fnsku = row['FNSKU'] || '';
       const receivedQty = parseInt(row['Actual received quantity'] || 0);
@@ -381,8 +431,8 @@ class SmashFoodsParser {
 
       // Priority 1: Use "Total Cuft" column directly (pre-calculated line total)
       // This matches the manual analysis SUMIF formula: =SUMIF(Placement!$C:$C,$B4,Placement!$X:$X)
-      if (hasTotalCuftColumn) {
-        const totalCuftVal = row['Total Cuft'];
+      if (hasTotalCuftColumn && totalCuftColName) {
+        const totalCuftVal = row[totalCuftColName];
         if (totalCuftVal !== undefined && totalCuftVal !== null && totalCuftVal !== '') {
           cuftValue = parseFloat(totalCuftVal) || 0;
           if (cuftValue > 0) {
@@ -392,8 +442,8 @@ class SmashFoodsParser {
       }
 
       // Priority 2: Calculate from "Cuft" (per-unit) × Quantity
-      if (cuftValue === 0 && hasCuftColumn && receivedQty > 0) {
-        const perUnitCuft = parseFloat(row['Cuft'] || 0);
+      if (cuftValue === 0 && hasCuftColumn && cuftColName && receivedQty > 0) {
+        const perUnitCuft = parseFloat(row[cuftColName] || 0);
         if (perUnitCuft > 0) {
           cuftValue = perUnitCuft * receivedQty;
           cuftSource = 'placement_cuft_x_qty';

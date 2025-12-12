@@ -1,15 +1,9 @@
 // ============================================================================
-// SEPARATE TAB UPLOADER - UPDATED WITH ALL FIXES
+// SEPARATE TAB UPLOADER - WITH VALIDATION & WARNING MODAL
 // File: frontend/src/components/SeparateTabUploader.jsx
 // ============================================================================
-// FIXES:
-// 1. ✅ Updated tab names (FBA Shipment Export, FBA Placement Fees, Monthly Storage Fees)
-// 2. ✅ Processing modal uses real stats (not hardcoded zeros)
-// 3. ✅ Brand name extraction and passing to parent
-// 4. ✅ Cost configuration properly sent to backend
-// ============================================================================
 
-import React, { useState } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { FileSpreadsheet, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 import TabUploadSection from './TabUploadSection';
@@ -48,8 +42,6 @@ const SeparateTabUploader = ({
   const [analysisProgress, setAnalysisProgress] = useState(0);
   const [processedShipments, setProcessedShipments] = useState(0);
   const [totalShipments, setTotalShipments] = useState(0);
-
-  // ✅ FIX #1: Add processing stats state (not hardcoded zeros)
   const [processingStats, setProcessingStats] = useState({
     avgCostPerUnit: 0,
     totalUnits: 0,
@@ -57,15 +49,14 @@ const SeparateTabUploader = ({
     totalPlacementFees: 0
   });
 
-  /**
-   * Handle individual tab upload
-   */
+  // ✅ NEW: Validation warning modal state
+  const [validationWarnings, setValidationWarnings] = useState([]);
+  const [showWarningModal, setShowWarningModal] = useState(false);
+  const [validationStats, setValidationStats] = useState(null);
+
   const handleTabUpload = async (tabType, file) => {
     try {
-      // Reset error for this tab
       setErrors(prev => ({ ...prev, [tabType]: null }));
-
-      // Reset progress
       setUploadProgress(prev => ({ ...prev, [tabType]: 0 }));
 
       const formData = new FormData();
@@ -75,7 +66,6 @@ const SeparateTabUploader = ({
         formData.append('sessionId', sessionId);
       }
 
-      // Get auth header
       const authHeader = getAuthHeader();
 
       const response = await axios.post(
@@ -95,15 +85,11 @@ const SeparateTabUploader = ({
       );
 
       if (response.data.success) {
-        // Store session ID from first upload
         if (!sessionId && response.data.sessionId) {
           setSessionId(response.data.sessionId);
         }
-
-        // Mark tab as uploaded
         setUploadedTabs(prev => ({ ...prev, [tabType]: true }));
         setUploadProgress(prev => ({ ...prev, [tabType]: 100 }));
-
         return { success: true };
       } else {
         throw new Error(response.data.error || 'Upload failed');
@@ -121,22 +107,60 @@ const SeparateTabUploader = ({
     }
   };
 
-  /**
-   * Trigger analysis when all tabs uploaded
-   */
+  // ✅ NEW: Main analyze function that calls validation first
   const handleAnalyze = async () => {
     if (!sessionId) {
       onError?.('No session found. Please upload all tabs first.');
       return;
     }
 
+    // ✅ Validate session before analyzing
+    try {
+      console.log('🔍 Validating session data...');
+
+      const validationResponse = await axios.post(
+        `${API_URL}/validate-session`,
+        { sessionId },
+        { headers: getAuthHeader() }
+      );
+
+      console.log('✅ Validation response:', validationResponse.data);
+
+      // Check if there are warnings
+      if (validationResponse.data.warnings && validationResponse.data.warnings.length > 0) {
+        console.log('⚠️ Validation warnings found:', validationResponse.data.warnings);
+        setValidationWarnings(validationResponse.data.warnings);
+        setValidationStats(validationResponse.data.stats);
+        setShowWarningModal(true);
+        return; // Stop here and show modal
+      }
+
+      // No warnings, proceed directly
+      console.log('✅ No warnings, proceeding with analysis');
+      proceedWithAnalysis();
+
+    } catch (error) {
+      console.error('⚠️ Validation error:', error);
+
+      // If validation endpoint doesn't exist yet, proceed anyway
+      if (error.response?.status === 404) {
+        console.log('⚠️ Validation endpoint not available, proceeding with analysis');
+        proceedWithAnalysis();
+      } else {
+        // Other errors - show to user
+        onError?.('Validation failed: ' + (error.message || 'Unknown error'));
+      }
+    }
+  };
+
+  // ✅ NEW: Separate function for actual analysis
+  const proceedWithAnalysis = async () => {
     setAnalyzing(true);
     setProcessingModalOpen(true);
     setAnalysisProgress(0);
     setProcessedShipments(0);
 
     try {
-      // Simulate progress for user feedback
       const progressInterval = setInterval(() => {
         setAnalysisProgress(prev => {
           if (prev >= 95) {
@@ -147,12 +171,11 @@ const SeparateTabUploader = ({
         });
       }, 100);
 
-      // ✅ FIX #2: Ensure costConfig is sent
       const response = await axios.post(
         `${API_URL}/separate-analyze`,
         {
           sessionId,
-          costConfig,  // ✅ Cost configuration included
+          costConfig,
           hazmatFilter
         },
         {
@@ -164,72 +187,20 @@ const SeparateTabUploader = ({
       setAnalysisProgress(100);
 
       if (response.data.success) {
-        // ✅ COMPREHENSIVE LOGGING - See ALL backend data
         const data = response.data.data;
 
-        console.log('🔍 ========== FULL BACKEND RESPONSE ==========');
-        console.log('response.data keys:', Object.keys(response.data));
-        console.log('response.data.success:', response.data.success);
-        console.log('response.data.reportId:', response.data.reportId);
-        console.log('response.data.brandName:', response.data.brandName);
-        console.log('');
-        console.log('response.data.data keys:', Object.keys(data || {}));
-        console.log('');
-
-        // Log ALL fields that might contain our data
-        console.log('🔍 ALL DATA FIELDS:');
-        Object.keys(data || {}).forEach(key => {
-          const value = data[key];
-          if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
-            console.log(`  ${key} (object):`, Object.keys(value));
-          } else if (Array.isArray(value)) {
-            console.log(`  ${key} (array): length ${value.length}`);
-          } else {
-            console.log(`  ${key}:`, value);
-          }
-        });
-        console.log('');
-
-        // Look for stats in common locations
-        console.log('🔍 SEARCHING FOR STATS:');
-        const possibleLocations = [
-          { path: 'data', obj: data },
-          { path: 'data.summary', obj: data?.summary },
-          { path: 'data.totals', obj: data?.totals },
-          { path: 'data.statistics', obj: data?.statistics },
-          { path: 'data.metadata', obj: data?.metadata },
-          { path: 'data.analysisResults', obj: data?.analysisResults }
-        ];
-
-        possibleLocations.forEach(({ path, obj }) => {
-          if (obj && typeof obj === 'object') {
-            console.log(`  In ${path}:`, obj);
-          }
-        });
-        console.log('=============================================');
-
+        // ✅ IMMEDIATE STATS UPDATE (before setTimeout)
         if (data) {
-          // ✅ CORRECT FIELD LOCATIONS (from console output analysis)
           const metadata = data.metadata || {};
           const currentCosts = metadata.currentCosts || {};
 
-          // Stats are in metadata and metadata.currentCosts
-          const totalUnits = metadata.totalUnits || data.totalUnits || data.units || 0;
-          const totalCost = currentCosts.totalFreight || currentCosts.totalCost || data.totalCost || 0;
-          const placementFees = currentCosts.totalPlacementFees || data.totalPlacementFees || 0;
-          const avgCost = currentCosts.costPerUnit || data.avgCost ||
-            (totalCost && totalUnits ? totalCost / totalUnits : 0);
-          const shipmentCount = data.totalShipments || data.shipmentCount || 0;
+          const totalUnits = metadata.totalUnits || 0;
+          const totalCost = currentCosts.totalFreight || 0;
+          const placementFees = currentCosts.totalPlacementFees || 0;
+          const avgCost = currentCosts.costPerUnit || 0;
+          const shipmentCount = data.totalShipments || 0;
 
-          console.log('📊 Processing Stats Calculated (CORRECTED):', {
-            avgCost,
-            totalUnits,
-            totalCost,
-            placementFees,
-            shipmentCount,
-            source: 'metadata.currentCosts'
-          });
-
+          // ✅ UPDATE STATS IMMEDIATELY (not in setTimeout)
           setProcessingStats({
             avgCostPerUnit: avgCost,
             totalUnits: totalUnits,
@@ -238,37 +209,31 @@ const SeparateTabUploader = ({
           });
           setTotalShipments(shipmentCount);
           setProcessedShipments(shipmentCount);
+
+          console.log('📊 Stats updated in real-time:', {
+            avgCost,
+            totalUnits,
+            totalCost,
+            placementFees,
+            shipmentCount
+          });
         }
 
-        // Small delay to show 100% completion
+        // Small delay to show 100% completion with stats
         setTimeout(() => {
           setProcessingModalOpen(false);
           setAnalyzing(false);
 
-          // ✅ FIX #4: Use brand name from backend (extracted from filename)
-          // Backend extracts from Data tab filename like:
-          //   "Copy of FBGC Analysis.xlsx" → "FBGC"
-          //   "Get Welly Analysis.xlsx" → "Get Welly"
           const extractedBrandName = response.data.brandName || data?.brandName || null;
 
-          console.log('🏷️ Brand Name from Backend:', {
-            brandName: response.data.brandName,
-            fallback: data?.brandName,
-            final: extractedBrandName
-          });
+          console.log('🏷️ Brand Name:', extractedBrandName);
 
           onAnalysisComplete?.(data, response.data.reportId, extractedBrandName);
 
-          // Reset for next upload
+          // Reset
           setSessionId(null);
           setUploadedTabs({ data: false, placement: false, storage: false });
-          setProcessingStats({
-            avgCostPerUnit: 0,
-            totalUnits: 0,
-            totalShippingCost: 0,
-            totalPlacementFees: 0
-          });
-        }, 500);
+        }, 1000);
       } else {
         throw new Error(response.data.error || 'Analysis failed');
       }
@@ -289,20 +254,141 @@ const SeparateTabUploader = ({
 
   return (
     <>
-      {/* Modal via Portal - ✅ FIX #5: Use real stats */}
+      {/* Processing Modal */}
       {processingModalOpen && createPortal(
         <ProcessingModal
           isOpen={processingModalOpen}
           progress={analysisProgress}
           processedCount={processedShipments}
           totalCount={totalShipments || Math.max(processedShipments, 1)}
-          stats={processingStats}  // ✅ Real stats, not hardcoded zeros
+          stats={processingStats}
         />,
         document.body
       )}
 
+      {/* ✅ NEW: Validation Warning Modal */}
+      {showWarningModal && createPortal(
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
+          <div className="bg-gray-900 rounded-xl p-6 max-w-2xl mx-4 border border-yellow-500/30 max-h-[80vh] overflow-y-auto">
+            {/* Header */}
+            <div className="flex items-start gap-3 mb-4">
+              <AlertCircle size={28} className="text-yellow-400 flex-shrink-0 mt-1" />
+              <div>
+                <h3 className="text-xl font-bold text-yellow-400">
+                  Data Quality Warnings
+                </h3>
+                <p className="text-sm text-gray-400 mt-1">
+                  We detected some potential issues with your uploaded files
+                </p>
+              </div>
+            </div>
+
+            {/* Validation Stats */}
+            {validationStats && (
+              <div className="mb-4 p-3 rounded-lg bg-gray-800/50 border border-gray-700">
+                <div className="grid grid-cols-3 gap-4 text-center">
+                  <div>
+                    <div className="text-2xl font-bold text-white">
+                      {validationStats.dataRows || 0}
+                    </div>
+                    <div className="text-xs text-gray-400">Data Rows</div>
+                  </div>
+                  <div>
+                    <div className="text-2xl font-bold text-white">
+                      {validationStats.placementRows || 0}
+                    </div>
+                    <div className="text-xs text-gray-400">Placement Rows</div>
+                  </div>
+                  <div>
+                    <div className="text-2xl font-bold text-white">
+                      {validationStats.storageRows || 0}
+                    </div>
+                    <div className="text-xs text-gray-400">Storage Rows</div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Warning Messages */}
+            <div className="space-y-3 mb-6">
+              {validationWarnings.map((warning, idx) => (
+                <div
+                  key={idx}
+                  className="bg-yellow-900/20 border border-yellow-500/30 rounded-lg p-4"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="text-yellow-400 text-2xl flex-shrink-0">⚠️</div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white font-medium mb-2">
+                        {warning.message}
+                      </p>
+                      <div className="space-y-1.5">
+                        <p className="text-sm text-gray-300">
+                          <strong className="text-gray-200">Impact:</strong>{' '}
+                          <span className="text-gray-400">{warning.impact}</span>
+                        </p>
+                        <p className="text-sm text-blue-300">
+                          <strong className="text-blue-200">Suggestion:</strong>{' '}
+                          <span className="text-blue-400">{warning.suggestion}</span>
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Info Box */}
+            <div className="bg-blue-900/20 border border-blue-500/30 rounded-lg p-4 mb-6">
+              <div className="flex items-start gap-2">
+                <span className="text-lg">💡</span>
+                <div className="flex-1 text-sm">
+                  <p className="text-blue-300 font-medium mb-1">
+                    Tip: For Best Results
+                  </p>
+                  <p className="text-blue-400/80">
+                    Ensure your Placement tab has a "Total Cuft" column for accurate cost calculations.
+                    You can re-upload the files with the correct columns or continue with slightly reduced accuracy (typically 1-5% variance).
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowWarningModal(false);
+                  setValidationWarnings([]);
+                  setValidationStats(null);
+                }}
+                className="flex-1 px-4 py-3 rounded-lg bg-gray-700 hover:bg-gray-600 text-white font-medium transition-colors"
+              >
+                ← Cancel - Fix Files
+              </button>
+              <button
+                onClick={() => {
+                  setShowWarningModal(false);
+                  proceedWithAnalysis();
+                }}
+                className="flex-1 px-4 py-3 rounded-lg bg-yellow-600 hover:bg-yellow-700 text-white font-semibold transition-colors shadow-lg"
+              >
+                Continue Anyway →
+              </button>
+            </div>
+
+            {/* Footer Note */}
+            <p className="text-xs text-gray-500 text-center mt-4">
+              We'll use fallback calculations to provide the most accurate results possible
+            </p>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Main Upload UI */}
       <div className="space-y-6">
-        {/* Instructions - ✅ FIX #6: Updated tab names */}
+        {/* Instructions */}
         <div
           className="p-4 rounded-xl"
           style={{
@@ -318,15 +404,15 @@ const SeparateTabUploader = ({
               </h4>
               <ol className="text-xs text-gray-400 space-y-1 list-decimal list-inside">
                 <li>Upload your <span className="text-blue-400 font-medium">FBA Shipment Export</span> tab</li>
-                <li>Upload your <span className="text-blue-400 font-medium">FBA Placement Fees</span> tab</li>
-                <li>Upload your <span className="text-blue-400 font-medium">Monthly Storage Fees</span> tab</li>
+                <li>Upload your <span className="text-green-400 font-medium">FBA Placement Fees</span> tab</li>
+                <li>Upload your <span className="text-purple-400 font-medium">Monthly Storage Fees</span> tab</li>
                 <li>Click "Analyze Data" when all tabs are uploaded</li>
               </ol>
             </div>
           </div>
         </div>
 
-        {/* Data Tab Upload - ✅ FIX #7: Updated name */}
+        {/* Upload Sections */}
         <TabUploadSection
           tabName="FBA Shipment Export"
           tabType="data"
@@ -337,7 +423,6 @@ const SeparateTabUploader = ({
           description="FBA shipment data with units, dates, and destinations"
         />
 
-        {/* Placement Tab Upload - ✅ FIX #8: Updated name */}
         <TabUploadSection
           tabName="FBA Placement Fees"
           tabType="placement"
@@ -348,7 +433,6 @@ const SeparateTabUploader = ({
           description="Placement fees for each FBA shipment"
         />
 
-        {/* Storage Tab Upload - ✅ FIX #9: Updated name */}
         <TabUploadSection
           tabName="Monthly Storage Fees"
           tabType="storage"
@@ -395,7 +479,7 @@ const SeparateTabUploader = ({
           )}
         </button>
 
-        {/* Session Status */}
+        {/* Session ID Display */}
         {sessionId && (
           <div className="text-xs text-gray-500 text-center">
             Session ID: {sessionId.substring(0, 8)}...
@@ -406,4 +490,4 @@ const SeparateTabUploader = ({
   );
 };
 
-export default SeparateTabUploader;
+export default React.memo(SeparateTabUploader);
