@@ -444,7 +444,7 @@ const PremiumSidebar = () => {
       </div>
 
       {/* Navigation Menu */}
-      <div className="flex-1 px-4 py-2">
+      <div className="flex-1 px-4 py-2 overflow-y-auto custom-scrollbar">
         <div className="space-y-1">
           <NavItem
             icon={BarChart3}
@@ -585,7 +585,13 @@ const PremiumSidebar = () => {
       </div>
 
       {/* Bottom Section - User Profile */}
-      <div className="p-4">
+      <div
+      className="px-4 pb-6 pt-4 flex-shrink-0 border-t"
+      style={{
+        borderColor: 'rgba(255, 255, 255, 0.05)',
+        background: 'linear-gradient(to top, rgba(0, 0, 0, 0.8), transparent)'
+      }}
+      >
         {!sidebarCollapsed && (
           <div
             className="p-3 rounded-xl mb-3"
@@ -3037,6 +3043,27 @@ return (
       input:-webkit-autofill:active {
         -webkit-box-shadow: 0 0 0 30px rgba(15, 20, 25, 0.9) inset !important;
         -webkit-text-fill-color: white !important;
+      }
+
+      /* Custom Sidebar Scrollbar */
+      .custom-scrollbar::-webkit-scrollbar {
+        width: 6px;
+      }
+      .custom-scrollbar::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: rgba(3, 134, 254, 0.2);
+        border-radius: 10px;
+      }
+      .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+        background: rgba(3, 134, 254, 0.4);
+      }
+
+      /* Hide scrollbar when not hovering (optional) */
+      .custom-scrollbar {
+        scrollbar-width: thin;
+        scrollbar-color: rgba(3, 134, 254, 0.2) transparent;
       }
     `}</style>
     </div>
