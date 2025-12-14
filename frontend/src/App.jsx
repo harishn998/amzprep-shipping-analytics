@@ -92,6 +92,9 @@ const ShippingAnalytics = () => {
   });
   const [uploadMode, setUploadMode] = useState('separate');
 
+  const [recentAmazonReports, setRecentAmazonReports] = useState([]);
+  const [recentShopifyReports, setRecentShopifyReports] = useState([]);
+
   // 🆕 ADD THIS LINE:
   const [costConfigExpanded, setCostConfigExpanded] = useState(false);
 
@@ -135,15 +138,36 @@ const ShippingAnalytics = () => {
   const fetchReports = async () => {
     try {
       const response = await axios.get(`${API_URL}/reports`, {
-      headers: getAuthHeader()  // ← ADD THIS
+        headers: getAuthHeader()
       });
-      setReports(response.data.reports);
+
+      const allReports = response.data.reports;
+      setReports(allReports);  // ✅ Keep setting all reports
+
+      // ✅ NEW: Filter and set recent reports for upload view
+      const amazonReports = allReports
+        .filter(r =>
+          r.uploadType === 'amazon' ||
+          r.filename.toLowerCase().includes('amz') ||
+          r.filename.toLowerCase().includes('amazon')
+        )
+        .slice(0, 3);  // Get latest 3
+
+      const shopifyReports = allReports
+        .filter(r =>
+          r.uploadType === 'shopify' ||
+          r.filename.toLowerCase().includes('shopify')
+        )
+        .slice(0, 3);  // Get latest 3
+
+      setRecentAmazonReports(amazonReports);
+      setRecentShopifyReports(shopifyReports);
+
     } catch (err) {
-      // Handle auth errors
       if (err.response?.status === 401 || err.response?.status === 403) {
-      logout();
-      window.location.href = '/login';
-      return;
+        logout();
+        window.location.href = '/login';
+        return;
       }
       console.error('Error fetching reports:', err);
     }
@@ -435,7 +459,15 @@ const PremiumSidebar = () => {
             active={activeView === 'upload'}
             onClick={() => setActiveView('upload')}
             collapsed={sidebarCollapsed}
-            badge="2"
+          />
+
+          <NavItem
+            icon={FileText}
+            label="Your Reports"
+            active={activeView === 'reports'}
+            onClick={() => setActiveView('reports')}
+            collapsed={sidebarCollapsed}
+            badge={reports.length > 0 ? reports.length.toString() : undefined}
           />
 
           {/* Admin Section */}
@@ -1290,7 +1322,7 @@ const Alert = PremiumAlert;
               <ul className="text-xs text-gray-400 space-y-2">
                 <li className="flex items-start gap-2">
                   <span style={{ color: '#0386FE' }}>•</span>
-                  <span>Amazon FBA CSV/Excel format</span>
+                  <span>Amazon FBA Excel format</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span style={{ color: '#0386FE' }}>•</span>
@@ -1307,39 +1339,36 @@ const Alert = PremiumAlert;
             <div className="mt-6">
               <h4 className="text-xs font-semibold text-gray-400 mb-2">Recent Amazon Reports</h4>
               <div className="space-y-2 max-h-32 overflow-y-auto">
-                {reports
-                  .filter(r => r.filename.toLowerCase().includes('amz') || r.filename.toLowerCase().includes('amazon'))
-                  .slice(0, 3)
-                  .map((report) => (
-                    <div
-                      key={report.id}
-                      className="p-2 rounded-lg text-xs flex items-center justify-between transition-all duration-200"
+                {recentAmazonReports.map((report) => (  // ✅ Use filtered state
+                  <div
+                    key={report.id}
+                    className="p-2 rounded-lg text-xs flex items-center justify-between transition-all duration-200"
+                    style={{
+                      background: 'rgba(15, 20, 25, 0.6)',
+                      border: '1px solid rgba(255, 255, 255, 0.05)'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.borderColor = 'rgba(3, 134, 254, 0.3)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.05)';
+                    }}
+                  >
+                    <span className="text-white truncate flex-1">{report.filename}</span>
+                    <button
+                      onClick={() => loadReport(report.id)}
+                      className="font-semibold ml-2 transition-colors"
                       style={{
-                        background: 'rgba(15, 20, 25, 0.6)',
-                        border: '1px solid rgba(255, 255, 255, 0.05)'
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.borderColor = 'rgba(3, 134, 254, 0.3)';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.05)';
+                        background: 'linear-gradient(to right, #0386FE, #9507FF)',
+                        WebkitBackgroundClip: 'text',
+                        WebkitTextFillColor: 'transparent'
                       }}
                     >
-                      <span className="text-white truncate flex-1">{report.filename}</span>
-                      <button
-                        onClick={() => loadReport(report.id)}
-                        className="font-semibold ml-2 transition-colors"
-                        style={{
-                          background: 'linear-gradient(to right, #0386FE, #9507FF)',
-                          WebkitBackgroundClip: 'text',
-                          WebkitTextFillColor: 'transparent'
-                        }}
-                      >
-                        View
-                      </button>
-                    </div>
-                  ))}
-                {reports.filter(r => r.filename.toLowerCase().includes('amz') || r.filename.toLowerCase().includes('amazon')).length === 0 && (
+                      View
+                    </button>
+                  </div>
+                ))}
+                {recentAmazonReports.length === 0 && (
                   <p className="text-xs text-gray-600">No Amazon reports yet</p>
                 )}
               </div>
@@ -1536,39 +1565,36 @@ const Alert = PremiumAlert;
             <div className="mt-6">
               <h4 className="text-xs font-semibold text-gray-400 mb-2">Recent Shopify Reports</h4>
               <div className="space-y-2 max-h-32 overflow-y-auto">
-                {reports
-                  .filter(r => r.filename.toLowerCase().includes('shopify') || r.filename.toLowerCase().includes('dtc'))
-                  .slice(0, 3)
-                  .map((report) => (
-                    <div
-                      key={report.id}
-                      className="p-2 rounded-lg text-xs flex items-center justify-between transition-all duration-200"
+                {recentShopifyReports.map((report) => (  // ✅ Use filtered state
+                  <div
+                    key={report.id}
+                    className="p-2 rounded-lg text-xs flex items-center justify-between transition-all duration-200"
+                    style={{
+                      background: 'rgba(15, 20, 25, 0.6)',
+                      border: '1px solid rgba(255, 255, 255, 0.05)'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.borderColor = 'rgba(3, 134, 254, 0.3)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.05)';
+                    }}
+                  >
+                    <span className="text-white truncate flex-1">{report.filename}</span>
+                    <button
+                      onClick={() => loadReport(report.id)}
+                      className="font-semibold ml-2 transition-colors"
                       style={{
-                        background: 'rgba(15, 20, 25, 0.6)',
-                        border: '1px solid rgba(255, 255, 255, 0.05)'
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.borderColor = 'rgba(3, 134, 254, 0.3)';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.05)';
+                        background: 'linear-gradient(to right, #0386FE, #9507FF)',
+                        WebkitBackgroundClip: 'text',
+                        WebkitTextFillColor: 'transparent'
                       }}
                     >
-                      <span className="text-white truncate flex-1">{report.filename}</span>
-                      <button
-                        onClick={() => loadReport(report.id)}
-                        className="font-semibold ml-2 transition-colors"
-                        style={{
-                          background: 'linear-gradient(to right, #0386FE, #9507FF)',
-                          WebkitBackgroundClip: 'text',
-                          WebkitTextFillColor: 'transparent'
-                        }}
-                      >
-                        View
-                      </button>
-                    </div>
-                  ))}
-                {reports.filter(r => r.filename.toLowerCase().includes('shopify') || r.filename.toLowerCase().includes('dtc')).length === 0 && (
+                      View
+                    </button>
+                  </div>
+                ))}
+                {recentShopifyReports.length === 0 && (
                   <p className="text-xs text-gray-600">No Shopify reports yet</p>
                 )}
               </div>
@@ -2691,7 +2717,7 @@ return (
           <div className="bg-[#1a1f2e] rounded-xl p-6 border border-gray-800">
             <h3 className="text-white text-lg font-semibold mb-6">Top 7 States</h3>
             <div className="space-y-3">
-              {dashboardData.topStates.map((state, idx) => (
+              {dashboardData.topStates.slice(0, 7).map((state, idx) => (  // ✅ Show exactly 7
                 <div key={idx} className="flex items-center justify-between py-2 border-b border-gray-800 last:border-0">
                   <span className="text-gray-300">{state.name}</span>
                   <div className="flex items-center gap-4">
@@ -2705,96 +2731,6 @@ return (
 
           <div className="lg:col-span-2">
             <USAHeatMap states={dashboardData.topStates} title="USA Shipping Heat Map (Volume)" dataType="volume" hazmatData={dashboardData.hazmat} />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-1 gap-6">
-          <USAHeatMap states={dashboardData.topStates} title="Average Cost per Order by State" dataType="cost" hazmatData={dashboardData.hazmat} />
-        </div>
-
-        {/* Warehouse Location Network */}
-        {dashboardData.warehouseComparison && (
-          <WarehouseLocationMap warehouses={dashboardData.warehouseComparison} />
-        )}
-
-        <div className="bg-[#1a1f2e] rounded-xl p-6 border border-gray-800">
-          <div className="flex items-center gap-2 mb-6">
-            <TruckIcon className="text-brand-blue" size={24} />
-            <h3 className="text-white text-xl font-semibold">Warehouse Comparison (Estd)</h3>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-gray-800">
-                  <th className="text-left py-3 px-4 text-gray-400 font-semibold text-sm">Warehouse</th>
-                  <th className="text-center py-3 px-4 text-gray-400 font-semibold text-sm">Shipments</th>
-                  <th className="text-center py-3 px-4 text-gray-400 font-semibold text-sm">Cost</th>
-                  <th className="text-center py-3 px-4 text-gray-400 font-semibold text-sm">Avg Zone</th>
-                  <th className="text-center py-3 px-4 text-gray-400 font-semibold text-sm">Avg Transit Time</th>
-                  <th className="text-center py-3 px-4 text-gray-400 font-semibold text-sm">Savings %</th>
-                  <th className="text-right py-3 px-4 text-gray-400 font-semibold text-sm">Savings</th>
-                </tr>
-              </thead>
-              <tbody>
-                {dashboardData.warehouseComparison.map((wh, idx) => (
-                  <tr
-                    key={idx}
-                    className={`border-b border-gray-800 last:border-0 ${
-                      wh.recommended ? 'bg-blue-500/10' : 'hover:bg-[#242936]'
-                    } transition-colors`}
-                  >
-                    <td className="py-4 px-4">
-                      <div className="flex flex-col gap-1">
-                        <div className="flex items-center gap-2">
-                          {wh.recommended && (
-                            <span className="text-xs bg-green-500 text-white px-2 py-1 rounded font-bold">
-                              ✓ RECOMMENDED
-                            </span>
-                          )}
-                          {wh.specialty && (
-                            <span className="text-xs bg-amber-500 text-white px-2 py-1 rounded font-bold">
-                              {wh.specialty}
-                            </span>
-                          )}
-                          <span className="text-white font-semibold">{wh.name}</span>
-                        </div>
-                        <div className="flex items-start gap-2 text-xs text-gray-500">
-                          <MapPin size={12} className="mt-0.5 flex-shrink-0" />
-                          <span>{wh.fullAddress}</span>
-                        </div>
-                        {wh.region && (
-                          <span className="text-xs text-brand-blue font-medium">
-                            {wh.region}
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="text-center py-4 px-4 text-gray-300">
-                      {wh.shipments.toLocaleString()}
-                    </td>
-                    <td className="text-center py-4 px-4 text-white font-semibold">
-                      ${wh.cost.toLocaleString()}
-                    </td>
-                    <td className="text-center py-4 px-4 text-gray-300">{wh.avgZone}</td>
-                    <td className="text-center py-4 px-4 text-gray-300">{wh.transitTime} days</td>
-                    <td className="text-center py-4 px-4">
-                      {wh.savingsPercent ? (
-                        <span className="text-green-400 font-bold">{wh.savingsPercent}%</span>
-                      ) : (
-                        <span className="text-gray-600">-</span>
-                      )}
-                    </td>
-                    <td className="text-right py-4 px-4">
-                      {wh.savings ? (
-                        <span className="text-green-400 font-bold">${wh.savings.toLocaleString()}</span>
-                      ) : (
-                        <span className="text-gray-600">n/a</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
           </div>
         </div>
 
@@ -2823,7 +2759,173 @@ return (
 );
 };
 
-// REPLACE your main return with:
+// ============================================================================
+// REPORTS VIEW - COMPACT & THEME-ALIGNED VERSION
+// ============================================================================
+
+const ReportsView = () => {
+  return (
+    <div className="max-w-7xl mx-auto">
+      {/* Compact Header */}
+      <div className="mb-6">
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <h1 className="text-2xl font-bold text-white mb-1">Your Reports</h1>
+            <p className="text-sm text-gray-400">
+              View and manage all your analysis reports ({reports.length} total)
+            </p>
+          </div>
+          <button
+            onClick={() => setActiveView('upload')}
+            className="px-4 py-2 rounded-lg font-medium text-sm transition-all duration-200 flex items-center gap-2"
+            style={{
+              background: 'linear-gradient(135deg, #0386FE, #9507FF)',
+              color: 'white'
+            }}
+          >
+            <Upload size={16} />
+            Upload New Data
+          </button>
+        </div>
+      </div>
+
+      {/* Reports List */}
+      {reports.length === 0 ? (
+        // Empty State - Compact
+        <div
+          className="text-center py-16 rounded-xl border"
+          style={{
+            borderColor: 'rgba(3, 134, 254, 0.2)',
+            background: 'rgba(3, 134, 254, 0.02)'
+          }}
+        >
+          <FileText className="mx-auto mb-3 text-gray-600" size={40} />
+          <h3 className="text-lg font-semibold text-white mb-2">No reports yet</h3>
+          <p className="text-sm text-gray-400 mb-4">Upload your first data file to create a report</p>
+          <button
+            onClick={() => setActiveView('upload')}
+            className="px-5 py-2 rounded-lg font-medium text-sm transition-all duration-200 inline-flex items-center gap-2"
+            style={{
+              background: 'linear-gradient(135deg, #0386FE, #9507FF)',
+              color: 'white'
+            }}
+          >
+            <Upload size={16} />
+            Get Started
+          </button>
+        </div>
+      ) : (
+        // Compact Reports List
+        <div className="space-y-3">
+          {reports.map((report) => (
+            <div
+              key={report.id}
+              className="bg-gray-800/50 rounded-xl p-4 border border-gray-700 hover:border-blue-500/50 transition-all duration-200"
+            >
+              <div className="flex items-center justify-between gap-4">
+                {/* Left: Icon + Info */}
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  {/* Icon */}
+                  <div
+                    className="p-2 rounded-lg flex-shrink-0"
+                    style={{
+                      background: 'linear-gradient(135deg, #0386FE, #9507FF)',
+                    }}
+                  >
+                    <FileText size={18} className="text-white" />
+                  </div>
+
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    {/* Title + Badge */}
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <h3 className="text-white font-semibold text-sm truncate">
+                        {report.filename}
+                      </h3>
+                      <span
+                        className="text-[10px] px-2 py-0.5 rounded font-medium flex-shrink-0"
+                        style={{
+                          background: report.uploadType === 'shopify'
+                            ? 'rgba(34, 197, 94, 0.15)'
+                            : 'rgba(3, 134, 254, 0.15)',
+                          color: report.uploadType === 'shopify'
+                            ? '#22c55e'
+                            : '#0386FE'
+                        }}
+                      >
+                        {report.uploadType === 'shopify' ? 'Shopify' : 'Amazon'}
+                      </span>
+                    </div>
+
+                    {/* Stats Grid - Compact */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                      <div>
+                        <span className="text-gray-500">Shipments</span>
+                        <span className="text-white font-medium ml-1.5">
+                          {report.totalShipments.toLocaleString()}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-gray-500">Avg Cost</span>
+                        <span className="text-white font-medium ml-1.5">
+                          {typeof report.avgCost === 'number'
+                            ? `$${report.avgCost.toLocaleString()}`
+                            : report.avgCost}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-gray-500">Period</span>
+                        <span className="text-white font-medium ml-1.5">
+                          {report.analysisMonths}mo
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-gray-500">Date</span>
+                        <span className="text-white font-medium ml-1.5">
+                          {new Date(report.uploadDate).toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric'
+                          })}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right: Actions - Compact */}
+                <div className="flex gap-2 flex-shrink-0">
+                  <button
+                    onClick={() => {
+                      loadReport(report.id);
+                      setActiveView('dashboard');
+                    }}
+                    className="px-4 py-2 rounded-lg font-medium text-xs transition-all duration-200"
+                    style={{
+                      background: 'linear-gradient(135deg, #0386FE, #9507FF)',
+                      color: 'white'
+                    }}
+                  >
+                    View Report
+                  </button>
+                  <button
+                    onClick={() => deleteReport(report.id)}
+                    disabled={deletingReportId === report.id}
+                    className="px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 rounded-lg font-medium text-xs transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {deletingReportId === report.id ? 'Deleting...' : 'Delete'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// main return:
 return (
   <>
     <ProcessingModal
@@ -2849,15 +2951,17 @@ return (
       }`}>
 
       {/* Main Content */}
-        <div className="p-8 overflow-x-hidden">
-          {activeView === 'upload' ? (
-            <UploadView />
-          ) : activeView === 'admin-fba-zoning' && user?.role === 'admin' ? (
-            <FBAZoningManager getAuthHeader={getAuthHeader} />
-          ) : (
-            <DashboardView />
-          )}
-        </div>
+      <div className="p-8 overflow-x-hidden">
+        {activeView === 'upload' ? (
+          <UploadView />
+        ) : activeView === 'reports' ? (  // ✅ ADD THIS
+          <ReportsView />
+        ) : activeView === 'admin-fba-zoning' && user?.role === 'admin' ? (
+          <FBAZoningManager getAuthHeader={getAuthHeader} />
+        ) : (
+          <DashboardView />
+        )}
+      </div>
       </div>
 
       {/* User Management Modal */}

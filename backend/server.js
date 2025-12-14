@@ -2992,7 +2992,7 @@ app.get('/api/reports', authenticateToken, async (req, res) => {
     // Fetch reports sorted by upload date (newest first)
     const reports = await Report.find({ userId: req.user.id })
       .sort({ uploadDate: -1 })
-      .select('_id filename uploadDate totalShipments avgCost analysisMonths')
+      .select('_id filename uploadDate totalShipments avgCost analysisMonths uploadType')  // ✅ Add uploadType
       .lean();
 
     console.log(`✅ Found ${reports.length} reports`);
@@ -3004,7 +3004,8 @@ app.get('/api/reports', authenticateToken, async (req, res) => {
       uploadDate: r.uploadDate,
       totalShipments: r.totalShipments,
       avgCost: r.avgCost,
-      analysisMonths: r.analysisMonths
+      analysisMonths: r.analysisMonths,
+      uploadType: r.uploadType || 'amazon'  // ✅ Add uploadType with default
     }));
 
     res.json({ reports: reportSummaries });
