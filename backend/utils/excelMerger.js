@@ -7,6 +7,7 @@ import xlsx from 'xlsx';
 import path from 'path';
 import { getFBAZoningSheet } from './fbaZoningHelper.js';
 import { validateAndEnhanceFile, logColumnHeaders } from './fileEnhancer.js';
+import DataSheetEnhancer from './dataSheetEnhancer.js';
 
 /**
  * Merge three separate Excel files into one workbook
@@ -44,6 +45,11 @@ export async function mergeExcelTabs(dataPath, placementPath, storagePath) {
     const fbaZoningSheet = await getFBAZoningSheet();
     xlsx.utils.book_append_sheet(mergedWorkbook, fbaZoningSheet, 'FBA Zoning');
 
+    // Enhance Data sheet with calculated fields BEFORE writing
+    console.log('\n📊 Enhancing Data sheet...');
+    const dataEnhancer = new DataSheetEnhancer();
+    const enhancedWorkbook = dataEnhancer.enhanceDataSheet(mergedWorkbook);
+
     // Write to temp file
     const timestamp = Date.now();
     const randomId = Math.random().toString(36).substring(7);
@@ -53,7 +59,7 @@ export async function mergeExcelTabs(dataPath, placementPath, storagePath) {
       `merged-${timestamp}-${randomId}.xlsx`
     );
 
-    xlsx.writeFile(mergedWorkbook, outputPath);
+    xlsx.writeFile(enhancedWorkbook, outputPath);
 
     // Validate merged file
     console.log('\n🔍 Validating merged workbook...');

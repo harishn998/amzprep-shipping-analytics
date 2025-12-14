@@ -1145,7 +1145,7 @@ const Alert = PremiumAlert;
                 {['all', 'hazmat', 'non-hazmat'].map((filter) => (
                   <label
                     key={filter}
-                    className="flex items-center cursor-pointer text-sm group"
+                    className="flex items-center cursor-pointer text-xs group"
                   >
                     <input
                       type="radio"

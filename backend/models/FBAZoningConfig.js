@@ -58,7 +58,7 @@ const fbaZoningConfigSchema = new mongoose.Schema({
 
 // Indexes
 fbaZoningConfigSchema.index({ isActive: 1, effectiveDate: -1 });
-fbaZoningConfigSchema.index({ version: 1 });
+//fbaZoningConfigSchema.index({ version: 1 });
 
 // Static method to get active zoning
 fbaZoningConfigSchema.statics.getActiveZoning = async function() {
