@@ -15,9 +15,23 @@ import MongoStore from 'connect-mongo';
 import passport from './config/passport.js';
 import jwt from 'jsonwebtoken';
 import { zipToState, calculateZone, estimateTransitTime } from './utils/zipToState.js';
+import { detectFileFormat, getFormatDisplayName } from './utils/formatDetector.js';
 import connectDB from './config/database.js';
 import User from './models/User.js';
 import Report from './models/Report.js';
+import AmazonRate from './models/AmazonRate.js';
+import ShopifyRate from './models/ShopifyRate.js';
+import ratesRouter from './routes/rates.js';
+import AmazonRateEnhanced from './models/AmazonRateEnhanced.js';
+import ReportEnhanced from './models/ReportEnhanced.js';
+import uploadEnhancedRoutes from './routes/uploadEnhanced.js';
+import adminRateUploadRoutes from './routes/adminRateUpload.js';
+import adminUserManagementRoutes from './routes/adminUserManagement.js';
+import SmashFoodsIntegration from './utils/smashFoodsIntegration.js';
+import AmazonEnhancementLayer from './utils/amazonEnhancementLayer.js';
+import separateUploadRoutes from './routes/separateUpload.js';
+import { startSessionCleanup } from './utils/sessionManager.js';
+import adminFBAZoningRoutes from './routes/adminFBAZoning.js';
 //import dotenv from 'dotenv';
 //dotenv.config();
 
@@ -33,6 +47,9 @@ const PORT = process.env.PORT || 5000;
 // DATABASE CONNECTION (NEW)
 // ============================================
 connectDB();
+
+// Start session cleanup (runs every 5 minutes)
+startSessionCleanup(5);
 
 //app.use(cors());
 
@@ -63,6 +80,11 @@ if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir);
 }
 
+const templatesDir = path.join(__dirname, 'templates');
+if (!fs.existsSync(templatesDir)) {
+  fs.mkdirSync(templatesDir);
+}
+
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, uploadsDir),
   filename: (req, file, cb) => {
@@ -71,6 +93,9 @@ const storage = multer.diskStorage({
   }
 });
 
+// ⚡ CRITICAL: Trust proxy when behind Nginx
+app.set('trust proxy', 1);
+
 // Session configuration
 app.use(session({
   secret: process.env.SESSION_SECRET,
@@ -78,15 +103,15 @@ app.use(session({
   saveUninitialized: false,
   store: MongoStore.create({
     mongoUrl: process.env.MONGODB_URI,
-    touchAfter: 24 * 3600, // lazy session update (seconds)
-    crypto: {
-      secret: process.env.SESSION_SECRET
-    }
+    ttl: 24 * 60 * 60,  // 1 day
+    autoRemove: 'native'
   }),
   cookie: {
     secure: process.env.NODE_ENV === 'production',
     httpOnly: true,
-    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+    sameSite: 'lax',
+    maxAge: 24 * 60 * 60 * 1000,
+    domain: process.env.NODE_ENV === 'production' ? '.amzprep.com' : undefined
   }
 }));
 
@@ -149,52 +174,53 @@ function downloadImage(url) {
   });
 }
 
-function parseExcelFile(filePath) {
-  const workbook = xlsx.readFile(filePath);
+async function parseExcelFile(filePath, hazmatFilter = 'all', costConfig = {}) {
+  // ✨ NEW: Enhancement Layer
+  const enhancer = new AmazonEnhancementLayer();
+  const enhancedFilePath = await enhancer.enhanceIfNeeded(filePath);
+
+  // Now use the enhanced file path
+  const workbook = xlsx.readFile(enhancedFilePath);
   const sheetName = workbook.SheetNames[0];
   const worksheet = workbook.Sheets[sheetName];
   const data = xlsx.utils.sheet_to_json(worksheet);
 
   console.log(`📊 Parsing ${data.length} rows from Excel file`);
 
-  // Get first row for format detection
   const firstRow = data[0];
-
   if (!firstRow) {
     console.error('❌ No data found in file');
     return [];
   }
 
-  // Detect MUSCLE MAC format (Amazon FBA shipments)
-  const isMuscleMacFormat = firstRow.hasOwnProperty('Amazon Partnered Carrier Cost') ||
-                            firstRow.hasOwnProperty('Ship To Postal Code') ||
-                            firstRow.hasOwnProperty('FBA Shipment ID');
+  // Detect format (this should now detect Smash Foods for enhanced files!)
+  const detection = detectFileFormat(firstRow);
 
-  // Detect SHOPIFY format (E-commerce orders) - NEW!
-  const isShopifyFormat = firstRow.hasOwnProperty('Shipping Zip') ||
-                          firstRow.hasOwnProperty('Lineitem weight') ||
-                          (firstRow.hasOwnProperty('Name') &&
-                           firstRow.hasOwnProperty('Shipping Method') &&
-                           firstRow.hasOwnProperty('Lineitem name'));
+  console.log(`📋 Detected format: ${getFormatDisplayName(detection.format).toUpperCase()} (${detection.confidence}% confidence)`);
 
-  // Log detected format
-  let detectedFormat = 'SIMPLE FORMAT (Default)';
-  if (isMuscleMacFormat) {
-    detectedFormat = 'MUSCLE MAC (Amazon FBA)';
-  } else if (isShopifyFormat) {
-    detectedFormat = 'SHOPIFY ORDERS (E-commerce)';
+  if (detection.indicators && detection.indicators.length > 0) {
+    console.log(`📋 Key indicators:`, detection.indicators.join(', '));
   }
 
-  console.log(`📋 Detected format: ${detectedFormat}`);
-  console.log(`📋 Sample headers:`, Object.keys(firstRow).slice(0, 10).join(', '));
-
   // Route to appropriate parser
-  if (isMuscleMacFormat) {
-    return parseMuscleMacFormat(data);
-  } else if (isShopifyFormat) {
-    return parseShopifyFormat(data);  // NEW!
-  } else {
-    return parseSimpleFormat(data);
+  switch (detection.format) {
+    case 'smash_foods':
+      return await parseSmashFoodsFormat(enhancedFilePath, hazmatFilter, costConfig || 'all');  // ✓ Use enhanced path
+
+    case 'muscle_mac':
+      return await parseMuscleMacFormat(enhancedFilePath, hazmatFilter, costConfig || 'all');  // ✓ Use enhanced path
+
+    case 'shopify':
+      return parseShopifyFormat(data);
+
+    case 'simple':
+      return parseSimpleFormat(data);
+
+    case 'unknown':
+    default:
+      console.error('❌ Unknown format. Cannot parse data.');
+      console.error('📋 Sample headers:', Object.keys(firstRow).slice(0, 10).join(', '));
+      return [];
   }
 }
 
@@ -214,92 +240,152 @@ function parseSimpleFormat(data) {
 }
 
 // New MUSCLE MAC format parser
-function parseMuscleMacFormat(data) {
-  console.log('🔄 Parsing MUSCLE MAC format...');
+async function parseMuscleMacFormat(filePath, hazmatFilter = 'all', costConfig = {}) {
+  console.log('🔄 Processing Muscle Mac (Inv Water) format...');
+  console.log('   File path:', filePath);
+  console.log('   Using Smash Foods integration with Muscle Mac column mapping');
+  console.log(`   Hazmat filter: ${hazmatFilter}`);
+  console.log('   Cost Config:', JSON.stringify(costConfig));
 
-  const shipments = [];
-  let skippedRows = 0;
+  try {
+    const integration = new SmashFoodsIntegration();
 
-  // Warehouse origin ZIP (Charlotte, NC warehouse)
-  const warehouseZip = '28601'; // Hickory, NC
+    // 🆕 Build SOP config from costConfig (same as Smash Foods)
+    const sopConfig = {
+      freightCost: costConfig.freightCost || 3000,
+      freightMarkup: costConfig.freightMarkup || 1.20,
+      mmBaseCost: costConfig.mmBaseCost || null,
+      mmMarkup: costConfig.mmMarkup || 1.0,
+      rateMode: costConfig.rateMode || 'FTL',
+      destination: costConfig.destination || null,
+      palletCost: costConfig.palletCost || 150,
 
-  data.forEach((row, index) => {
-    try {
-      // Extract and clean ZIP code
-      const rawZip = row['Ship To Postal Code'];
-      if (!rawZip) {
-        skippedRows++;
-        return;
-      }
+      analysisYear: costConfig.analysisYear || new Date().getFullYear(),
+      analysisStartMonth: costConfig.analysisStartMonth || 1,
+      analysisEndMonth: costConfig.analysisEndMonth || 12,
+      shipFromFilter: costConfig.shipFromFilter || [],
 
-      const zipCode = String(rawZip).split('-')[0].trim();
+      ftlCost: costConfig.freightCost || 3000,
+      useFTL: costConfig.rateMode !== 'PALLET'
+    };
 
-      // Get state from ZIP
-      const stateInfo = zipToState(zipCode);
-      if (!stateInfo) {
-        console.log(`⚠️  Row ${index + 1}: Could not determine state for ZIP ${zipCode}`);
-        skippedRows++;
-        return;
-      }
+    const analysis = await integration.analyzeSmashFoodsFile(
+      filePath,
+      'combined',
+      0.10,
+      hazmatFilter,
+      sopConfig  // 🆕 Pass dynamic config
+    );
 
-      // Calculate total cost
-      const carrierCost = parseFloat(row['Amazon Partnered Carrier Cost'] || 0);
-      const placementFee = parseFloat(row['Chosen Placement Fee'] || 0);
-      const totalCost = carrierCost + placementFee;
+    console.log('✅ Muscle Mac analysis complete');
+    console.log(`   Total Shipments: ${analysis.totalShipments}`);
+    console.log(`   Total Pallets: ${analysis.totalPallets}`);
+    console.log(`   Total Cuft: ${analysis.totalCuft?.toFixed(2)}`);
+    console.log(`   Savings: $${analysis.savings?.amount?.toFixed(2)}`);
 
-      // Get weight
-      const weight = parseFloat(row['Total Weight (lbs)'] || 0);
-
-      // Skip if no valid data
-      if (totalCost === 0 && weight === 0) {
-        skippedRows++;
-        return;
-      }
-
-      // Get shipping method
-      const shippingMethod = row['Ship Method'] || row['Carrier'] || 'Ground';
-
-      // Calculate zone
-      const zone = calculateZone(warehouseZip, zipCode);
-
-      // Estimate transit time
-      const transitTime = estimateTransitTime(shippingMethod, zone);
-
-      // Parse date
-      let date = new Date().toISOString();
-      if (row['Created Date']) {
-        try {
-          const parsedDate = new Date(row['Created Date']);
-          if (!isNaN(parsedDate.getTime())) {
-            date = parsedDate.toISOString();
-          }
-        } catch (e) {
-          // Use default date
+    // Return with special flag
+    return [{
+      __smashFoodsAnalysis: true,
+      analysis: {
+        ...analysis,
+        metadata: {
+          ...analysis.metadata,
+          dataFormat: 'muscle_mac_actual',
+          originalFormat: 'muscle_mac',
+          costConfig: sopConfig  // 🆕 Include config in metadata
+        },
+        executiveSummary: {
+          ...analysis.executiveSummary,
+          title: 'Inv Water Freight Analysis'
         }
       }
+    }];
 
-      shipments.push({
-        state: stateInfo.state,
-        weight: weight || 1, // Default to 1 lb if 0
-        cost: totalCost,
-        shippingMethod: shippingMethod,
-        zone: zone,
-        transitTime: transitTime,
-        zipCode: zipCode,
-        date: date,
-        country: row['Ship To Country Code'] || 'US'
-      });
+  } catch (error) {
+    console.error('❌ Muscle Mac processing failed:', error);
+    throw error;
+  }
+}
 
-    } catch (error) {
-      console.error(`❌ Error parsing row ${index + 1}:`, error.message);
-      skippedRows++;
-    }
-  });
+// Smash Foods format parser
+// NEW: Automated Smash Foods parser using integration module
+async function parseSmashFoodsFormat(filePath, hazmatFilter = 'all', costConfig = {}) {
+  console.log('🚀 Processing Smash Foods format with FULL AUTOMATION...');
+  console.log(`   File path: ${filePath}`);
+  console.log(`   Hazmat filter: ${hazmatFilter}`);
+  console.log(`   Cost Config:`, JSON.stringify(costConfig));
 
-  console.log(`✅ Successfully parsed ${shipments.length} shipments`);
-  console.log(`⚠️  Skipped ${skippedRows} rows (missing data or errors)`);
+  try {
+    const integration = new SmashFoodsIntegration();
 
-  return shipments;
+    // 🆕 Build SOP config from costConfig
+    const sopConfig = {
+      // Freight settings
+      freightCost: costConfig.freightCost || 3000,
+      freightMarkup: costConfig.freightMarkup || 1.20,
+
+      // Middle mile settings
+      mmBaseCost: costConfig.mmBaseCost || null,  // null = use pattern rates
+      mmMarkup: costConfig.mmMarkup || 1.0,
+
+      // Rate mode
+      rateMode: costConfig.rateMode || 'FTL',  // 'FTL' or 'PALLET'
+
+      // Destination override
+      destination: costConfig.destination || null,  // null = auto-detect
+
+      // Pallet cost (for PALLET mode)
+      palletCost: costConfig.palletCost || 150,
+
+      analysisYear: costConfig.analysisYear || new Date().getFullYear(),
+      analysisStartMonth: costConfig.analysisStartMonth || 1,
+      analysisEndMonth: costConfig.analysisEndMonth || 12,
+      shipFromFilter: costConfig.shipFromFilter || [],
+
+      // Backward compatibility
+      ftlCost: costConfig.freightCost || 3000,
+      useFTL: costConfig.rateMode !== 'PALLET'
+    };
+
+    console.log('📊 SOP Config built:', JSON.stringify(sopConfig, null, 2));
+
+    // Run complete automated analysis using SOP-compliant formulas
+    const analysis = await integration.analyzeSmashFoodsFile(
+      filePath,
+      'combined',  // rate type
+      0.10,        // 10% markup (legacy param)
+      hazmatFilter,
+      sopConfig    // 🆕 Pass dynamic config
+    );
+
+    console.log('✅ Smash Foods analysis complete');
+    console.log(`   Total Shipments: ${analysis.totalShipments}`);
+    console.log(`   Total Pallets: ${analysis.totalPallets}`);
+    console.log(`   Total Cuft: ${analysis.totalCuft?.toFixed(2)}`);
+    console.log(`   Hazmat Products: ${analysis.hazmat?.products?.hazmat || 0}`);
+    console.log(`   Current Total: $${analysis.currentCosts?.totalCost?.toFixed(2)}`);
+    console.log(`   AMZ Prep Total: $${analysis.proposedCosts?.combined?.totalCost?.toFixed(2) || analysis.proposedCosts?.sop?.totalFreightCost?.toFixed(2)}`);
+    console.log(`   Savings: $${analysis.savings?.amount?.toFixed(2)}`);
+
+    // Return with special marker
+    return [{
+      __smashFoodsAnalysis: true,
+      analysis: {
+        ...analysis,
+        metadata: {
+          ...analysis.metadata,
+          dataFormat: 'smash_foods_actual',
+          originalFormat: 'smash_foods',
+          hazmatFilter,
+          costConfig: sopConfig  // 🆕 Include config in metadata for audit trail
+        }
+      }
+    }];
+
+  } catch (error) {
+    console.error('❌ Smash Foods analysis failed:', error);
+    throw error;
+  }
 }
 
 // ============================================
@@ -610,6 +696,21 @@ function calculateWarehouseComparison(shipments) {
 }
 
 function analyzeShipments(shipments) {
+
+  // CHECK: If this is a complete Smash Foods analysis, return it directly
+  if (shipments.length === 1 && shipments[0].__smashFoodsAnalysis) {
+    console.log('📊 Using complete Smash Foods analysis');
+    const smashAnalysis = shipments[0].analysis;
+
+    // Convert to format expected by Report model
+    return convertSmashFoodsToReportFormat(smashAnalysis);
+  }
+
+  // NEW: Check if this is Smash Foods automated analysis
+  if (shipments.length === 1 && shipments[0]._smashFoodsAnalysis) {
+    return convertSmashFoodsAnalysisToReport(shipments[0]._smashFoodsAnalysis);
+  }
+
   const totalShipments = shipments.length;
   const totalWeight = shipments.reduce((sum, s) => sum + s.weight, 0);
   const totalCost = shipments.reduce((sum, s) => sum + s.cost, 0);
@@ -725,178 +826,653 @@ function analyzeShipments(shipments) {
   };
 }
 
-async function generateUSMapVisualization(topStates, mapType = 'volume') {
-  // HIGH RESOLUTION for crystal clarity
-  const width = 1024;   // Double resolution
-  const height = 400;   // Double resolution
+function convertSmashFoodsToReportFormat(analysis) {
+  // Helper function to safely get numbers
+  const safeNumber = (val, defaultVal = 0) => {
+    const num = Number(val);
+    return isNaN(num) ? defaultVal : num;
+  };
 
+  // Extract key metrics
+  const totalShipments = safeNumber(analysis.totalShipments, 0);
+  const totalUnits = safeNumber(analysis.totalUnits, 0);
+  const totalPallets = Math.round(safeNumber(analysis.totalPallets, 0));
+  const totalCuft = safeNumber(analysis.totalCuft, 0);
+  const totalWeight = safeNumber(analysis.totalWeight, 0);
+
+  // Current costs
+  const currentTotalCost = safeNumber(analysis.currentCosts?.totalCost, 0);
+  const currentFreight = safeNumber(analysis.currentCosts?.totalFreight, 0);
+  const currentPlacementFees = safeNumber(analysis.currentCosts?.totalPlacementFees, 0);
+
+  // Proposed costs - using SOP structure
+  const proposedTotalCost = safeNumber(analysis.proposedCosts?.sop?.totalFreightCost, 0);
+  const mmCost = safeNumber(analysis.proposedCosts?.sop?.mmCost, 0);
+  const internalTransferCost = safeNumber(analysis.proposedCosts?.sop?.internalTransferCost, 0);
+  const mmCostPT = safeNumber(analysis.proposedCosts?.sop?.mmCostPT, 0);
+
+  // Savings
+  const savingsAmount = safeNumber(analysis.savings?.amount, 0);
+  const savingsPercent = safeNumber(analysis.savings?.percent, 0);
+
+  // 🆕 FIX #1: Transit times - get from transitImprovement object
+  const avgTransitTime = safeNumber(
+    analysis.transitImprovement?.currentTransitDays || analysis.avgTransitTime,
+    0
+  );
+  const amzPrepTransitTime = safeNumber(
+    analysis.transitImprovement?.amzPrepTransitDays || analysis.amzPrepTransitTime,
+    6
+  );
+  const transitImprovement = safeNumber(
+    analysis.transitImprovement?.improvementDays || analysis.transitImprovement,
+    0
+  );
+  const transitImprovementPercent = safeNumber(
+    analysis.transitImprovement?.improvementPercent || analysis.transitImprovementPercent,
+    0
+  );
+
+  // 🆕 FIX #2: Convert stateBreakdown object to topStates array
+  const topStates = Object.values(analysis.stateBreakdown || {})
+    .map(state => ({
+      name: state.state || 'Unknown',
+      code: state.state || 'XX',
+      volume: safeNumber(state.count, 0),
+      percentage: totalShipments > 0
+        ? Math.round((safeNumber(state.count, 0) / totalShipments) * 100)
+        : 0,
+      avgCost: safeNumber(state.count, 0) > 0
+        ? Math.round(safeNumber(state.currentCost, 0) / safeNumber(state.count, 0))
+        : 0
+    }))
+    .sort((a, b) => b.volume - a.volume);
+
+  // 🆕 FIX #3: Get recommendations from insights
+  const recommendations = (analysis.insights?.recommendations || analysis.recommendations || [])
+    .map(rec => ({
+      type: rec.type || 'general',
+      title: rec.title || 'Recommendation',
+      description: rec.description || '',
+      impact: rec.impact || 'medium',
+      savings: rec.savings ? Math.round(safeNumber(rec.savings, 0)) : undefined,
+      improvement: rec.improvement ? safeNumber(rec.improvement, 0) : undefined
+    }));
+
+  // 🆕 FIX #4: Transform hazmat data to expected structure
+  const hazmatData = analysis.hazmatAnalysis ? {
+    overview: {
+      totalProducts: safeNumber(analysis.hazmatAnalysis.products?.total, 0),
+      totalHazmatProducts: safeNumber(analysis.hazmatAnalysis.products?.hazmat, 0),
+      totalNonHazmatProducts: safeNumber(analysis.hazmatAnalysis.products?.nonHazmat, 0),
+      hazmatPercentage: safeNumber(analysis.hazmatAnalysis.products?.percentHazmat, 0),
+      shipmentsAnalyzed: safeNumber(analysis.hazmatAnalysis.shipments?.total, totalShipments),
+      totalHazmatShipments: safeNumber(analysis.hazmatAnalysis.shipments?.hazmat, 0),
+      totalNonHazmatShipments: safeNumber(analysis.hazmatAnalysis.shipments?.nonHazmat, 0),
+      shipmentHazmatPercentage: safeNumber(analysis.hazmatAnalysis.shipments?.percentHazmat, 0)
+    },
+    typeBreakdown: (analysis.hazmatAnalysis.typeBreakdown || []).map(item => ({
+      type: item.type || 'Unknown',
+      count: safeNumber(item.count, 0),
+      percentage: safeNumber(item.percentage, 0)
+    })),
+    compliance: analysis.hazmatAnalysis.compliance || [],
+    products: analysis.hazmatAnalysis.products || {}
+  } : null;
+
+  return {
+    // Basic metrics
+    totalShipments: totalShipments,
+    avgWeight: totalShipments > 0 ? Math.round(totalWeight / totalShipments) : 0,
+    avgCost: totalShipments > 0 ? Math.round(currentTotalCost / totalShipments) : 0,
+    analysisMonths: Math.max(1, Math.ceil(safeNumber(analysis.dateRange?.days, 30) / 30)),
+
+    // Date range
+    dateRange: {
+      start: analysis.dateRange?.start || new Date().toISOString().split('T')[0],
+      end: analysis.dateRange?.end || new Date().toISOString().split('T')[0]
+    },
+
+    // Domestic vs International
+    domesticVsInternational: {
+      domestic: totalShipments,
+      international: 0,
+      domesticPercent: '100%',
+      internationalPercent: '0%'
+    },
+
+    // 🆕 FIX #2: Use converted topStates array
+    topStates: topStates,
+
+    // Warehouse comparison
+    warehouseComparison: [
+      {
+        name: 'Current Provider',
+        fullAddress: 'Various carriers and locations',
+        region: 'Multiple',
+        specialty: 'Standard fulfillment',
+        costMultiplier: 1.0,
+        avgZone: 6,
+        transitTime: Math.round(avgTransitTime) || 0,
+        cost: Math.round(currentTotalCost) || 0,
+        savings: 0,
+        savingsPercent: '0%',
+        shipments: totalShipments,
+        recommended: false
+      },
+      {
+        name: 'AMZ Prep Complete Solution',
+        fullAddress: 'Columbus, OH - Central fulfillment hub',
+        region: 'Midwest',
+        specialty: 'Fast prep + optimized shipping',
+        costMultiplier: 0.85,
+        avgZone: 5,
+        transitTime: amzPrepTransitTime,
+        cost: Math.round(proposedTotalCost) || 0,
+        savings: Math.round(savingsAmount) || 0,
+        savingsPercent: `${savingsPercent.toFixed(1)}%`,
+        shipments: totalShipments,
+        recommended: savingsAmount > 0
+      }
+    ],
+
+    // Shipping methods
+    shippingMethods: (analysis.carriers || []).map(carrier => ({
+      name: carrier.name || 'Unknown',
+      count: safeNumber(carrier.count, 0),
+      percentage: safeNumber(carrier.percentage, 0)
+    })),
+
+    // Weight distribution
+    weightDistribution: [
+      { range: '0-10 lbs', count: Math.round(totalShipments * 0.3) },
+      { range: '10-50 lbs', count: Math.round(totalShipments * 0.4) },
+      { range: '50-150 lbs', count: Math.round(totalShipments * 0.2) },
+      { range: '150+ lbs', count: Math.round(totalShipments * 0.1) }
+    ],
+
+    // Zone distribution
+    zoneDistribution: [
+      { zone: 4, count: Math.round(totalShipments * 0.2), percentage: '20%' },
+      { zone: 5, count: Math.round(totalShipments * 0.3), percentage: '30%' },
+      { zone: 6, count: Math.round(totalShipments * 0.3), percentage: '30%' },
+      { zone: 7, count: Math.round(totalShipments * 0.2), percentage: '20%' }
+    ],
+
+    // 🆕 FIX #4: Use transformed hazmat data
+    hazmat: hazmatData,
+
+    // ENHANCED METADATA
+    metadata: {
+      dataFormat: 'smash_foods_actual',
+
+      // Current costs breakdown
+      currentCosts: {
+        totalFreight: Math.round(currentFreight),
+        totalPlacementFees: Math.round(currentPlacementFees),
+        totalCost: Math.round(currentTotalCost),
+        costPerCuft: safeNumber(analysis.currentCosts?.costPerCuft, 0),
+        costPerUnit: safeNumber(analysis.currentCosts?.costPerUnit, 0),
+        costPerPallet: safeNumber(analysis.currentCosts?.costPerPallet, 0)
+      },
+
+      // Proposed costs using SOP structure
+      proposedCosts: {
+        sop: {
+          mmCost: Math.round(mmCost),
+          internalTransferCost: Math.round(internalTransferCost),
+          totalFreightCost: Math.round(proposedTotalCost),
+          mmCostPT: Math.round(mmCostPT),
+          costPerCuft: safeNumber(analysis.proposedCosts?.sop?.costPerCuft, 0),
+          costPerUnit: safeNumber(analysis.proposedCosts?.sop?.costPerUnit, 0),
+          costPerPallet: safeNumber(analysis.proposedCosts?.sop?.costPerPallet, 0),
+          breakdown: (analysis.proposedCosts?.sop?.breakdown || []).map(item => ({
+            type: item.type || 'Unknown',
+            description: item.description || '',
+            cost: Math.round(safeNumber(item.cost, 0))
+          }))
+        }
+      },
+
+      // Savings calculation
+      savings: {
+        amount: Math.round(savingsAmount),
+        percent: safeNumber(savingsPercent, 0),
+        currentTotal: Math.round(currentTotalCost),
+        proposedTotal: Math.round(proposedTotalCost)
+      },
+
+      // 🆕 FIX #3: Recommendations from insights
+      recommendations: recommendations,
+
+      // Carrier information
+      carriers: (analysis.carriers || []).map(carrier => ({
+        name: carrier.name || 'Unknown',
+        count: safeNumber(carrier.count, 0),
+        percentage: safeNumber(carrier.percentage, 0)
+      })),
+
+      // 🆕 FIX #1: Timeline metrics from transitImprovement
+      avgPrepTime: safeNumber(analysis.avgPrepTime, 0),
+      avgTransitTime: Math.round(avgTransitTime),
+      amzPrepTransitTime: amzPrepTransitTime,
+      transitImprovement: transitImprovement,
+      transitImprovementPercent: transitImprovementPercent,
+
+      // Shipment splitting analysis
+      splitShipments: safeNumber(analysis.splitShipments, 0),
+      splitShipmentRate: safeNumber(analysis.splitShipmentRate, 0),
+
+      // Additional metrics
+      totalUnits: safeNumber(totalUnits, 0),
+      totalPallets: totalPallets,
+      totalCuft: safeNumber(totalCuft, 0),
+      totalWeight: Math.round(totalWeight),
+
+      // State-level details
+      stateDetails: analysis.stateBreakdown || {},
+
+      // Executive summary
+      executiveSummary: analysis.insights?.executiveSummary || analysis.executiveSummary || {
+        title: 'Smash Foods Freight Analysis',
+        subtitle: `${totalShipments} Shipments | ${totalUnits.toLocaleString()} Units | ${totalPallets} Pallets`,
+        keyFindings: []
+      },
+
+      // Monthly breakdown data
+      monthlyBreakdown: analysis.metadata?.monthlyBreakdown || analysis.monthlyBreakdown || null,
+      shipMethodBreakdown: analysis.metadata?.shipMethodBreakdown || analysis.shipMethodBreakdown || null,
+
+      // 🆕 FIX #5: Add fromZipBreakdown
+      fromZipBreakdown: analysis.metadata?.fromZipBreakdown || analysis.fromZipBreakdown || null
+    }
+  };
+}
+
+/**
+ * Convert Smash Foods analysis to report format
+ * This bridges the automated analysis to your existing dashboard structure
+ */
+ function convertSmashFoodsAnalysisToReport(analysis) {
+   console.log('📊 Converting Smash Foods analysis to report format...');
+
+   // Helper function to safely convert to number or default
+   const safeNumber = (value, defaultValue = 0) => {
+     const num = Number(value);
+     return isNaN(num) || !isFinite(num) ? defaultValue : num;
+   };
+
+   // Safely get values with defaults
+   const totalShipments = safeNumber(analysis.totalShipments, 0);
+   const totalWeight = safeNumber(analysis.totalWeight, 0);
+   const totalUnits = safeNumber(analysis.totalUnits, 0);
+   const totalPallets = safeNumber(analysis.totalPallets, 0);
+   const totalCuft = safeNumber(analysis.totalCuft, 0);
+
+   const currentTotalCost = safeNumber(analysis.currentCosts?.totalCost, 0);
+   const proposedTotalCost = safeNumber(
+     analysis.proposedCosts?.sop?.totalFreightCost || analysis.proposedCosts?.combined?.totalCost,
+     0
+   );
+   const savingsAmount = safeNumber(analysis.savings?.amount, 0);
+   const savingsPercent = safeNumber(analysis.savings?.percent, 0);
+
+   // 🆕 FIX #1: Transit times from transitImprovement object
+   const avgTransitTime = safeNumber(
+     analysis.transitImprovement?.currentTransitDays || analysis.avgTransitTime,
+     0
+   );
+   const amzPrepTransitTime = safeNumber(
+     analysis.transitImprovement?.amzPrepTransitDays || analysis.amzPrepTransitTime,
+     6
+   );
+   const transitImprovement = safeNumber(
+     analysis.transitImprovement?.improvementDays,
+     0
+   );
+   const transitImprovementPercent = safeNumber(
+     analysis.transitImprovement?.improvementPercent,
+     0
+   );
+
+   // 🆕 FIX #2: Convert stateBreakdown object to topStates array
+   const topStates = Object.values(analysis.stateBreakdown || {})
+     .map(state => ({
+       name: state.state || 'Unknown',
+       code: state.state || 'XX',
+       volume: safeNumber(state.count, 0),
+       percentage: totalShipments > 0
+         ? Math.round((safeNumber(state.count, 0) / totalShipments) * 100)
+         : 0,
+       avgCost: safeNumber(state.count, 0) > 0
+         ? Math.round(safeNumber(state.currentCost, 0) / safeNumber(state.count, 0))
+         : 0
+     }))
+     .sort((a, b) => b.volume - a.volume);
+
+   // 🆕 FIX #3: Get recommendations from insights
+   const recommendations = (analysis.insights?.recommendations || analysis.recommendations || [])
+     .map(rec => ({
+       type: rec.type || 'general',
+       title: rec.title || 'Recommendation',
+       description: rec.description || '',
+       impact: rec.impact || 'medium',
+       savings: rec.savings ? Math.round(safeNumber(rec.savings, 0)) : undefined,
+       improvement: rec.improvement ? safeNumber(rec.improvement, 0) : undefined
+     }));
+
+   // 🆕 FIX #4: Transform hazmat data
+   const hazmatData = analysis.hazmatAnalysis ? {
+     overview: {
+       totalProducts: safeNumber(analysis.hazmatAnalysis.products?.total, 0),
+       totalHazmatProducts: safeNumber(analysis.hazmatAnalysis.products?.hazmat, 0),
+       totalNonHazmatProducts: safeNumber(analysis.hazmatAnalysis.products?.nonHazmat, 0),
+       hazmatPercentage: safeNumber(analysis.hazmatAnalysis.products?.percentHazmat, 0),
+       shipmentsAnalyzed: safeNumber(analysis.hazmatAnalysis.shipments?.total, totalShipments),
+       totalHazmatShipments: safeNumber(analysis.hazmatAnalysis.shipments?.hazmat, 0),
+       totalNonHazmatShipments: safeNumber(analysis.hazmatAnalysis.shipments?.nonHazmat, 0),
+       shipmentHazmatPercentage: safeNumber(analysis.hazmatAnalysis.shipments?.percentHazmat, 0)
+     },
+     typeBreakdown: (analysis.hazmatAnalysis.typeBreakdown || []).map(item => ({
+       type: item.type || 'Unknown',
+       count: safeNumber(item.count, 0),
+       percentage: safeNumber(item.percentage, 0)
+     })),
+     compliance: analysis.hazmatAnalysis.compliance || [],
+     products: analysis.hazmatAnalysis.products || {}
+   } : null;
+
+   return {
+     // Basic metrics
+     totalShipments: totalShipments,
+     avgWeight: totalShipments > 0 ? safeNumber(totalWeight / totalShipments, 0) : 0,
+     avgCost: totalShipments > 0 ? safeNumber(currentTotalCost / totalShipments, 0) : 0,
+     analysisMonths: Math.max(1, Math.ceil(safeNumber(analysis.dateRange?.days, 30) / 30)),
+
+     // Date range
+     dateRange: {
+       start: analysis.dateRange?.start || new Date().toISOString().split('T')[0],
+       end: analysis.dateRange?.end || new Date().toISOString().split('T')[0]
+     },
+
+     // Domestic vs International
+     domesticVsInternational: {
+       domestic: totalShipments,
+       international: 0,
+       domesticPercent: '100%',
+       internationalPercent: '0%'
+     },
+
+     // 🆕 FIX #2: Top states from stateBreakdown
+     topStates: topStates,
+
+     // Warehouse comparison with AMZ Prep
+     warehouseComparison: [
+       {
+         name: 'Current Provider',
+         fullAddress: 'Various carriers and locations',
+         region: 'Multiple',
+         specialty: 'Standard fulfillment',
+         costMultiplier: 1.0,
+         avgZone: 6,
+         transitTime: Math.round(avgTransitTime) || 0,
+         cost: Math.round(currentTotalCost) || 0,
+         savings: 0,
+         savingsPercent: '0%',
+         shipments: totalShipments,
+         recommended: false
+       },
+       {
+         name: 'AMZ Prep Complete Solution',
+         fullAddress: 'Columbus, OH - Central fulfillment hub',
+         region: 'Midwest',
+         specialty: 'Fast prep + optimized shipping',
+         costMultiplier: 0.85,
+         avgZone: 5,
+         transitTime: amzPrepTransitTime,
+         cost: Math.round(proposedTotalCost) || 0,
+         savings: Math.round(savingsAmount) || 0,
+         savingsPercent: `${savingsPercent.toFixed(1)}%`,
+         shipments: totalShipments,
+         recommended: savingsAmount > 0
+       }
+     ],
+
+     // Shipping methods
+     shippingMethods: (analysis.carriers || []).map(carrier => ({
+       name: carrier.name || 'Unknown',
+       count: safeNumber(carrier.count, 0),
+       percentage: safeNumber(carrier.percentage, 0)
+     })),
+
+     // Weight distribution
+     weightDistribution: [
+       { range: '0-10 lbs', count: Math.round(totalShipments * 0.3) },
+       { range: '10-50 lbs', count: Math.round(totalShipments * 0.4) },
+       { range: '50-150 lbs', count: Math.round(totalShipments * 0.2) },
+       { range: '150+ lbs', count: Math.round(totalShipments * 0.1) }
+     ],
+
+     // Zone distribution
+     zoneDistribution: [
+       { zone: 4, count: Math.round(totalShipments * 0.2), percentage: '20%' },
+       { zone: 5, count: Math.round(totalShipments * 0.3), percentage: '30%' },
+       { zone: 6, count: Math.round(totalShipments * 0.3), percentage: '30%' },
+       { zone: 7, count: Math.round(totalShipments * 0.2), percentage: '20%' }
+     ],
+
+     // 🆕 FIX #4: Hazmat data
+     hazmat: hazmatData,
+
+     // ENHANCED METADATA
+     metadata: {
+       dataFormat: 'smash_foods_actual',
+
+       // Current costs breakdown
+       currentCosts: {
+         totalFreight: Math.round(safeNumber(analysis.currentCosts?.totalFreight, 0)),
+         totalPlacementFees: Math.round(safeNumber(analysis.currentCosts?.totalPlacementFees, 0)),
+         totalCost: Math.round(currentTotalCost),
+         costPerCuft: safeNumber(analysis.currentCosts?.costPerCuft, 0),
+         costPerUnit: safeNumber(analysis.currentCosts?.costPerUnit, 0),
+         costPerPallet: safeNumber(analysis.currentCosts?.costPerPallet, 0)
+       },
+
+       // Proposed costs - support both SOP and combined formats
+       proposedCosts: {
+         sop: {
+           mmCost: Math.round(safeNumber(analysis.proposedCosts?.sop?.mmCost, 0)),
+           internalTransferCost: Math.round(safeNumber(analysis.proposedCosts?.sop?.internalTransferCost, 0)),
+           totalFreightCost: Math.round(proposedTotalCost),
+           mmCostPT: Math.round(safeNumber(analysis.proposedCosts?.sop?.mmCostPT, 0)),
+           costPerCuft: safeNumber(analysis.proposedCosts?.sop?.costPerCuft, 0),
+           costPerUnit: safeNumber(analysis.proposedCosts?.sop?.costPerUnit, 0),
+           costPerPallet: safeNumber(analysis.proposedCosts?.sop?.costPerPallet, 0),
+           breakdown: (analysis.proposedCosts?.sop?.breakdown || []).map(item => ({
+             type: item.type || 'Unknown',
+             description: item.description || '',
+             cost: Math.round(safeNumber(item.cost, 0))
+           }))
+         }
+       },
+
+       // Savings calculation
+       savings: {
+         amount: Math.round(savingsAmount),
+         percent: safeNumber(savingsPercent, 0),
+         currentTotal: Math.round(currentTotalCost),
+         proposedTotal: Math.round(proposedTotalCost)
+       },
+
+       // 🆕 FIX #3: Recommendations
+       recommendations: recommendations,
+
+       // Carrier information
+       carriers: (analysis.carriers || []).map(carrier => ({
+         name: carrier.name || 'Unknown',
+         count: safeNumber(carrier.count, 0),
+         percentage: safeNumber(carrier.percentage, 0)
+       })),
+
+       // 🆕 FIX #1: Timeline metrics
+       avgPrepTime: safeNumber(analysis.avgPrepTime, 0),
+       avgTransitTime: Math.round(avgTransitTime),
+       amzPrepTransitTime: amzPrepTransitTime,
+       transitImprovement: transitImprovement,
+       transitImprovementPercent: transitImprovementPercent,
+
+       // Shipment splitting
+       splitShipments: safeNumber(analysis.splitShipments, 0),
+       splitShipmentRate: safeNumber(analysis.splitShipmentRate, 0),
+
+       // Additional metrics
+       totalUnits: safeNumber(totalUnits, 0),
+       totalPallets: safeNumber(totalPallets, 0),
+       totalCuft: safeNumber(totalCuft, 0),
+       totalWeight: safeNumber(totalWeight, 0),
+
+       // State-level details
+       stateDetails: analysis.stateBreakdown || {},
+
+       // Executive summary
+       executiveSummary: analysis.insights?.executiveSummary || analysis.executiveSummary || {
+         title: 'Smash Foods Freight Analysis',
+         subtitle: `${totalShipments} Shipments`,
+         keyFindings: []
+       },
+
+       // Monthly breakdown
+       monthlyBreakdown: analysis.metadata?.monthlyBreakdown || analysis.monthlyBreakdown || null,
+       shipMethodBreakdown: analysis.metadata?.shipMethodBreakdown || analysis.shipMethodBreakdown || null,
+
+       // 🆕 FIX #5: From Zip breakdown
+       fromZipBreakdown: analysis.metadata?.fromZipBreakdown || analysis.fromZipBreakdown || null
+     }
+   };
+ }
+
+async function generateUSMapVisualization(topStates, mapType = 'volume') {
+  const width = 1200;
+  const height = 520;
   const canvas = createCanvas(width, height);
   const ctx = canvas.getContext('2d');
 
-  // CRITICAL: Disable all smoothing for sharp rendering
   ctx.imageSmoothingEnabled = false;
-  ctx.textRendering = 'geometricPrecision';
 
   // Background
   const gradient = ctx.createLinearGradient(0, 0, 0, height);
-  gradient.addColorStop(0, '#1e293b');
-  gradient.addColorStop(1, '#0f172a');
+  gradient.addColorStop(0, '#0f172a');
+  gradient.addColorStop(1, '#1e293b');
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, width, height);
 
-  // CRISP HEADERS - Larger fonts for clarity
+  // Header
   ctx.fillStyle = '#ffffff';
-  ctx.font = 'bold 22px Arial';
+  ctx.font = 'bold 26px Arial';
   ctx.textBaseline = 'top';
-  ctx.textRendering = 'optimizeLegibility';
   const title = mapType === 'volume' ? 'Shipping Volume Heat Map' : 'Average Cost Heat Map';
-  ctx.fillText(title, 30, 20);
+  ctx.fillText(title, 40, 25);
 
   ctx.fillStyle = '#94a3b8';
   ctx.font = '16px Arial';
   const subtitle = mapType === 'volume'
-    ? 'Distribution by state volume'
-    : 'Distribution by avg shipping cost';
-  ctx.fillText(subtitle, 30, 48);
+    ? 'Distribution by state shipping volume'
+    : 'Distribution by average shipping cost per order';
+  ctx.fillText(subtitle, 40, 58);
 
-  // REALISTIC US MAP - Better state positions (doubled coordinates)
-  const statePositions = {
-    // West Coast - Clear positioning
-    'WA': { x: 130, y: 100 },
-    'OR': { x: 130, y: 140 },
-    'CA': { x: 116, y: 200 },
+  // [Keep the same US map drawing code from previous version]
+  const offsetX = 80;
+  const offsetY = 100;
 
-    // Mountain West
-    'ID': { x: 176, y: 126 },
-    'MT': { x: 224, y: 100 },
-    'WY': { x: 230, y: 140 },
-    'NV': { x: 156, y: 180 },
-    'UT': { x: 196, y: 180 },
-    'CO': { x: 240, y: 174 },
-    'AZ': { x: 176, y: 226 },
-    'NM': { x: 224, y: 234 },
-
-    // Plains States
-    'ND': { x: 300, y: 100 },
-    'SD': { x: 304, y: 134 },
-    'NE': { x: 304, y: 166 },
-    'KS': { x: 310, y: 200 },
-    'OK': { x: 310, y: 234 },
-    'TX': { x: 300, y: 280 },
-
-    // Upper Midwest
-    'MN': { x: 356, y: 106 },
-    'IA': { x: 356, y: 146 },
-    'MO': { x: 356, y: 186 },
-    'AR': { x: 360, y: 220 },
-    'LA': { x: 364, y: 266 },
-
-    // Great Lakes
-    'WI': { x: 396, y: 120 },
-    'IL': { x: 396, y: 160 },
-    'MI': { x: 430, y: 126 },
-    'IN': { x: 416, y: 166 },
-    'OH': { x: 450, y: 160 },
-
-    // Southeast
-    'MS': { x: 396, y: 246 },
-    'AL': { x: 420, y: 246 },
-    'TN': { x: 430, y: 210 },
-    'KY': { x: 440, y: 186 },
-    'WV': { x: 474, y: 174 },
-    'VA': { x: 504, y: 180 },
-    'NC': { x: 494, y: 206 },
-    'SC': { x: 480, y: 230 },
-    'GA': { x: 454, y: 240 },
-    'FL': { x: 480, y: 290 },
-
-    // Mid-Atlantic
-    'PA': { x: 514, y: 154 },
-    'MD': { x: 514, y: 174 },
-    'DE': { x: 528, y: 166 },
-    'NJ': { x: 534, y: 154 },
-    'NY': { x: 534, y: 134 },
-
-    // New England
-    'CT': { x: 554, y: 144 },
-    'RI': { x: 564, y: 146 },
-    'MA': { x: 568, y: 136 },
-    'VT': { x: 548, y: 120 },
-    'NH': { x: 560, y: 120 },
-    'ME': { x: 580, y: 106 }
-  };
-
-  // DETAILED US OUTLINE - More map-like appearance
-  ctx.strokeStyle = '#64748b';
+  ctx.strokeStyle = '#475569';
   ctx.lineWidth = 4;
   ctx.lineJoin = 'round';
   ctx.lineCap = 'round';
-  ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
-  ctx.shadowBlur = 8;
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+  ctx.shadowBlur = 12;
+
   ctx.beginPath();
-
-  // Complete US border path
-  // West Coast
-  ctx.moveTo(110, 94);
-  ctx.lineTo(106, 120);
-  ctx.quadraticCurveTo(100, 150, 104, 180);
-  ctx.lineTo(108, 210);
-  ctx.lineTo(112, 236);
-
-  // Southern border
-  ctx.lineTo(160, 250);
-  ctx.lineTo(210, 260);
-  ctx.lineTo(270, 300);
-  ctx.lineTo(330, 310);
-  ctx.lineTo(380, 304);
-  ctx.lineTo(430, 294);
-
-  // Florida
-  ctx.lineTo(464, 300);
-  ctx.lineTo(490, 320);
-  ctx.lineTo(494, 306);
-  ctx.lineTo(490, 280);
-  ctx.lineTo(484, 260);
-
-  // East Coast
-  ctx.lineTo(494, 240);
-  ctx.lineTo(508, 220);
-  ctx.lineTo(520, 194);
-  ctx.lineTo(534, 170);
-  ctx.lineTo(548, 150);
-  ctx.lineTo(564, 134);
-  ctx.lineTo(580, 116);
-  ctx.lineTo(590, 104);
-
-  // Northeast
-  ctx.lineTo(584, 100);
-  ctx.lineTo(564, 104);
-
-  // Great Lakes
-  ctx.quadraticCurveTo(534, 106, 504, 114);
-  ctx.quadraticCurveTo(474, 106, 444, 104);
-  ctx.quadraticCurveTo(414, 96, 384, 100);
-
-  // Northern border
-  ctx.lineTo(356, 94);
-  ctx.lineTo(304, 90);
-  ctx.lineTo(250, 94);
-  ctx.lineTo(196, 90);
-  ctx.lineTo(150, 90);
+  ctx.moveTo(offsetX + 40, offsetY + 15);
+  ctx.lineTo(offsetX + 35, offsetY + 45);
+  ctx.lineTo(offsetX + 30, offsetY + 70);
+  ctx.quadraticCurveTo(offsetX + 25, offsetY + 100, offsetX + 30, offsetY + 130);
+  ctx.lineTo(offsetX + 35, offsetY + 160);
+  ctx.lineTo(offsetX + 50, offsetY + 180);
+  ctx.lineTo(offsetX + 90, offsetY + 190);
+  ctx.lineTo(offsetX + 130, offsetY + 195);
+  ctx.lineTo(offsetX + 170, offsetY + 200);
+  ctx.lineTo(offsetX + 220, offsetY + 210);
+  ctx.lineTo(offsetX + 260, offsetY + 208);
+  ctx.lineTo(offsetX + 290, offsetY + 198);
+  ctx.lineTo(offsetX + 305, offsetY + 190);
+  ctx.lineTo(offsetX + 320, offsetY + 185);
+  ctx.lineTo(offsetX + 345, offsetY + 180);
+  ctx.lineTo(offsetX + 365, offsetY + 185);
+  ctx.lineTo(offsetX + 380, offsetY + 195);
+  ctx.lineTo(offsetX + 390, offsetY + 210);
+  ctx.lineTo(offsetX + 395, offsetY + 230);
+  ctx.lineTo(offsetX + 392, offsetY + 245);
+  ctx.lineTo(offsetX + 385, offsetY + 255);
+  ctx.lineTo(offsetX + 378, offsetY + 245);
+  ctx.lineTo(offsetX + 370, offsetY + 220);
+  ctx.lineTo(offsetX + 360, offsetY + 195);
+  ctx.lineTo(offsetX + 365, offsetY + 175);
+  ctx.lineTo(offsetX + 375, offsetY + 160);
+  ctx.lineTo(offsetX + 385, offsetY + 145);
+  ctx.lineTo(offsetX + 395, offsetY + 135);
+  ctx.lineTo(offsetX + 405, offsetY + 125);
+  ctx.quadraticCurveTo(offsetX + 413, offsetY + 115, offsetX + 418, offsetY + 105);
+  ctx.lineTo(offsetX + 425, offsetY + 90);
+  ctx.lineTo(offsetX + 430, offsetY + 75);
+  ctx.lineTo(offsetX + 438, offsetY + 62);
+  ctx.lineTo(offsetX + 445, offsetY + 48);
+  ctx.lineTo(offsetX + 452, offsetY + 30);
+  ctx.lineTo(offsetX + 458, offsetY + 18);
+  ctx.lineTo(offsetX + 448, offsetY + 15);
+  ctx.lineTo(offsetX + 420, offsetY + 20);
+  ctx.lineTo(offsetX + 395, offsetY + 25);
+  ctx.quadraticCurveTo(offsetX + 370, offsetY + 18, offsetX + 345, offsetY + 25);
+  ctx.quadraticCurveTo(offsetX + 320, offsetY + 20, offsetX + 295, offsetY + 28);
+  ctx.quadraticCurveTo(offsetX + 270, offsetY + 22, offsetX + 245, offsetY + 30);
+  ctx.quadraticCurveTo(offsetX + 225, offsetY + 25, offsetX + 205, offsetY + 35);
+  ctx.lineTo(offsetX + 185, offsetY + 30);
+  ctx.lineTo(offsetX + 165, offsetY + 25);
+  ctx.lineTo(offsetX + 145, offsetY + 22);
+  ctx.lineTo(offsetX + 125, offsetY + 20);
+  ctx.lineTo(offsetX + 105, offsetY + 18);
+  ctx.lineTo(offsetX + 85, offsetY + 16);
+  ctx.lineTo(offsetX + 65, offsetY + 18);
+  ctx.lineTo(offsetX + 50, offsetY + 20);
   ctx.closePath();
-
   ctx.stroke();
   ctx.shadowBlur = 0;
 
-  // State data map
+  const statePositions = {
+    'WA': { x: offsetX + 50, y: offsetY + 35 }, 'OR': { x: offsetX + 50, y: offsetY + 70 }, 'CA': { x: offsetX + 50, y: offsetY + 140 },
+    'ID': { x: offsetX + 80, y: offsetY + 50 }, 'MT': { x: offsetX + 110, y: offsetY + 35 }, 'WY': { x: offsetX + 130, y: offsetY + 60 },
+    'NV': { x: offsetX + 70, y: offsetY + 110 }, 'UT': { x: offsetX + 100, y: offsetY + 110 }, 'CO': { x: offsetX + 140, y: offsetY + 105 },
+    'AZ': { x: offsetX + 80, y: offsetY + 160 }, 'NM': { x: offsetX + 130, y: offsetY + 165 },
+    'ND': { x: offsetX + 160, y: offsetY + 40 }, 'SD': { x: offsetX + 165, y: offsetY + 65 }, 'NE': { x: offsetX + 170, y: offsetY + 95 },
+    'KS': { x: offsetX + 175, y: offsetY + 125 }, 'OK': { x: offsetX + 175, y: offsetY + 158 }, 'TX': { x: offsetX + 200, y: offsetY + 195 },
+    'MN': { x: offsetX + 195, y: offsetY + 50 }, 'IA': { x: offsetX + 205, y: offsetY + 85 }, 'MO': { x: offsetX + 210, y: offsetY + 125 },
+    'AR': { x: offsetX + 215, y: offsetY + 158 }, 'LA': { x: offsetX + 255, y: offsetY + 190 },
+    'WI': { x: offsetX + 230, y: offsetY + 60 }, 'IL': { x: offsetX + 240, y: offsetY + 100 }, 'MI': { x: offsetX + 265, y: offsetY + 60 },
+    'IN': { x: offsetX + 255, y: offsetY + 100 }, 'OH': { x: offsetX + 285, y: offsetY + 100 },
+    'MS': { x: offsetX + 265, y: offsetY + 170 }, 'AL': { x: offsetX + 290, y: offsetY + 170 }, 'TN': { x: offsetX + 280, y: offsetY + 138 },
+    'KY': { x: offsetX + 290, y: offsetY + 118 }, 'WV': { x: offsetX + 315, y: offsetY + 115 }, 'VA': { x: offsetX + 345, y: offsetY + 120 },
+    'NC': { x: offsetX + 355, y: offsetY + 145 }, 'SC': { x: offsetX + 345, y: offsetY + 165 }, 'GA': { x: offsetX + 320, y: offsetY + 170 },
+    'FL': { x: offsetX + 355, y: offsetY + 210 },
+    'PA': { x: offsetX + 350, y: offsetY + 95 }, 'MD': { x: offsetX + 365, y: offsetY + 110 }, 'DE': { x: offsetX + 378, y: offsetY + 108 },
+    'NJ': { x: offsetX + 383, y: offsetY + 95 }, 'NY': { x: offsetX + 375, y: offsetY + 70 },
+    'CT': { x: offsetX + 400, y: offsetY + 82 }, 'RI': { x: offsetX + 410, y: offsetY + 80 }, 'MA': { x: offsetX + 415, y: offsetY + 68 },
+    'VT': { x: offsetX + 390, y: offsetY + 55 }, 'NH': { x: offsetX + 405, y: offsetY + 52 }, 'ME': { x: offsetX + 430, y: offsetY + 38 }
+  };
+
   const stateDataMap = {};
-  topStates.forEach(state => {
-    stateDataMap[state.code] = state;
-  });
+  topStates.forEach(state => { stateDataMap[state.code] = state; });
 
   function getColor(state, type) {
     if (!state) return null;
-
     if (type === 'volume') {
       if (state.percentage >= 15) return '#1e40af';
       if (state.percentage >= 10) return '#2563eb';
@@ -913,113 +1489,106 @@ async function generateUSMapVisualization(topStates, mapType = 'volume') {
 
   function getSize(state, type) {
     if (!state) return 0;
-
     if (type === 'volume') {
-      if (state.percentage >= 15) return 40;
-      if (state.percentage >= 10) return 32;
-      if (state.percentage >= 5) return 26;
-      return 20;
+      if (state.percentage >= 15) return 42;
+      if (state.percentage >= 10) return 34;
+      if (state.percentage >= 5) return 28;
+      return 22;
     } else {
       const cost = state.avgCost || 0;
-      if (cost >= 16) return 40;
-      if (cost >= 14) return 32;
-      if (cost >= 12) return 26;
-      return 20;
+      if (cost >= 16) return 42;
+      if (cost >= 14) return 34;
+      if (cost >= 12) return 28;
+      return 22;
     }
   }
 
-  // Draw ONLY active states - CRISP rendering
   Object.entries(statePositions).forEach(([code, pos]) => {
     const stateData = stateDataMap[code];
-
     if (stateData) {
       const color = getColor(stateData, mapType);
       const size = getSize(stateData, mapType);
 
-      // Outer glow
       ctx.shadowColor = color;
-      ctx.shadowBlur = 30;
-
-      ctx.fillStyle = color + '30';
+      ctx.shadowBlur = 35;
+      ctx.fillStyle = color + '20';
       ctx.beginPath();
-      ctx.arc(pos.x, pos.y, size / 2 + 8, 0, Math.PI * 2);
+      ctx.arc(pos.x, pos.y, size / 2 + 10, 0, Math.PI * 2);
       ctx.fill();
 
-      // Middle glow
-      ctx.fillStyle = color + '60';
+      ctx.shadowBlur = 20;
+      ctx.fillStyle = color + '50';
       ctx.beginPath();
-      ctx.arc(pos.x, pos.y, size / 2 + 4, 0, Math.PI * 2);
+      ctx.arc(pos.x, pos.y, size / 2 + 5, 0, Math.PI * 2);
       ctx.fill();
 
-      // Main circle
+      ctx.shadowBlur = 0;
       ctx.fillStyle = color;
       ctx.beginPath();
       ctx.arc(pos.x, pos.y, size / 2, 0, Math.PI * 2);
       ctx.fill();
 
-      ctx.shadowBlur = 0;
+      ctx.strokeStyle = '#ffffff40';
+      ctx.lineWidth = 2;
+      ctx.stroke();
 
-      // CRISP state code
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+      ctx.shadowBlur = 4;
       ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 15px Arial';
+      ctx.font = 'bold 14px Arial';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(code, pos.x, pos.y);
+      ctx.shadowBlur = 0;
     }
   });
 
-  // PROPERLY FORMATTED LEGEND
-  const legendY = height - 35;
+  // Legend
+  const legendY = height - 55;
 
-  // Dark background bar
-  ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
-  ctx.fillRect(20, legendY - 22, width - 40, 40);
+  ctx.fillStyle = 'rgba(15, 23, 42, 0.95)';
+  ctx.roundRect(30, legendY - 28, width - 60, 58, 10);
+  ctx.fill();
 
-  // Legend title
   ctx.fillStyle = '#ffffff';
-  ctx.font = 'bold 16px Arial';
+  ctx.font = 'bold 17px Arial';
   ctx.textAlign = 'left';
-  ctx.textBaseline = 'middle';
-  ctx.fillText('Legend:', 36, legendY);
+  ctx.fillText('● Legend', 50, legendY - 5);
 
-  // Legend items with proper spacing
-  let legendX = 140;
-  const legendSpacing = 190;
+  let legendX = 180;
+  const legendSpacing = 220;
 
   if (mapType === 'volume') {
     const volumeLegend = [
-      { color: '#60a5fa', label: 'Low', range: '(1-4%)', size: 20 },
-      { color: '#3b82f6', label: 'Med', range: '(5-9%)', size: 26 },
-      { color: '#2563eb', label: 'High', range: '(10-14%)', size: 32 },
-      { color: '#1e40af', label: 'V.High', range: '(15%+)', size: 40 }
+      { color: '#60a5fa', label: 'Low Volume', range: '(1-4%)', size: 22 },
+      { color: '#3b82f6', label: 'Medium', range: '(5-9%)', size: 28 },
+      { color: '#2563eb', label: 'High', range: '(10-14%)', size: 34 },
+      { color: '#1e40af', label: 'Very High', range: '(15%+)', size: 42 }
     ];
 
     volumeLegend.forEach(item => {
-      // Circle
       ctx.fillStyle = item.color;
       ctx.beginPath();
       ctx.arc(legendX, legendY, item.size / 2, 0, Math.PI * 2);
       ctx.fill();
 
-      // Label
       ctx.fillStyle = '#ffffff';
       ctx.font = 'bold 14px Arial';
       ctx.textAlign = 'left';
-      ctx.fillText(item.label, legendX + 28, legendY - 2);
+      ctx.fillText(item.label, legendX + 32, legendY - 4);
 
-      // Range
       ctx.fillStyle = '#94a3b8';
       ctx.font = '12px Arial';
-      ctx.fillText(item.range, legendX + 28, legendY + 12);
+      ctx.fillText(item.range, legendX + 32, legendY + 11);
 
       legendX += legendSpacing;
     });
   } else {
     const costLegend = [
-      { color: '#34d399', label: 'Low', range: '($0-12)', size: 20 },
-      { color: '#fbbf24', label: 'Med', range: '($12-14)', size: 26 },
-      { color: '#f97316', label: 'High', range: '($14-16)', size: 32 },
-      { color: '#dc2626', label: 'V.High', range: '($16+)', size: 40 }
+      { color: '#34d399', label: 'Low Cost', range: '($0-12)', size: 22 },
+      { color: '#fbbf24', label: 'Medium', range: '($12-14)', size: 28 },
+      { color: '#f97316', label: 'High', range: '($14-16)', size: 34 },
+      { color: '#dc2626', label: 'Very High', range: '($16+)', size: 42 }
     ];
 
     costLegend.forEach(item => {
@@ -1031,521 +1600,1187 @@ async function generateUSMapVisualization(topStates, mapType = 'volume') {
       ctx.fillStyle = '#ffffff';
       ctx.font = 'bold 14px Arial';
       ctx.textAlign = 'left';
-      ctx.fillText(item.label, legendX + 28, legendY - 2);
+      ctx.fillText(item.label, legendX + 32, legendY - 4);
 
       ctx.fillStyle = '#94a3b8';
       ctx.font = '12px Arial';
-      ctx.fillText(item.range, legendX + 28, legendY + 12);
+      ctx.fillText(item.range, legendX + 32, legendY + 11);
 
       legendX += legendSpacing;
     });
   }
 
-  // PROPERLY SPACED TOP 5 TABLE
-  const panelX = width - 200;
-  const panelY = 90;
-  const rowHeight = 32;
+  // Top 5 Panel
+  const panelX = width - 235;
+  const panelY = 100;
+  const rowHeight = 36;
 
-  // Table background
-  ctx.fillStyle = 'rgba(15, 23, 42, 0.8)';
-  ctx.fillRect(panelX - 15, panelY, 185, 180);
+  ctx.fillStyle = 'rgba(15, 23, 42, 0.95)';
+  ctx.roundRect(panelX - 18, panelY, 225, 210, 12);
+  ctx.fill();
 
-  // Table header
+  ctx.strokeStyle = '#3b82f6';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
   ctx.fillStyle = '#ffffff';
-  ctx.font = 'bold 18px Arial';
+  ctx.font = 'bold 19px Arial';
   ctx.textAlign = 'left';
-  ctx.fillText('Top 5 States:', panelX, panelY + 20);
+  ctx.fillText('⭐ Top 5 States', panelX, panelY + 23);
 
-  let listY = panelY + 50;
-
+  let listY = panelY + 57;
   topStates.slice(0, 5).forEach((state, idx) => {
     const color = getColor(state, mapType);
     const value = mapType === 'volume' ? `${state.percentage}%` : `$${state.avgCost}`;
 
-    // Rank circle
-    ctx.fillStyle = '#475569';
+    const rankGradient = ctx.createLinearGradient(panelX + 5, listY - 14, panelX + 18, listY + 14);
+    rankGradient.addColorStop(0, '#475569');
+    rankGradient.addColorStop(1, '#334155');
+    ctx.fillStyle = rankGradient;
     ctx.beginPath();
-    ctx.arc(panelX + 10, listY, 12, 0, Math.PI * 2);
+    ctx.arc(panelX + 13, listY, 14, 0, Math.PI * 2);
     ctx.fill();
 
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 14px Arial';
-    ctx.textAlign = 'center';
-    ctx.fillText(`${idx + 1}`, panelX + 10, listY + 1);
+    ctx.strokeStyle = '#64748b';
+    ctx.lineWidth = 2;
+    ctx.stroke();
 
-    // State code
-    ctx.fillStyle = '#e2e8f0';
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 15px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText(`${idx + 1}`, panelX + 13, listY + 1);
+
+    ctx.fillStyle = '#f1f5f9';
     ctx.font = 'bold 18px Arial';
     ctx.textAlign = 'left';
-    ctx.fillText(state.code, panelX + 32, listY + 1);
+    ctx.fillText(state.code, panelX + 35, listY + 1);
 
-    // Value with color
+    ctx.fillStyle = color + '30';
+    ctx.roundRect(panelX + 125, listY - 13, 68, 26, 5);
+    ctx.fill();
+
     ctx.fillStyle = color;
-    ctx.font = 'bold 18px Arial';
+    ctx.font = 'bold 17px Arial';
     ctx.textAlign = 'right';
-    ctx.fillText(value, panelX + 155, listY + 1);
+    ctx.fillText(value, panelX + 186, listY + 1);
 
     listY += rowHeight;
   });
 
-  return canvas.toBuffer('image/png', { compressionLevel: 0, filters: canvas.PNG_FILTER_NONE });
+  return canvas.toBuffer('image/png', { compressionLevel: 3, filters: canvas.PNG_FILTER_NONE });
 }
 
 async function generatePDF(data, outputPath) {
   return new Promise(async (resolve, reject) => {
     try {
+      function safeNumber(value, decimals = 2) {
+        const num = parseFloat(value);
+        if (isNaN(num)) return '0' + (decimals > 0 ? '.' + '0'.repeat(decimals) : '');
+        return num.toFixed(decimals);
+      }
+
       const doc = new PDFDocument({
         size: 'LETTER',
-        margins: { top: 40, bottom: 40, left: 50, right: 50 },
-        bufferPages: false,
+        margins: { top: 40, bottom: 40, left: 40, right: 40 },
+        bufferPages: true,
         autoFirstPage: false
       });
 
       const stream = fs.createWriteStream(outputPath);
       doc.pipe(stream);
 
-      // Load logo - Try JPG/PNG formats
+      const pageHeight = 792;
+      const pageWidth = 612;
+      const footerSpace = 70;
+
+      function addFooter() {
+        const footerY = pageHeight - 50;
+        doc.moveTo(40, footerY).lineTo(pageWidth - 40, footerY)
+          .strokeColor('#334155').lineWidth(1).stroke();
+
+        doc.fontSize(8).fillColor('#64748b').font('Helvetica-Bold');
+        const text1 = 'AMZ Prep Shipping Analytics';
+        const w1 = doc.widthOfString(text1);
+        doc.text(text1, (pageWidth - w1) / 2, footerY + 10, { lineBreak: false });
+
+        doc.fontSize(7).fillColor('#475569').font('Helvetica');
+        const text2 = 'Confidential Report';
+        const w2 = doc.widthOfString(text2);
+        doc.text(text2, (pageWidth - w2) / 2, footerY + 22, { lineBreak: false });
+      }
+
+      // Load logo
       let logoBuffer = null;
       const logoFormats = ['amzprep_white_logo.jpg', 'amzprep_white_logo.png', 'amzprep_white_logo.jpeg'];
-
       for (const logoFile of logoFormats) {
         try {
           const logoPath = path.join(__dirname, logoFile);
           if (fs.existsSync(logoPath)) {
             logoBuffer = fs.readFileSync(logoPath);
-            console.log(`Logo loaded successfully: ${logoFile}`);
             break;
           }
-        } catch (err) {
-          console.log(`Failed to load ${logoFile}:`, err.message);
-        }
+        } catch (err) {}
       }
 
       // ========== PAGE 1 ==========
       doc.addPage();
-      doc.rect(0, 0, doc.page.width, doc.page.height).fill('#0a0e1a');
+      doc.rect(0, 0, pageWidth, pageHeight).fill('#0a0e1a');
 
-      let yPos = 45;
+      let yPos = 40;
 
-      // Header with logo
+      // Header
       if (logoBuffer) {
         try {
-          doc.image(logoBuffer, 50, yPos, { width: 110, height: 28 });
-          console.log('Logo rendered successfully');
-        } catch (imgErr) {
-          console.log('Logo rendering failed:', imgErr.message);
-          doc.fontSize(22).fillColor('#ffffff').font('Helvetica-Bold').text('AMZ Prep', 50, yPos);
+          doc.image(logoBuffer, 40, yPos, { width: 110, height: 28 });
+        } catch {
+          doc.fontSize(22).fillColor('#ffffff').font('Helvetica-Bold');
+          doc.text('AMZ Prep', 40, yPos, { lineBreak: false });
         }
       } else {
-        doc.fontSize(22).fillColor('#ffffff').font('Helvetica-Bold').text('AMZ Prep', 50, yPos);
+        doc.fontSize(22).fillColor('#ffffff').font('Helvetica-Bold');
+        doc.text('AMZ Prep', 40, yPos, { lineBreak: false });
       }
 
-      // Header right info
-      doc.fontSize(10).fillColor('#94a3b8').font('Helvetica-Bold')
-         .text('Shipping Analytics Report', doc.page.width - 190, 47, { width: 140, align: 'right' });
-      doc.fontSize(8).fillColor('#64748b').font('Helvetica')
-         .text(`${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`,
-               doc.page.width - 190, 60, { width: 140, align: 'right' });
-      doc.fontSize(7).fillColor('#64748b')
-         .text(`Analysis: ${data.analysisMonths} month${data.analysisMonths > 1 ? 's' : ''}`,
-               doc.page.width - 190, 72, { width: 140, align: 'right' });
+      doc.fontSize(10).fillColor('#94a3b8').font('Helvetica-Bold');
+      doc.text('Shipping Analytics Report', pageWidth - 180, 42, {
+        width: 140,
+        align: 'right',
+        lineBreak: false
+      });
 
-      yPos = 95;
+      doc.fontSize(8).fillColor('#64748b').font('Helvetica');
+      doc.text(new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
+        pageWidth - 180, 56, {
+          width: 140,
+          align: 'right',
+          lineBreak: false
+        });
+
+      yPos = 90;
 
       // Title
-      doc.fontSize(19).fillColor('#ffffff').font('Helvetica-Bold')
-         .text('Shipping Analytics Dashboard', 50, yPos);
-      yPos += 28;
-      doc.fontSize(9).fillColor('#94a3b8').font('Helvetica')
-         .text('Comprehensive shipping cost analysis and warehouse optimization', 50, yPos);
-      yPos += 32;
+      doc.fontSize(20).fillColor('#ffffff').font('Helvetica-Bold');
+      doc.text('Shipping Analytics Dashboard', 40, yPos, { lineBreak: false });
 
-      // Key Metrics - 3 boxes
-      const boxWidth = 160;
-      const boxHeight = 70;
-      const boxSpacing = 15;
+      yPos += 30;
 
-      // Box 1: Total Shipments
-      doc.roundedRect(50, yPos, boxWidth, boxHeight, 8)
-         .lineWidth(1.5).fillAndStroke('#1a1f2e', '#3b82f6');
-      doc.fontSize(9).fillColor('#94a3b8').font('Helvetica-Bold')
-         .text('Total Shipments', 60, yPos + 12, { width: boxWidth - 20, align: 'center' });
-      doc.fontSize(26).fillColor('#60a5fa').font('Helvetica-Bold')
-         .text(data.totalShipments.toLocaleString(), 60, yPos + 30, { width: boxWidth - 20, align: 'center' });
-      doc.fontSize(7).fillColor('#64748b').font('Helvetica')
-         .text(`${data.analysisMonths} month${data.analysisMonths > 1 ? 's' : ''}`, 60, yPos + 58, { width: boxWidth - 20, align: 'center' });
+      doc.fontSize(9).fillColor('#94a3b8').font('Helvetica');
+      doc.text('Comprehensive analysis and optimization recommendations', 40, yPos, {
+        width: 450,
+        lineBreak: false
+      });
 
-      // Box 2: Average Cost
-      const box2X = 50 + boxWidth + boxSpacing;
-      doc.roundedRect(box2X, yPos, boxWidth, boxHeight, 8)
-         .lineWidth(1.5).fillAndStroke('#1a1f2e', '#34d399');
-      doc.fontSize(9).fillColor('#94a3b8').font('Helvetica-Bold')
-         .text('Avg Shipping Cost', box2X + 10, yPos + 12, { width: boxWidth - 20, align: 'center' });
-      const avgCostDisplay = typeof data.avgCost === 'number' ? `$${data.avgCost}` : 'N/A';
-      doc.fontSize(26).fillColor('#34d399').font('Helvetica-Bold')
-         .text(avgCostDisplay, box2X + 10, yPos + 30, { width: boxWidth - 20, align: 'center' });
-      doc.fontSize(7).fillColor('#64748b').font('Helvetica')
-         .text('Per shipment', box2X + 10, yPos + 58, { width: boxWidth - 20, align: 'center' });
+      yPos += 25;
 
-      // Box 3: Average Weight
-      const box3X = box2X + boxWidth + boxSpacing;
-      doc.roundedRect(box3X, yPos, boxWidth, boxHeight, 8)
-         .lineWidth(1.5).fillAndStroke('#1a1f2e', '#a78bfa');
-      doc.fontSize(9).fillColor('#94a3b8').font('Helvetica-Bold')
-         .text('Avg Weight', box3X + 10, yPos + 12, { width: boxWidth - 20, align: 'center' });
-      doc.fontSize(26).fillColor('#a78bfa').font('Helvetica-Bold')
-         .text(`${data.avgWeight}`, box3X + 10, yPos + 30, { width: boxWidth - 20, align: 'center' });
-      doc.fontSize(7).fillColor('#64748b').font('Helvetica')
-         .text('pounds', box3X + 10, yPos + 58, { width: boxWidth - 20, align: 'center' });
+      // ✨ Define variables that will be used throughout
+      const totalShipments = parseInt(data.totalShipments) || 0;
+      const analysisMonths = parseInt(data.analysisMonths) || 1;
 
-      yPos += boxHeight + 20;
+      // ✨ Check if we have rich Smash Foods metadata
+      const hasMetadata = data.metadata && data.metadata.dataFormat === 'smash_foods_actual';
 
-      // Recommended Warehouse Banner
-      const recommended = data.warehouseComparison.find(w => w.recommended);
-      if (recommended) {
-        const bannerHeight = 85;
-        doc.roundedRect(50, yPos, doc.page.width - 100, bannerHeight, 10)
-           .fillAndStroke('#1e3a8a', '#3b82f6');
-        doc.fontSize(8).fillColor('#bfdbfe').font('Helvetica-Bold')
-           .text('★ RECOMMENDED WAREHOUSE', 70, yPos + 12);
-        doc.fontSize(20).fillColor('#ffffff').font('Helvetica-Bold')
-           .text(recommended.name, 70, yPos + 30);
+      if (hasMetadata) {
+        // ========== RICH SMASH FOODS METRICS (4 BOXES) ==========
+        const boxWidth = 130;
+        const boxHeight = 70;
+        const boxGap = 8;
+        const meta = data.metadata;
 
-        const metricStartX = 70;
-        const metricY = yPos + 60;
-        const metricSpacing = 160;
+        // Box 1: Total Shipments with Units
+        doc.roundedRect(40, yPos, boxWidth, boxHeight, 8)
+          .lineWidth(2).fillAndStroke('#1a1f2e', '#3b82f6');
 
-        doc.fontSize(7).fillColor('#bfdbfe').font('Helvetica')
-           .text('Avg Cost/Order', metricStartX, metricY);
-        doc.fontSize(13).fillColor('#ffffff').font('Helvetica-Bold')
-           .text(`$${(recommended.cost / data.totalShipments).toFixed(2)}`, metricStartX, metricY + 9);
+        doc.fontSize(8).fillColor('#94a3b8').font('Helvetica-Bold');
+        doc.text('TOTAL SHIPMENTS', 50, yPos + 12, {
+          width: boxWidth - 20,
+          align: 'center',
+          lineBreak: false
+        });
 
-        doc.fontSize(7).fillColor('#bfdbfe').font('Helvetica')
-           .text('Total Savings', metricStartX + metricSpacing, metricY);
-        doc.fontSize(13).fillColor('#34d399').font('Helvetica-Bold')
-           .text(`$${recommended.savings?.toLocaleString() || '0'}`, metricStartX + metricSpacing, metricY + 9);
+        doc.fontSize(24).fillColor('#60a5fa').font('Helvetica-Bold');
+        doc.text(totalShipments.toLocaleString(), 50, yPos + 28, {
+          width: boxWidth - 20,
+          align: 'center',
+          lineBreak: false
+        });
 
-        doc.fontSize(7).fillColor('#bfdbfe').font('Helvetica')
-           .text('Savings', metricStartX + (metricSpacing * 2), metricY);
-        doc.fontSize(13).fillColor('#fbbf24').font('Helvetica-Bold')
-           .text(`${recommended.savingsPercent}%`, metricStartX + (metricSpacing * 2), metricY + 9);
+        doc.fontSize(7).fillColor('#64748b').font('Helvetica');
+        doc.text(`${(meta.totalUnits || 0).toLocaleString()} units`, 50, yPos + 54, {
+          width: boxWidth - 20,
+          align: 'center',
+          lineBreak: false
+        });
 
-        yPos += bannerHeight + 20;
+        // Box 2: Total Pallets with Cuft
+        const box2X = 40 + boxWidth + boxGap;
+        doc.roundedRect(box2X, yPos, boxWidth, boxHeight, 8)
+          .lineWidth(2).fillAndStroke('#1a1f2e', '#a78bfa');
+
+        doc.fontSize(8).fillColor('#94a3b8').font('Helvetica-Bold');
+        doc.text('TOTAL PALLETS', box2X + 10, yPos + 12, {
+          width: boxWidth - 20,
+          align: 'center',
+          lineBreak: false
+        });
+
+        doc.fontSize(24).fillColor('#a78bfa').font('Helvetica-Bold');
+        doc.text((meta.totalPallets || 0).toString(), box2X + 10, yPos + 28, {
+          width: boxWidth - 20,
+          align: 'center',
+          lineBreak: false
+        });
+
+        doc.fontSize(7).fillColor('#64748b').font('Helvetica');
+        doc.text(`${safeNumber(meta.totalCuft, 2)} cuft`, box2X + 10, yPos + 54, {
+          width: boxWidth - 20,
+          align: 'center',
+          lineBreak: false
+        });
+
+        // Box 3: Potential Savings
+        const box3X = box2X + boxWidth + boxGap;
+        const savings = meta.savings || {};
+        const isSavings = (savings.amount || 0) > 0;
+        const savingsColor = isSavings ? '#34d399' : '#ef4444';
+
+        doc.roundedRect(box3X, yPos, boxWidth, boxHeight, 8)
+          .lineWidth(2).fillAndStroke('#1a1f2e', savingsColor);
+
+        doc.fontSize(8).fillColor('#94a3b8').font('Helvetica-Bold');
+        doc.text(isSavings ? 'POTENTIAL SAVINGS' : 'ADDITIONAL COST', box3X + 10, yPos + 12, {
+          width: boxWidth - 20,
+          align: 'center',
+          lineBreak: false
+        });
+
+        doc.fontSize(20).fillColor(savingsColor).font('Helvetica-Bold');
+        const savingsAmount = Math.abs(savings.amount || 0);
+        doc.text(`$${savingsAmount.toLocaleString()}`, box3X + 10, yPos + 28, {
+          width: boxWidth - 20,
+          align: 'center',
+          lineBreak: false
+        });
+
+        doc.fontSize(7).fillColor('#64748b').font('Helvetica');
+        const savingsPercent = safeNumber(Math.abs(savings.percent || 0), 1);
+        doc.text(`${savingsPercent}% ${isSavings ? 'savings' : 'increase'}`,
+          box3X + 10, yPos + 54, {
+          width: boxWidth - 20,
+          align: 'center',
+          lineBreak: false
+        });
+
+        // Box 4: Transit Time
+        const box4X = box3X + boxWidth + boxGap;
+        doc.roundedRect(box4X, yPos, boxWidth, boxHeight, 8)
+          .lineWidth(2).fillAndStroke('#1a1f2e', '#fbbf24');
+
+        doc.fontSize(8).fillColor('#94a3b8').font('Helvetica-Bold');
+        doc.text('TRANSIT TIME', box4X + 10, yPos + 12, {
+          width: boxWidth - 20,
+          align: 'center',
+          lineBreak: false
+        });
+
+        const currentTransit = meta.avgTransitTime || meta.transitImprovement?.currentTransitDays || 0;
+        const amzTransit = meta.amzPrepTransitTime || meta.transitImprovement?.amzPrepTransitDays || 0;
+        const improvement = Math.abs(meta.transitImprovement?.improvementDays || (currentTransit - amzTransit) || 0);
+
+        doc.fontSize(18).fillColor('#fbbf24').font('Helvetica-Bold');
+        doc.text(`${currentTransit} → ${amzTransit} days`, box4X + 10, yPos + 28, {
+          width: boxWidth - 20,
+          align: 'center',
+          lineBreak: false
+        });
+
+        doc.fontSize(7).fillColor('#34d399').font('Helvetica');
+        doc.text(`-${improvement} days faster`, box4X + 10, yPos + 54, {
+          width: boxWidth - 20,
+          align: 'center',
+          lineBreak: false
+        });
+
+        yPos += boxHeight + 18;
+
+        // ========== COST COMPARISON SECTION ==========
+        doc.fontSize(14).fillColor('#ffffff').font('Helvetica-Bold');
+        doc.text('Cost Comparison Analysis', 40, yPos, { lineBreak: false });
+
+        yPos += 20;
+
+        const compBoxW = (pageWidth - 110) / 3;
+        const compBoxH = 95;
+        const compGap = 10;
+
+        // Current Provider Box
+        doc.roundedRect(40, yPos, compBoxW, compBoxH, 8)
+          .lineWidth(1).fillAndStroke('#1a1f2e', '#334155');
+
+        doc.fontSize(10).fillColor('#ffffff').font('Helvetica-Bold');
+        doc.text('Current Provider', 50, yPos + 10, {
+          width: compBoxW - 20,
+          align: 'center',
+          lineBreak: false
+        });
+
+        const current = meta.currentCosts || {};
+        const currentFreight = parseInt(current.totalFreight || 0);
+        const currentPlacement = parseInt(current.totalPlacementFees || 0);
+        const currentTotal = parseInt(current.totalCost || 0);
+
+        doc.fontSize(8).fillColor('#94a3b8').font('Helvetica');
+        doc.text('Freight:', 50, yPos + 28, { lineBreak: false });
+        doc.fillColor('#e2e8f0');
+        doc.text(`$${currentFreight.toLocaleString()}`, 50 + compBoxW - 90, yPos + 28, {
+          width: 70,
+          align: 'right',
+          lineBreak: false
+        });
+
+        doc.fillColor('#94a3b8');
+        doc.text('Placement Fees:', 50, yPos + 42, { lineBreak: false });
+        doc.fillColor('#e2e8f0');
+        doc.text(`$${currentPlacement.toLocaleString()}`, 50 + compBoxW - 90, yPos + 42, {
+          width: 70,
+          align: 'right',
+          lineBreak: false
+        });
+
+        doc.moveTo(50, yPos + 56).lineTo(40 + compBoxW - 10, yPos + 56)
+          .strokeColor('#475569').lineWidth(1).stroke();
+
+        doc.fontSize(9).fillColor('#ffffff').font('Helvetica-Bold');
+        doc.text('Total:', 50, yPos + 62, { lineBreak: false });
+        doc.text(`$${currentTotal.toLocaleString()}`, 50 + compBoxW - 90, yPos + 62, {
+          width: 70,
+          align: 'right',
+          lineBreak: false
+        });
+
+        // AMZ Prep Solution Box
+        const box2CompX = 40 + compBoxW + compGap;
+        doc.roundedRect(box2CompX, yPos, compBoxW, compBoxH, 8)
+          .lineWidth(2).fillAndStroke('#1a1f2e', '#3b82f6');
+
+        doc.fontSize(10).fillColor('#ffffff').font('Helvetica-Bold');
+        doc.text('AMZ Prep Solution', box2CompX + 10, yPos + 10, {
+          width: compBoxW - 20,
+          align: 'center',
+          lineBreak: false
+        });
+
+        const proposed = meta.proposedCosts?.combined || {};
+        const patternCost = parseInt(proposed.patternCost || 0);
+        const internalCost = parseInt(proposed.internalCost || 0);
+        const proposedTotal = parseInt(proposed.totalCost || 0);
+
+        doc.fontSize(8).fillColor('#94a3b8').font('Helvetica');
+        doc.text('Pattern (DC→FBA):', box2CompX + 10, yPos + 28, { lineBreak: false });
+        doc.fillColor('#60a5fa');
+        doc.text(`$${patternCost.toLocaleString()}`, box2CompX + compBoxW - 80, yPos + 28, {
+          width: 60,
+          align: 'right',
+          lineBreak: false
+        });
+
+        doc.fillColor('#94a3b8');
+        doc.text('Internal (Whse→DC):', box2CompX + 10, yPos + 42, { lineBreak: false });
+        doc.fillColor('#60a5fa');
+        doc.text(`$${internalCost.toLocaleString()}`, box2CompX + compBoxW - 80, yPos + 42, {
+          width: 60,
+          align: 'right',
+          lineBreak: false
+        });
+
+        doc.fillColor('#94a3b8').fontSize(7);
+        doc.text('After 9.86% discount:', box2CompX + 10, yPos + 52, { lineBreak: false });
+        doc.fillColor('#34d399').fontSize(8);
+        doc.text(`$${proposedTotal.toLocaleString()}`, box2CompX + compBoxW - 80, yPos + 52, {
+          width: 60,
+          align: 'right',
+          lineBreak: false
+        });
+
+        doc.moveTo(box2CompX + 10, yPos + 62).lineTo(box2CompX + compBoxW - 10, yPos + 62)
+          .strokeColor('#3b82f6').lineWidth(1).stroke();
+
+        doc.fontSize(9).fillColor('#ffffff').font('Helvetica-Bold');
+        doc.text('Total:', box2CompX + 10, yPos + 68, { lineBreak: false });
+        doc.fillColor('#60a5fa');
+        doc.text(`$${proposedTotal.toLocaleString()}`, box2CompX + compBoxW - 80, yPos + 68, {
+          width: 60,
+          align: 'right',
+          lineBreak: false
+        });
+
+        // Your Savings Box
+        const box3CompX = box2CompX + compBoxW + compGap;
+        const savingsBoxColor = isSavings ? '#34d399' : '#ef4444';
+        const savingsBoxBg = isSavings ? '#064e3b' : '#7f1d1d';
+
+        doc.roundedRect(box3CompX, yPos, compBoxW, compBoxH, 8)
+          .lineWidth(2).fillAndStroke(savingsBoxBg, savingsBoxColor);
+
+        doc.fontSize(10).fillColor('#ffffff').font('Helvetica-Bold');
+        doc.text('Your Savings', box3CompX + 10, yPos + 10, {
+          width: compBoxW - 20,
+          align: 'center',
+          lineBreak: false
+        });
+
+        doc.fontSize(28).fillColor(savingsBoxColor).font('Helvetica-Bold');
+        doc.text(`$${savingsAmount.toLocaleString()}`, box3CompX + 10, yPos + 32, {
+          width: compBoxW - 20,
+          align: 'center',
+          lineBreak: false
+        });
+
+        doc.fontSize(18).fillColor(savingsBoxColor).font('Helvetica-Bold');
+        doc.text(`${savingsPercent}%`, box3CompX + 10, yPos + 62, {
+          width: compBoxW - 20,
+          align: 'center',
+          lineBreak: false
+        });
+
+        doc.fontSize(7).fillColor('#94a3b8').font('Helvetica');
+        doc.text('Potential savings', box3CompX + 10, yPos + 82, {
+          width: compBoxW - 20,
+          align: 'center',
+          lineBreak: false
+        });
+
+        yPos += compBoxH + 18;
+
+      } else {
+        // ========== FALLBACK: ORIGINAL 3 BOXES (for non-Smash Foods data) ==========
+        const boxWidth = 170;
+        const boxHeight = 75;
+        const boxGap = 10;
+
+        // Box 1: Total Shipments
+        doc.roundedRect(40, yPos, boxWidth, boxHeight, 8)
+          .lineWidth(2).fillAndStroke('#1a1f2e', '#3b82f6');
+
+        doc.fontSize(9).fillColor('#94a3b8').font('Helvetica-Bold');
+        doc.text('TOTAL SHIPMENTS', 50, yPos + 14, {
+          width: boxWidth - 20,
+          align: 'center',
+          lineBreak: false
+        });
+
+        doc.fontSize(28).fillColor('#60a5fa').font('Helvetica-Bold');
+        doc.text(totalShipments.toLocaleString(), 50, yPos + 32, {
+          width: boxWidth - 20,
+          align: 'center',
+          lineBreak: false
+        });
+
+        doc.fontSize(7).fillColor('#64748b').font('Helvetica');
+        doc.text(`${analysisMonths} month analysis`, 50, yPos + 60, {
+          width: boxWidth - 20,
+          align: 'center',
+          lineBreak: false
+        });
+
+        // Box 2: Avg Cost
+        const box2X = 40 + boxWidth + boxGap;
+        doc.roundedRect(box2X, yPos, boxWidth, boxHeight, 8)
+          .lineWidth(2).fillAndStroke('#1a1f2e', '#34d399');
+
+        doc.fontSize(9).fillColor('#94a3b8').font('Helvetica-Bold');
+        doc.text('AVG COST/SHIPMENT', box2X + 10, yPos + 14, {
+          width: boxWidth - 20,
+          align: 'center',
+          lineBreak: false
+        });
+
+        doc.fontSize(28).fillColor('#34d399').font('Helvetica-Bold');
+        doc.text(`$${safeNumber(data.avgCost, 2)}`, box2X + 10, yPos + 32, {
+          width: boxWidth - 20,
+          align: 'center',
+          lineBreak: false
+        });
+
+        doc.fontSize(7).fillColor('#64748b').font('Helvetica');
+        doc.text('Per shipment', box2X + 10, yPos + 60, {
+          width: boxWidth - 20,
+          align: 'center',
+          lineBreak: false
+        });
+
+        // Box 3: Avg Weight
+        const box3X = box2X + boxWidth + boxGap;
+        doc.roundedRect(box3X, yPos, boxWidth, boxHeight, 8)
+          .lineWidth(2).fillAndStroke('#1a1f2e', '#a78bfa');
+
+        doc.fontSize(9).fillColor('#94a3b8').font('Helvetica-Bold');
+        doc.text('AVG WEIGHT', box3X + 10, yPos + 14, {
+          width: boxWidth - 20,
+          align: 'center',
+          lineBreak: false
+        });
+
+        doc.fontSize(28).fillColor('#a78bfa').font('Helvetica-Bold');
+        doc.text(`${safeNumber(data.avgWeight, 1)}`, box3X + 10, yPos + 32, {
+          width: boxWidth - 20,
+          align: 'center',
+          lineBreak: false
+        });
+
+        doc.fontSize(7).fillColor('#64748b').font('Helvetica');
+        doc.text('pounds (lbs)', box3X + 10, yPos + 60, {
+          width: boxWidth - 20,
+          align: 'center',
+          lineBreak: false
+        });
+
+        yPos += boxHeight + 18;
       }
 
-      // Three column section
-      const col1Width = 160;
-      const col2Width = 160;
-      const col3Width = 160;
-      const colSpacing = 15;
-      const sectionHeight = 170;
+      // Recommendation Banner
+      const recommended = data.warehouseComparison.find(w => w.recommended);
+      if (recommended) {
+        doc.roundedRect(40, yPos, pageWidth - 80, 75, 10)
+          .fillAndStroke('#1e40af', '#3b82f6');
 
-      // Column 1: Shipping Method Split
-      doc.roundedRect(50, yPos, col1Width, sectionHeight, 8)
-         .lineWidth(1).fillAndStroke('#1a1f2e', '#2d3748');
-      doc.fontSize(10).fillColor('#ffffff').font('Helvetica-Bold')
-         .text('Shipping Method', 60, yPos + 12, { width: col1Width - 20, align: 'center' });
+        doc.fontSize(8).fillColor('#bfdbfe').font('Helvetica-Bold');
+        doc.text('★ RECOMMENDED WAREHOUSE', 60, yPos + 12, { lineBreak: false });
+
+        doc.fontSize(20).fillColor('#ffffff').font('Helvetica-Bold');
+        doc.text(recommended.name || 'N/A', 60, yPos + 28, { lineBreak: false });
+
+        // Three metrics side by side
+        doc.fontSize(7).fillColor('#bfdbfe').font('Helvetica');
+        doc.text('Avg Cost', 60, yPos + 54, { lineBreak: false });
+
+        const recCost = totalShipments > 0 ? safeNumber(recommended.cost / totalShipments, 2) : '0.00';
+        doc.fontSize(13).fillColor('#ffffff').font('Helvetica-Bold');
+        doc.text(`$${recCost}`, 60, yPos + 62, { lineBreak: false });
+
+        doc.fontSize(7).fillColor('#bfdbfe').font('Helvetica');
+        doc.text('Savings', 200, yPos + 54, { lineBreak: false });
+
+        const recSavings = parseInt(recommended.savings) || 0;
+        doc.fontSize(13).fillColor('#34d399').font('Helvetica-Bold');
+        doc.text(`$${recSavings.toLocaleString()}`, 200, yPos + 62, { lineBreak: false });
+
+        doc.fontSize(7).fillColor('#bfdbfe').font('Helvetica');
+        doc.text('Percentage', 340, yPos + 54, { lineBreak: false });
+
+        const recPercent = safeNumber(recommended.savingsPercent, 1);
+        doc.fontSize(13).fillColor('#fbbf24').font('Helvetica-Bold');
+        doc.text(`${recPercent}%`, 340, yPos + 62, { lineBreak: false });
+
+        yPos += 75 + 18;
+      }
+
+      // Three Columns
+      const colW = 170;
+      const colH = 145;
+      const colGap = 10;
+
+      // Column 1
+      doc.roundedRect(40, yPos, colW, colH, 8)
+        .lineWidth(1).fillAndStroke('#1a1f2e', '#334155');
+
+      doc.fontSize(10).fillColor('#ffffff').font('Helvetica-Bold');
+      doc.text('Shipping Methods', 50, yPos + 12, {
+        width: colW - 20,
+        align: 'center',
+        lineBreak: false
+      });
 
       let methodY = yPos + 35;
-      data.shippingMethods.slice(0, 3).forEach((method) => {
-        doc.fontSize(8).fillColor('#e2e8f0').font('Helvetica')
-           .text(method.name, 60, methodY, { width: col1Width - 80 });
-        doc.fontSize(8).fillColor('#60a5fa').font('Helvetica-Bold')
-           .text(`${method.percentage}%`, col1Width - 30, methodY, { width: 50, align: 'right' });
+      const methods = Array.isArray(data.shippingMethods) ? data.shippingMethods.slice(0, 3) : [];
+      methods.forEach((method) => {
+        const methodName = (method.name || 'Unknown').substring(0, 18);
+        const methodPct = safeNumber(method.percentage, 1);
 
-        const barWidth = col1Width - 20;
-        const barFillWidth = (method.percentage / 100) * barWidth;
-        doc.rect(60, methodY + 12, barWidth, 6).fill('#0f172a');
-        doc.rect(60, methodY + 12, barFillWidth, 6).fill('#34d399');
-        methodY += 32;
+        doc.fontSize(8).fillColor('#e2e8f0').font('Helvetica');
+        doc.text(methodName, 50, methodY, { width: colW - 70, lineBreak: false });
+
+        doc.fontSize(8).fillColor('#60a5fa').font('Helvetica-Bold');
+        doc.text(`${methodPct}%`, 50 + colW - 60, methodY, { width: 50, align: 'right', lineBreak: false });
+
+        const barW = colW - 20;
+        const fillW = (parseFloat(methodPct) / 100) * barW;
+
+        doc.roundedRect(50, methodY + 12, barW, 6, 3).fill('#0f172a');
+        if (fillW > 0) {
+          doc.roundedRect(50, methodY + 12, fillW, 6, 3).fill('#34d399');
+        }
+
+        methodY += 33;
       });
 
-      // Column 2: Weight Split
-      const col2X = 50 + col1Width + colSpacing;
-      doc.roundedRect(col2X, yPos, col2Width, sectionHeight, 8)
-         .lineWidth(1).fillAndStroke('#1a1f2e', '#2d3748');
-      doc.fontSize(10).fillColor('#ffffff').font('Helvetica-Bold')
-         .text('Weight Split', col2X + 10, yPos + 12, { width: col2Width - 20, align: 'center' });
+      // Column 2
+      const col2X = 40 + colW + colGap;
+      doc.roundedRect(col2X, yPos, colW, colH, 8)
+        .lineWidth(1).fillAndStroke('#1a1f2e', '#334155');
+
+      doc.fontSize(10).fillColor('#ffffff').font('Helvetica-Bold');
+      doc.text('Weight Distribution', col2X + 10, yPos + 12, {
+        width: colW - 20,
+        align: 'center',
+        lineBreak: false
+      });
 
       let weightY = yPos + 35;
-      data.weightDistribution.forEach((weight) => {
-        const percentage = (weight.count / data.totalShipments * 100);
-        doc.fontSize(8).fillColor('#e2e8f0').font('Helvetica')
-           .text(weight.range, col2X + 10, weightY, { width: 80 });
-        doc.fontSize(8).fillColor('#60a5fa').font('Helvetica-Bold')
-           .text(`${percentage.toFixed(0)}%`, col2X + col2Width - 40, weightY, { width: 30, align: 'right' });
+      const weights = Array.isArray(data.weightDistribution) ? data.weightDistribution : [];
+      weights.forEach((weight) => {
+        const weightCount = parseInt(weight.count) || 0;
+        const pct = totalShipments > 0 ? (weightCount / totalShipments * 100) : 0;
 
-        const barWidth = col2Width - 20;
-        const barFillWidth = percentage / 100 * barWidth;
-        doc.rect(col2X + 10, weightY + 12, barWidth, 6).fill('#0f172a');
-        if (barFillWidth > 0) {
-          doc.rect(col2X + 10, weightY + 12, barFillWidth, 6).fill('#06b6d4');
+        doc.fontSize(8).fillColor('#e2e8f0').font('Helvetica');
+        doc.text(weight.range || 'Unknown', col2X + 10, weightY, { width: 80, lineBreak: false });
+
+        doc.fontSize(8).fillColor('#60a5fa').font('Helvetica-Bold');
+        doc.text(`${pct.toFixed(0)}%`, col2X + colW - 50, weightY, { width: 40, align: 'right', lineBreak: false });
+
+        const barW = colW - 20;
+        const fillW = pct / 100 * barW;
+
+        doc.roundedRect(col2X + 10, weightY + 12, barW, 6, 3).fill('#0f172a');
+        if (fillW > 0) {
+          doc.roundedRect(col2X + 10, weightY + 12, fillW, 6, 3).fill('#06b6d4');
         }
-        weightY += 32;
+
+        weightY += 33;
       });
 
-      // Column 3: Top 7 States
-      const col3X = col2X + col2Width + colSpacing;
-      doc.roundedRect(col3X, yPos, col3Width, sectionHeight, 8)
-         .lineWidth(1).fillAndStroke('#1a1f2e', '#2d3748');
-      doc.fontSize(10).fillColor('#ffffff').font('Helvetica-Bold')
-         .text('Top 7 States', col3X + 10, yPos + 12, { width: col3Width - 20, align: 'center' });
+      // Column 3
+      const col3X = col2X + colW + colGap;
+      doc.roundedRect(col3X, yPos, colW, colH, 8)
+        .lineWidth(1).fillAndStroke('#1a1f2e', '#334155');
+
+      doc.fontSize(10).fillColor('#ffffff').font('Helvetica-Bold');
+      doc.text('Top 7 States', col3X + 10, yPos + 12, {
+        width: colW - 20,
+        align: 'center',
+        lineBreak: false
+      });
 
       let stateY = yPos + 35;
-      data.topStates.forEach((state, idx) => {
-        doc.fontSize(8).fillColor('#e2e8f0').font('Helvetica')
-           .text(state.name, col3X + 10, stateY, { width: 70 });
-        doc.fontSize(8).fillColor('#60a5fa').font('Helvetica-Bold')
-           .text(`${state.percentage}%`, col3X + 85, stateY);
-        doc.fontSize(7).fillColor('#94a3b8').font('Helvetica')
-           .text(`$${state.avgCost}`, col3X + 120, stateY + 1);
-        stateY += 20;
+      const topStates = Array.isArray(data.topStates) ? data.topStates.slice(0, 7) : [];
+      topStates.forEach((state) => {
+        const stateName = (state.name || 'Unknown').substring(0, 12);
+        const statePct = safeNumber(state.percentage, 1);
+        const stateCost = safeNumber(state.avgCost, 2);
+
+        doc.fontSize(8).fillColor('#e2e8f0').font('Helvetica');
+        doc.text(stateName, col3X + 10, stateY, { width: 60, lineBreak: false });
+
+        doc.fontSize(8).fillColor('#60a5fa').font('Helvetica-Bold');
+        doc.text(`${statePct}%`, col3X + 75, stateY, { lineBreak: false });
+
+        doc.fontSize(7).fillColor('#94a3b8').font('Helvetica');
+        doc.text(`$${stateCost}`, col3X + 115, stateY + 1, { lineBreak: false });
+
+        stateY += 19;
       });
 
-      yPos += sectionHeight + 20;
+      yPos += colH + 18;
 
-      // Warehouse Comparison Table
-      doc.fontSize(13).fillColor('#ffffff').font('Helvetica-Bold')
-         .text('Warehouse Configuration Analysis', 50, yPos);
-      yPos += 22;
+      // Warehouse Table
+      doc.fontSize(12).fillColor('#ffffff').font('Helvetica-Bold');
+      doc.text('Warehouse Analysis', 40, yPos, { lineBreak: false });
 
-      const tableWidth = doc.page.width - 100;
-      const rowHeight = 23;
+      yPos += 20;
 
-      // Table Header
-      doc.rect(50, yPos, tableWidth, rowHeight).fill('#0f172a');
-      const headers = ['Warehouse', 'Ships', 'Cost', 'Zone', 'Transit', 'Save%', 'Save$'];
-      const colPositions = [60, 170, 230, 285, 340, 395, 460];
+      const tblW = pageWidth - 80;
+      const rowH = 20;
+
+      doc.roundedRect(40, yPos, tblW, rowH, 5).fill('#1e293b');
+
+      const headers = ['Warehouse', 'Ships', 'Cost', 'Zone', 'Days', 'Save%', 'Save$'];
+      const colPos = [50, 200, 260, 315, 365, 420, 475];
 
       doc.fontSize(8).fillColor('#94a3b8').font('Helvetica-Bold');
-      headers.forEach((header, idx) => {
-        const align = idx === 0 ? 'left' : 'center';
-        const width = idx === 0 ? 100 : 45;
-        doc.text(header, colPositions[idx], yPos + 8, { width, align });
+      headers.forEach((h, i) => {
+        doc.text(h, colPos[i], yPos + 7, {
+          width: i === 0 ? 140 : 45,
+          align: i === 0 ? 'left' : 'center',
+          lineBreak: false
+        });
       });
-      yPos += rowHeight;
 
-      // Table Rows
-      const maxRows = 6;
-      data.warehouseComparison.slice(0, maxRows).forEach((wh, idx) => {
-        const rowColor = wh.recommended ? '#1e3a8a' : (idx % 2 === 0 ? '#1a1f2e' : '#0a0e1a');
-        doc.rect(50, yPos, tableWidth, rowHeight).fill(rowColor);
+      yPos += rowH;
+
+      const warehouses = Array.isArray(data.warehouseComparison) ? data.warehouseComparison.slice(0, 6) : [];
+      warehouses.forEach((wh, idx) => {
+        const rowColor = wh.recommended ? '#1e3a8a' : (idx % 2 === 0 ? '#1a1f2e' : '#0f172a');
+
+        doc.roundedRect(40, yPos, tblW, rowH, 3).fill(rowColor);
+
         if (wh.recommended) {
-          doc.rect(50, yPos, tableWidth, rowHeight).lineWidth(1).stroke('#3b82f6');
+          doc.roundedRect(40, yPos, tblW, rowH, 3).lineWidth(1).stroke('#3b82f6');
         }
 
+        const whName = (wh.name || 'Unknown').substring(0, 25);
         doc.fontSize(7).fillColor('#e2e8f0').font('Helvetica-Bold');
-        const whName = wh.recommended ? `★ ${wh.name}` : wh.name;
-        doc.text(whName, colPositions[0], yPos + 8, { width: 100 });
+        doc.text(wh.recommended ? `★ ${whName}` : whName, colPos[0], yPos + 7, {
+          width: 140,
+          lineBreak: false
+        });
+
+        const whShips = parseInt(wh.shipments) || 0;
+        const whCost = parseInt(wh.cost) || 0;
+        const whZone = safeNumber(wh.avgZone, 1);
+        const whDays = parseInt(wh.transitTime) || 0;
 
         doc.fontSize(7).fillColor('#cbd5e1').font('Helvetica');
-        doc.text(wh.shipments.toLocaleString(), colPositions[1], yPos + 8, { width: 45, align: 'center' });
-        doc.text(`$${wh.cost.toLocaleString()}`, colPositions[2], yPos + 8, { width: 45, align: 'center' });
-        doc.text(wh.avgZone.toFixed(1), colPositions[3], yPos + 8, { width: 45, align: 'center' });
-        doc.text(`${wh.transitTime}d`, colPositions[4], yPos + 8, { width: 45, align: 'center' });
+        doc.text(whShips.toLocaleString(), colPos[1], yPos + 7, { width: 45, align: 'center', lineBreak: false });
+        doc.text(`$${whCost.toLocaleString()}`, colPos[2], yPos + 7, { width: 45, align: 'center', lineBreak: false });
+        doc.text(whZone, colPos[3], yPos + 7, { width: 45, align: 'center', lineBreak: false });
+        doc.text(`${whDays}d`, colPos[4], yPos + 7, { width: 45, align: 'center', lineBreak: false });
 
         if (wh.savingsPercent) {
+          const whSavePct = safeNumber(wh.savingsPercent, 1);
+          const whSaveAmt = parseInt(wh.savings) || 0;
+
           doc.fillColor('#34d399').font('Helvetica-Bold');
-          doc.text(`${wh.savingsPercent}%`, colPositions[5], yPos + 8, { width: 45, align: 'center' });
+          doc.text(`${whSavePct}%`, colPos[5], yPos + 7, { width: 45, align: 'center', lineBreak: false });
+          doc.text(`$${whSaveAmt.toLocaleString()}`, colPos[6], yPos + 7, { width: 45, align: 'center', lineBreak: false });
         } else {
           doc.fillColor('#475569');
-          doc.text('-', colPositions[5], yPos + 8, { width: 45, align: 'center' });
+          doc.text('-', colPos[5], yPos + 7, { width: 45, align: 'center', lineBreak: false });
+          doc.text('-', colPos[6], yPos + 7, { width: 45, align: 'center', lineBreak: false });
         }
 
-        if (wh.savings) {
-          doc.fillColor('#34d399').font('Helvetica-Bold');
-          doc.text(`$${wh.savings.toLocaleString()}`, colPositions[6], yPos + 8, { width: 50, align: 'center' });
-        } else {
-          doc.fillColor('#475569');
-          doc.text('-', colPositions[6], yPos + 8, { width: 50, align: 'center' });
-        }
-
-        yPos += rowHeight;
+        yPos += rowH;
       });
 
-      // CRITICAL FIX: Footer Page 1 - Save current position first
-      doc.save();
-      const footerY = doc.page.height - 35;
-
-      // Draw footer line
-      doc.moveTo(50, footerY).lineTo(doc.page.width - 50, footerY)
-         .strokeColor('#2d3748').lineWidth(1).stroke();
-
-      // Footer text line 1
-      doc.fontSize(8).fillColor('#64748b').font('Helvetica-Bold');
-      const footerText1 = 'AMZ Prep Shipping Analytics';
-      const footerWidth1 = doc.widthOfString(footerText1);
-      const footerX1 = (doc.page.width - footerWidth1) / 2;
-      doc.text(footerText1, footerX1, footerY + 8, { lineBreak: false });
-
-      // Footer text line 2
-      doc.fontSize(7).fillColor('#475569').font('Helvetica');
-      const footerText2 = 'Confidential Report - For Internal Use Only';
-      const footerWidth2 = doc.widthOfString(footerText2);
-      const footerX2 = (doc.page.width - footerWidth2) / 2;
-      doc.text(footerText2, footerX2, footerY + 20, { lineBreak: false });
-
-      doc.restore();
+      addFooter();
 
       // ========== PAGE 2 ==========
       doc.addPage();
-      doc.rect(0, 0, doc.page.width, doc.page.height).fill('#0a0e1a');
-      yPos = 45;
+      doc.rect(0, 0, pageWidth, pageHeight).fill('#0a0e1a');
 
-      // Page 2 Title
-      doc.fontSize(17).fillColor('#ffffff').font('Helvetica-Bold')
-         .text('Geographic Analysis', 50, yPos);
-      yPos += 35;
+      yPos = 40;
 
-      // Generate CRISP maps
+      doc.fontSize(18).fillColor('#ffffff').font('Helvetica-Bold');
+      doc.text('Geographic Analysis & Insights', 40, yPos, { lineBreak: false });
+
+      yPos += 32;
+
+      // Generate maps
       const volumeMapBuffer = await generateUSMapVisualization(data.topStates, 'volume');
       const costMapBuffer = await generateUSMapVisualization(data.topStates, 'cost');
 
-      // CRITICAL: Use exact dimensions - no scaling
-      const mapWidth = 512;
-      const mapHeight = 200;
-
-      // Map 1: Volume Heat Map
-      doc.roundedRect(50, yPos, mapWidth, mapHeight, 8)
-         .lineWidth(1).fillAndStroke('#1a1f2e', '#2d3748');
+      const mapW = 530;
+      const mapH = 220;
 
       if (volumeMapBuffer) {
-        try {
-          // Place image at exact size - NO SCALING
-          doc.image(volumeMapBuffer, 50, yPos, {
-            width: mapWidth,
-            height: mapHeight,
-            fit: [mapWidth, mapHeight],
-            align: 'center',
-            valign: 'center'
-          });
-        } catch (err) {
-          console.error('Volume map error:', err);
-        }
+        doc.roundedRect(38, yPos - 2, mapW + 4, mapH + 4, 10)
+          .lineWidth(2).stroke('#334155');
+        doc.image(volumeMapBuffer, 40, yPos, { width: mapW, height: mapH });
       }
 
-      yPos += mapHeight + 15;
-
-      // Map 2: Average Cost Heat Map
-      doc.roundedRect(50, yPos, mapWidth, mapHeight, 8)
-         .lineWidth(1).fillAndStroke('#1a1f2e', '#2d3748');
+      yPos += mapH + 16;
 
       if (costMapBuffer) {
-        try {
-          // Place image at exact size - NO SCALING
-          doc.image(costMapBuffer, 50, yPos, {
-            width: mapWidth,
-            height: mapHeight,
-            fit: [mapWidth, mapHeight],
-            align: 'center',
-            valign: 'center'
-          });
-        } catch (err) {
-          console.error('Cost map error:', err);
-        }
+        doc.roundedRect(38, yPos - 2, mapW + 4, mapH + 4, 10)
+          .lineWidth(2).stroke('#334155');
+        doc.image(costMapBuffer, 40, yPos, { width: mapW, height: mapH });
       }
 
-      yPos += mapHeight + 20;
+      yPos += mapH + 18;
 
-      // Additional Insights Section
-      doc.fontSize(15).fillColor('#ffffff').font('Helvetica-Bold')
-         .text('Key Insights', 50, yPos);
-      yPos += 25;
+      // Insights
+      doc.fontSize(14).fillColor('#ffffff').font('Helvetica-Bold');
+      doc.text('Key Insights', 40, yPos, { lineBreak: false });
 
-      // Three insight boxes
-      const insightWidth = 160;
-      const insightHeight = 70;
-      const insightSpacing = 15;
+      yPos += 22;
 
-      // Insight 1: Domestic vs International
-      const domesticPercent = parseFloat(data.domesticVsInternational.domesticPercent);
-      doc.roundedRect(50, yPos, insightWidth, insightHeight, 8)
-         .lineWidth(1).fillAndStroke('#1a1f2e', '#2d3748');
-      doc.fontSize(9).fillColor('#ffffff').font('Helvetica-Bold')
-         .text('Domestic vs Int\'l', 60, yPos + 12, { width: insightWidth - 20, align: 'center' });
-      doc.fontSize(22).fillColor('#34d399').font('Helvetica-Bold')
-         .text(`${domesticPercent.toFixed(0)}%`, 60, yPos + 28, { width: insightWidth - 20, align: 'center' });
-      doc.fontSize(8).fillColor('#94a3b8').font('Helvetica')
-         .text('Domestic Shipments', 60, yPos + 55, { width: insightWidth - 20, align: 'center' });
+      const insightW = 170;
+      const insightH = 68;
+      const insightGap = 10;
 
-      // Insight 2: Top State
-      const topState = data.topStates[0];
-      const insight2X = 50 + insightWidth + insightSpacing;
-      doc.roundedRect(insight2X, yPos, insightWidth, insightHeight, 8)
-         .lineWidth(1).fillAndStroke('#1a1f2e', '#2d3748');
-      doc.fontSize(9).fillColor('#ffffff').font('Helvetica-Bold')
-         .text('Top Destination', insight2X + 10, yPos + 12, { width: insightWidth - 20, align: 'center' });
-      doc.fontSize(17).fillColor('#60a5fa').font('Helvetica-Bold')
-         .text(topState.name, insight2X + 10, yPos + 28, { width: insightWidth - 20, align: 'center' });
-      doc.fontSize(8).fillColor('#94a3b8').font('Helvetica')
-         .text(`${topState.percentage}% of shipments`, insight2X + 10, yPos + 50, { width: insightWidth - 20, align: 'center' });
+      const domesticPct = safeNumber(data.domesticVsInternational?.domesticPercent || 0, 0);
 
-      // Insight 3: Primary Method
-      const topMethod = data.shippingMethods[0];
-      const insight3X = insight2X + insightWidth + insightSpacing;
-      doc.roundedRect(insight3X, yPos, insightWidth, insightHeight, 8)
-         .lineWidth(1).fillAndStroke('#1a1f2e', '#2d3748');
-      doc.fontSize(9).fillColor('#ffffff').font('Helvetica-Bold')
-         .text('Primary Method', insight3X + 10, yPos + 12, { width: insightWidth - 20, align: 'center' });
-      doc.fontSize(17).fillColor('#a78bfa').font('Helvetica-Bold')
-         .text(topMethod.name, insight3X + 10, yPos + 28, { width: insightWidth - 20, align: 'center' });
-      doc.fontSize(8).fillColor('#94a3b8').font('Helvetica')
-         .text(`${topMethod.percentage}% of shipments`, insight3X + 10, yPos + 50, { width: insightWidth - 20, align: 'center' });
+      doc.roundedRect(40, yPos, insightW, insightH, 8)
+        .lineWidth(1).fillAndStroke('#1a1f2e', '#334155');
 
-      yPos += insightHeight + 25;
+      doc.fontSize(9).fillColor('#ffffff').font('Helvetica-Bold');
+      doc.text('Domestic vs Int\'l', 50, yPos + 10, {
+        width: insightW - 20,
+        align: 'center',
+        lineBreak: false
+      });
+
+      doc.fontSize(24).fillColor('#34d399').font('Helvetica-Bold');
+      doc.text(`${domesticPct}%`, 50, yPos + 26, {
+        width: insightW - 20,
+        align: 'center',
+        lineBreak: false
+      });
+
+      doc.fontSize(8).fillColor('#94a3b8').font('Helvetica');
+      doc.text('Domestic Orders', 50, yPos + 50, {
+        width: insightW - 20,
+        align: 'center',
+        lineBreak: false
+      });
+
+      const topState = topStates[0] || { name: 'N/A', percentage: 0 };
+      const ins2X = 40 + insightW + insightGap;
+
+      doc.roundedRect(ins2X, yPos, insightW, insightH, 8)
+        .lineWidth(1).fillAndStroke('#1a1f2e', '#334155');
+
+      doc.fontSize(9).fillColor('#ffffff').font('Helvetica-Bold');
+      doc.text('Top Destination', ins2X + 10, yPos + 10, {
+        width: insightW - 20,
+        align: 'center',
+        lineBreak: false
+      });
+
+      doc.fontSize(18).fillColor('#60a5fa').font('Helvetica-Bold');
+      doc.text(topState.name, ins2X + 10, yPos + 26, {
+        width: insightW - 20,
+        align: 'center',
+        lineBreak: false
+      });
+
+      doc.fontSize(8).fillColor('#94a3b8').font('Helvetica');
+      doc.text(`${safeNumber(topState.percentage, 1)}% of shipments`, ins2X + 10, yPos + 48, {
+        width: insightW - 20,
+        align: 'center',
+        lineBreak: false
+      });
+
+      const topMethod = methods[0] || { name: 'N/A', percentage: 0 };
+      const ins3X = ins2X + insightW + insightGap;
+
+      doc.roundedRect(ins3X, yPos, insightW, insightH, 8)
+        .lineWidth(1).fillAndStroke('#1a1f2e', '#334155');
+
+      doc.fontSize(9).fillColor('#ffffff').font('Helvetica-Bold');
+      doc.text('Primary Method', ins3X + 10, yPos + 10, {
+        width: insightW - 20,
+        align: 'center',
+        lineBreak: false
+      });
+
+      doc.fontSize(16).fillColor('#a78bfa').font('Helvetica-Bold');
+      doc.text(topMethod.name, ins3X + 10, yPos + 26, {
+        width: insightW - 20,
+        align: 'center',
+        lineBreak: false
+      });
+
+      doc.fontSize(8).fillColor('#94a3b8').font('Helvetica');
+      doc.text(`${safeNumber(topMethod.percentage, 1)}% of orders`, ins3X + 10, yPos + 48, {
+        width: insightW - 20,
+        align: 'center',
+        lineBreak: false
+      });
+
+      yPos += insightH + 18;
 
       // Summary Box
-      doc.roundedRect(50, yPos, doc.page.width - 100, 80, 8)
-         .lineWidth(1).fillAndStroke('#1a1f2e', '#2d3748');
-      doc.fontSize(11).fillColor('#ffffff').font('Helvetica-Bold')
-         .text('Executive Summary', 70, yPos + 12);
+      doc.roundedRect(40, yPos, pageWidth - 80, 75, 8)
+        .lineWidth(1).fillAndStroke('#1a1f2e', '#334155');
 
-      const summaryText = `This report analyzes ${data.totalShipments.toLocaleString()} shipments over ${data.analysisMonths} month${data.analysisMonths > 1 ? 's' : ''}. The recommended warehouse configuration (${recommended?.name || 'N/A'}) could save approximately $${recommended?.savings?.toLocaleString() || '0'} (${recommended?.savingsPercent || '0'}%) compared to current operations. Top shipping destination is ${topState.name} with ${topState.percentage}% of total volume.`;
+      doc.fontSize(11).fillColor('#ffffff').font('Helvetica-Bold');
+      doc.text('Executive Summary', 60, yPos + 10, { lineBreak: false });
 
-      doc.fontSize(9).fillColor('#cbd5e1').font('Helvetica')
-         .text(summaryText, 70, yPos + 30, { width: doc.page.width - 140 });
+      const recName = recommended?.name || 'N/A';
+      const recSavings = parseInt(recommended?.savings) || 0;
+      const recSavePct = safeNumber(recommended?.savingsPercent || 0, 1);
 
-      // CRITICAL FIX: Footer Page 2 - Same method
-      doc.save();
-      const footer2Y = doc.page.height - 35;
+      const summary = `Analysis of ${totalShipments.toLocaleString()} shipments over ${analysisMonths} months. Recommended configuration: ${recName} with potential savings of $${recSavings.toLocaleString()} (${recSavePct}%). Top destination: ${topState.name} (${safeNumber(topState.percentage, 1)}%). Primary method: ${topMethod.name} (${safeNumber(topMethod.percentage, 1)}%).`;
 
-      // Draw footer line
-      doc.moveTo(50, footer2Y).lineTo(doc.page.width - 50, footer2Y)
-         .strokeColor('#2d3748').lineWidth(1).stroke();
+      doc.fontSize(9).fillColor('#cbd5e1').font('Helvetica');
+      doc.text(summary, 60, yPos + 28, {
+        width: pageWidth - 120,
+        align: 'left',
+        lineGap: 1.5
+      });
 
-      // Footer text line 1
-      doc.fontSize(8).fillColor('#64748b').font('Helvetica-Bold');
-      const footer2Text1 = 'AMZ Prep Shipping Analytics';
-      const footer2Width1 = doc.widthOfString(footer2Text1);
-      const footer2X1 = (doc.page.width - footer2Width1) / 2;
-      doc.text(footer2Text1, footer2X1, footer2Y + 8, { lineBreak: false });
+      addFooter();
 
-      // Footer text line 2
-      doc.fontSize(7).fillColor('#475569').font('Helvetica');
-      const footer2Text2 = 'Confidential Report - For Internal Use Only';
-      const footer2Width2 = doc.widthOfString(footer2Text2);
-      const footer2X2 = (doc.page.width - footer2Width2) / 2;
-      doc.text(footer2Text2, footer2X2, footer2Y + 20, { lineBreak: false });
+      // ============================================================================
+// CORRECTED HAZMAT PDF SECTION - Add after Page 2 in generatePDF()
+// Location: After addFooter() on page 2, BEFORE doc.end()
+// ============================================================================
 
-      doc.restore();
+// ========== PAGE 3: HAZMAT ANALYSIS ==========
+if (data.hazmat && data.hazmat.overview) {
+  doc.addPage();
+  doc.rect(0, 0, pageWidth, pageHeight).fill('#0a0e1a');
 
-      // Properly finalize document
+  let hazmatY = 40;
+
+  // Page Title
+  doc.fontSize(18).fillColor('#ffffff').font('Helvetica-Bold');
+  doc.text('Hazmat Analysis & Compliance', 40, hazmatY, { lineBreak: false });
+
+  hazmatY += 32;
+
+  // Overview Section with Dark Theme
+  doc.roundedRect(40, hazmatY, pageWidth - 80, 100, 8)
+    .lineWidth(1).fillAndStroke('#1a1f2e', '#f97316');
+
+  doc.fontSize(12).fillColor('#ffffff').font('Helvetica-Bold');
+  doc.text('Hazmat Overview', 60, hazmatY + 12, { lineBreak: false });
+
+  const overview = data.hazmat.overview;
+
+  // Left column
+  doc.fontSize(8).fillColor('#94a3b8').font('Helvetica');
+  doc.text('Total Products:', 60, hazmatY + 32, { lineBreak: false });
+  doc.fontSize(10).fillColor('#ffffff').font('Helvetica-Bold');
+  doc.text((overview.totalProducts || 0).toLocaleString(), 60, hazmatY + 44, { lineBreak: false });
+
+  doc.fontSize(8).fillColor('#94a3b8').font('Helvetica');
+  doc.text('Hazmat Products:', 60, hazmatY + 60, { lineBreak: false });
+  doc.fontSize(10).fillColor('#f97316').font('Helvetica-Bold');
+  doc.text(`${overview.totalHazmatProducts || 0} (${safeNumber(overview.hazmatPercentage, 1)}%)`, 60, hazmatY + 72, { lineBreak: false });
+
+  // Middle column
+  doc.fontSize(8).fillColor('#94a3b8').font('Helvetica');
+  doc.text('Shipments Analyzed:', 220, hazmatY + 32, { lineBreak: false });
+  doc.fontSize(10).fillColor('#ffffff').font('Helvetica-Bold');
+  doc.text((overview.shipmentsAnalyzed || 0).toLocaleString(), 220, hazmatY + 44, { lineBreak: false });
+
+  doc.fontSize(8).fillColor('#94a3b8').font('Helvetica');
+  doc.text('Hazmat Shipments:', 220, hazmatY + 60, { lineBreak: false });
+  doc.fontSize(10).fillColor('#f97316').font('Helvetica-Bold');
+  doc.text(`${overview.totalHazmatShipments || 0} (${safeNumber(overview.shipmentHazmatPercentage, 1)}%)`, 220, hazmatY + 72, { lineBreak: false });
+
+  // Right column
+  doc.fontSize(8).fillColor('#94a3b8').font('Helvetica');
+  doc.text('Non-Hazmat Products:', 380, hazmatY + 32, { lineBreak: false });
+  doc.fontSize(10).fillColor('#34d399').font('Helvetica-Bold');
+  doc.text((overview.totalNonHazmatProducts || 0).toLocaleString(), 380, hazmatY + 44, { lineBreak: false });
+
+  doc.fontSize(8).fillColor('#94a3b8').font('Helvetica');
+  doc.text('Non-Hazmat Shipments:', 380, hazmatY + 60, { lineBreak: false });
+  doc.fontSize(10).fillColor('#34d399').font('Helvetica-Bold');
+  doc.text((overview.totalNonHazmatShipments || 0).toLocaleString(), 380, hazmatY + 72, { lineBreak: false });
+
+  hazmatY += 115;
+
+  // Type Breakdown Section
+  if (data.hazmat.typeBreakdown && data.hazmat.typeBreakdown.length > 0) {
+    doc.fontSize(14).fillColor('#ffffff').font('Helvetica-Bold');
+    doc.text('Hazmat Type Distribution', 40, hazmatY, { lineBreak: false });
+
+    hazmatY += 22;
+
+    data.hazmat.typeBreakdown.slice(0, 5).forEach((type) => {
+      doc.roundedRect(40, hazmatY, pageWidth - 80, 26, 5)
+        .lineWidth(1).fillAndStroke('#1a1f2e', '#334155');
+
+      doc.fontSize(9).fillColor('#ffffff').font('Helvetica-Bold');
+      doc.text(type.type || 'Unknown', 50, hazmatY + 9, { lineBreak: false });
+
+      doc.fontSize(9).fillColor('#f97316').font('Helvetica-Bold');
+      doc.text(`${type.count || 0} products`, 250, hazmatY + 9, { lineBreak: false });
+
+      doc.fontSize(9).fillColor('#94a3b8').font('Helvetica');
+      doc.text(`${safeNumber(type.percentage, 1)}%`, 380, hazmatY + 9, { lineBreak: false });
+
+      // Progress bar
+      const barWidth = 120;
+      const fillWidth = (parseFloat(type.percentage) / 100) * barWidth;
+
+      doc.roundedRect(450, hazmatY + 8, barWidth, 10, 5).fill('#0f172a');
+      if (fillWidth > 0) {
+        doc.roundedRect(450, hazmatY + 8, fillWidth, 10, 5).fill('#f97316');
+      }
+
+      hazmatY += 32;
+    });
+  }
+
+  // Geographic Distribution
+  if (data.hazmat.geographic && data.hazmat.geographic.topStates && data.hazmat.geographic.topStates.length > 0) {
+    hazmatY += 8;
+
+    doc.fontSize(14).fillColor('#ffffff').font('Helvetica-Bold');
+    doc.text('Top Hazmat States', 40, hazmatY, { lineBreak: false });
+
+    hazmatY += 22;
+
+    // Table Header
+    doc.roundedRect(40, hazmatY, pageWidth - 80, 20, 5).fill('#1e293b');
+
+    doc.fontSize(8).fillColor('#94a3b8').font('Helvetica-Bold');
+    doc.text('State', 50, hazmatY + 7, { width: 60, lineBreak: false });
+    doc.text('Shipments', 150, hazmatY + 7, { width: 80, align: 'center', lineBreak: false });
+    doc.text('Units', 250, hazmatY + 7, { width: 80, align: 'center', lineBreak: false });
+    doc.text('Cu.Ft', 350, hazmatY + 7, { width: 80, align: 'center', lineBreak: false });
+    doc.text('% of Total', 450, hazmatY + 7, { width: 80, align: 'center', lineBreak: false });
+
+    hazmatY += 20;
+
+    // Table Rows
+    data.hazmat.geographic.topStates.slice(0, 7).forEach((state, idx) => {
+      const rowColor = idx % 2 === 0 ? '#1a1f2e' : '#0f172a';
+
+      doc.roundedRect(40, hazmatY, pageWidth - 80, 18, 3).fill(rowColor);
+
+      doc.fontSize(8).fillColor('#e2e8f0').font('Helvetica');
+      doc.text(state.state || 'N/A', 50, hazmatY + 6, { width: 60, lineBreak: false });
+
+      doc.fontSize(8).fillColor('#cbd5e1').font('Helvetica');
+      doc.text((state.count || 0).toString(), 150, hazmatY + 6, { width: 80, align: 'center', lineBreak: false });
+      doc.text((state.units || 0).toLocaleString(), 250, hazmatY + 6, { width: 80, align: 'center', lineBreak: false });
+      doc.text(safeNumber(state.cuft, 1), 350, hazmatY + 6, { width: 80, align: 'center', lineBreak: false });
+
+      doc.fontSize(8).fillColor('#f97316').font('Helvetica-Bold');
+      doc.text(`${safeNumber(state.percentage, 1)}%`, 450, hazmatY + 6, { width: 80, align: 'center', lineBreak: false });
+
+      hazmatY += 18;
+    });
+  }
+
+  addFooter();
+
+  // ========== PAGE 4: COMPLIANCE & METRICS ==========
+  if ((data.hazmat.compliance && data.hazmat.compliance.length > 0) ||
+      (data.hazmat.shipments && data.hazmat.shipments.hazmatMetrics)) {
+
+    doc.addPage();
+    doc.rect(0, 0, pageWidth, pageHeight).fill('#0a0e1a');
+
+    let compY = 40;
+
+    // Compliance Section
+    if (data.hazmat.compliance && data.hazmat.compliance.length > 0) {
+      doc.fontSize(18).fillColor('#ffffff').font('Helvetica-Bold');
+      doc.text('Compliance Alerts & Recommendations', 40, compY, { lineBreak: false });
+
+      compY += 28;
+
+      data.hazmat.compliance.slice(0, 5).forEach((alert) => {
+        const iconMap = { error: '❌', warning: '⚠️', info: 'ℹ️' };
+        const icon = iconMap[alert.type] || '•';
+
+        const colorMap = {
+          error: '#dc2626',
+          warning: '#f97316',
+          info: '#3b82f6'
+        };
+        const borderColor = colorMap[alert.type] || '#334155';
+
+        doc.roundedRect(40, compY, pageWidth - 80, 60, 8)
+          .lineWidth(2).fillAndStroke('#1a1f2e', borderColor);
+
+        doc.fontSize(11).fillColor('#ffffff').font('Helvetica-Bold');
+        doc.text(`${icon} ${alert.title || 'Alert'}`, 60, compY + 12, {
+          width: pageWidth - 120,
+          lineBreak: false
+        });
+
+        doc.fontSize(8).fillColor('#cbd5e1').font('Helvetica');
+        doc.text(alert.message || '', 60, compY + 28, {
+          width: pageWidth - 120,
+          lineGap: 1.2
+        });
+
+        compY += 68;
+      });
+
+      compY += 10;
+    }
+
+    // Metrics Comparison
+    if (data.hazmat.shipments && data.hazmat.shipments.hazmatMetrics) {
+      doc.fontSize(14).fillColor('#ffffff').font('Helvetica-Bold');
+      doc.text('Hazmat vs Non-Hazmat Metrics', 40, compY, { lineBreak: false });
+
+      compY += 22;
+
+      const hMetrics = data.hazmat.shipments.hazmatMetrics || {};
+      const nhMetrics = data.hazmat.shipments.nonHazmatMetrics || {};
+
+      // Table Header
+      doc.roundedRect(40, compY, pageWidth - 80, 24, 5).fill('#1e293b');
+
+      doc.fontSize(9).fillColor('#94a3b8').font('Helvetica-Bold');
+      doc.text('Metric', 50, compY + 9, { width: 120, lineBreak: false });
+      doc.text('Hazmat Shipments', 200, compY + 9, { width: 150, align: 'center', lineBreak: false });
+      doc.text('Non-Hazmat Shipments', 370, compY + 9, { width: 150, align: 'center', lineBreak: false });
+
+      compY += 24;
+
+      // Rows
+      const metricsRows = [
+        { label: 'Avg Units', hazmat: safeNumber(hMetrics.avgUnits, 0), nonHazmat: safeNumber(nhMetrics.avgUnits, 0) },
+        { label: 'Avg Pallets', hazmat: safeNumber(hMetrics.avgPallets, 2), nonHazmat: safeNumber(nhMetrics.avgPallets, 2) },
+        { label: 'Avg Cu.Ft', hazmat: safeNumber(hMetrics.avgCuft, 1), nonHazmat: safeNumber(nhMetrics.avgCuft, 1) },
+        { label: 'Avg Cost', hazmat: `$${safeNumber(hMetrics.avgCost, 2)}`, nonHazmat: `$${safeNumber(nhMetrics.avgCost, 2)}` }
+      ];
+
+      metricsRows.forEach((row, idx) => {
+        const rowColor = idx % 2 === 0 ? '#1a1f2e' : '#0f172a';
+
+        doc.roundedRect(40, compY, pageWidth - 80, 22, 3).fill(rowColor);
+
+        doc.fontSize(9).fillColor('#e2e8f0').font('Helvetica');
+        doc.text(row.label, 50, compY + 8, { width: 120, lineBreak: false });
+
+        doc.fontSize(9).fillColor('#f97316').font('Helvetica-Bold');
+        doc.text(row.hazmat, 200, compY + 8, { width: 150, align: 'center', lineBreak: false });
+
+        doc.fontSize(9).fillColor('#34d399').font('Helvetica-Bold');
+        doc.text(row.nonHazmat, 370, compY + 8, { width: 150, align: 'center', lineBreak: false });
+
+        compY += 22;
+      });
+
+      compY += 15;
+    }
+
+    // Sample Products
+    if (data.hazmat.sampleProducts && data.hazmat.sampleProducts.length > 0) {
+      doc.fontSize(14).fillColor('#ffffff').font('Helvetica-Bold');
+      doc.text('Sample Hazmat Products', 40, compY, { lineBreak: false });
+
+      compY += 22;
+
+      data.hazmat.sampleProducts.slice(0, 5).forEach((product) => {
+        doc.roundedRect(40, compY, pageWidth - 80, 32, 5)
+          .lineWidth(1).fillAndStroke('#1a1f2e', '#334155');
+
+        doc.fontSize(8).fillColor('#94a3b8').font('Helvetica');
+        doc.text('ASIN:', 50, compY + 8, { lineBreak: false });
+
+        doc.fontSize(8).fillColor('#ffffff').font('Helvetica-Bold');
+        doc.text(product.asin || 'Unknown', 80, compY + 8, { lineBreak: false });
+
+        const prodName = (product.productName || 'Unknown Product').substring(0, 45);
+        doc.fontSize(8).fillColor('#cbd5e1').font('Helvetica');
+        doc.text(prodName, 50, compY + 19, { width: pageWidth - 100, lineBreak: false });
+
+        doc.fontSize(7).fillColor('#94a3b8').font('Helvetica');
+        const typeText = `Type: ${product.type || 'N/A'} | Storage: ${product.storageType || 'N/A'} | Confidence: ${product.confidence || 'medium'}`;
+        doc.text(typeText, 200, compY + 8, { width: 300, lineBreak: false });
+
+        compY += 36;
+      });
+    }
+
+    addFooter();
+  }
+}
+
       doc.end();
 
       stream.on('finish', () => {
-        console.log('PDF generated successfully:', outputPath);
+        console.log('PDF generated successfully');
         resolve(outputPath);
       });
 
-      stream.on('error', (err) => {
-        console.error('Stream error:', err);
-        reject(err);
-      });
+      stream.on('error', reject);
 
     } catch (error) {
       console.error('PDF generation error:', error);
       reject(error);
-    }
+      }
   });
 }
 
@@ -1574,7 +2809,8 @@ app.get('/auth/google/callback',
         id: req.user._id.toString(),
         email: req.user.email,
         name: req.user.name,
-        picture: req.user.picture
+        picture: req.user.picture,
+        role: req.user.role
       },
       process.env.JWT_SECRET,
       { expiresIn: '24h' }
@@ -1643,14 +2879,49 @@ app.get('/api/health', (req, res) => {
 
 app.post('/api/upload', authenticateToken, upload.single('file'), async (req, res) => {
   try {
+
+    // ADD THESE LINES:
+    const uploadType = req.body.uploadType || 'amazon'; // 'amazon' or 'shopify'
+    const rateType = req.body.rateType || 'prep'; // rate type selected
+
+    console.log(`📁 Upload Type: ${uploadType}, Rate Type: ${rateType}`);
+
     if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
     console.log('📤 File upload from user:', req.user.email);
 
+    console.log('\n📦 ===============================================');
+    console.log('   FILE UPLOAD RECEIVED');
+    console.log('===============================================');
+    console.log(`   File: ${req.file.originalname}`);
+    console.log(`   Size: ${(req.file.size / 1024).toFixed(2)} KB`);
+    console.log(`   User: ${req.user.email}`);
+
+    // 🆕 Extract cost config from request
+    let costConfig = {};
+    if (req.body.costConfig) {
+      try {
+        costConfig = typeof req.body.costConfig === 'string'
+          ? JSON.parse(req.body.costConfig)
+          : req.body.costConfig;
+        console.log('📊 Cost Config received:', costConfig);
+      } catch (e) {
+        console.warn('⚠️ Could not parse costConfig, using defaults');
+      }
+    }
+
     const filePath = req.file.path;
-    const shipments = parseExcelFile(filePath);
+    const { hazmatFilter } = req.body; // NEW - Get filter from request
+    const shipments = await parseExcelFile(filePath, hazmatFilter, costConfig || 'all');
+
+    console.log(`   Upload Type: ${uploadType}`);
+    console.log(`   Rate Type: ${rateType}`);
+    console.log(`   Hazmat Filter: ${hazmatFilter}`);
+    console.log('===============================================\n');
+
+    console.log('🔍 Hazmat filter:', hazmatFilter || 'all'); // NEW
 
     if (shipments.length === 0) {
       // Clean up uploaded file
@@ -1658,7 +2929,7 @@ app.post('/api/upload', authenticateToken, upload.single('file'), async (req, re
       return res.status(400).json({ error: 'No valid data found in file' });
     }
 
-    const analysis = analyzeShipments(shipments);
+    const analysis = analyzeShipments(shipments);  // ✅ This should work now
 
     // ← NEW: Save to MongoDB
     const report = new Report({
@@ -1666,7 +2937,11 @@ app.post('/api/upload', authenticateToken, upload.single('file'), async (req, re
       userEmail: req.user.email,
       filename: req.file.originalname,
       uploadDate: new Date(),
-      ...analysis
+      uploadType,
+      rateType,
+      ...analysis,
+      // 🆕 Save cost configuration for audit trail
+      costConfig: costConfig
     });
 
     await report.save();
@@ -1674,13 +2949,21 @@ app.post('/api/upload', authenticateToken, upload.single('file'), async (req, re
 
     // Clean up uploaded file after processing
     setTimeout(() => {
-      try {
-        fs.unlinkSync(filePath);
-        console.log('🗑️  Cleaned up uploaded file:', req.file.filename);
-      } catch (err) {
-        console.error('Error cleaning up file:', err);
+    try {
+      // Clean up original file
+      fs.unlinkSync(filePath);
+      console.log('🗑️  Cleaned up uploaded file:', req.file.filename);
+
+      // Clean up enhanced file if it exists
+      const enhancedPath = filePath.replace('.xlsx', '_enhanced.xlsx');
+      if (fs.existsSync(enhancedPath)) {
+        fs.unlinkSync(enhancedPath);
+        console.log('🗑️  Cleaned up enhanced file');
       }
-    }, 5000);
+    } catch (err) {
+      console.error('Error cleaning up files:', err);
+    }
+  }, 5000);
 
     res.json({
       success: true,
@@ -1709,7 +2992,7 @@ app.get('/api/reports', authenticateToken, async (req, res) => {
     // Fetch reports sorted by upload date (newest first)
     const reports = await Report.find({ userId: req.user.id })
       .sort({ uploadDate: -1 })
-      .select('_id filename uploadDate totalShipments avgCost analysisMonths')
+      .select('_id filename uploadDate totalShipments avgCost analysisMonths uploadType')  // ✅ Add uploadType
       .lean();
 
     console.log(`✅ Found ${reports.length} reports`);
@@ -1721,7 +3004,8 @@ app.get('/api/reports', authenticateToken, async (req, res) => {
       uploadDate: r.uploadDate,
       totalShipments: r.totalShipments,
       avgCost: r.avgCost,
-      analysisMonths: r.analysisMonths
+      analysisMonths: r.analysisMonths,
+      uploadType: r.uploadType || 'amazon'  // ✅ Add uploadType with default
     }));
 
     res.json({ reports: reportSummaries });
@@ -1810,6 +3094,48 @@ app.get('/api/export/pdf/:id', authenticateToken, async (req, res) => {
     // Remove MongoDB specific fields before PDF generation
     const { _id, userId, userEmail, __v, createdAt, updatedAt, ...reportData } = report;
 
+    // ✅ DEBUG: Check if hazmat data exists
+    console.log('\n' + '='.repeat(60));
+    console.log('📄 PDF EXPORT DATA CHECK');
+    console.log('='.repeat(60));
+    console.log('Report ID:', reportId);
+    console.log('Report Filename:', report.filename);
+    console.log('Total Shipments:', reportData.totalShipments);
+    console.log('\n🔥 HAZMAT DATA STATUS:');
+    console.log('Has hazmat field:', !!reportData.hazmat);
+
+    if (reportData.hazmat) {
+      console.log('✅ Hazmat data IS present');
+      console.log('\n📊 Hazmat Overview:');
+      if (reportData.hazmat.overview) {
+        console.log('  - Total Products:', reportData.hazmat.overview.totalProducts);
+        console.log('  - Hazmat Products:', reportData.hazmat.overview.totalHazmatProducts,
+          `(${reportData.hazmat.overview.hazmatPercentage}%)`);
+        console.log('  - Hazmat Shipments:', reportData.hazmat.overview.totalHazmatShipments,
+          `(${reportData.hazmat.overview.shipmentHazmatPercentage}%)`);
+      } else {
+        console.log('  ⚠️  Overview missing');
+      }
+
+      console.log('\n📋 Hazmat Details:');
+      console.log('  - Type Breakdown:', reportData.hazmat.typeBreakdown?.length || 0, 'types');
+      console.log('  - Geographic Data:', reportData.hazmat.geographic?.topStates?.length || 0, 'states');
+      console.log('  - Compliance Alerts:', reportData.hazmat.compliance?.length || 0, 'alerts');
+      console.log('  - Sample Products:', reportData.hazmat.sampleProducts?.length || 0, 'products');
+
+      console.log('\n✨ PDF will include 4 pages (2 normal + 2 hazmat pages)');
+    } else {
+      console.log('❌ Hazmat data is MISSING!');
+      console.log('\n⚠️  PDF will only have 2 pages (no hazmat section)');
+      console.log('\n🔍 Available report keys:', Object.keys(reportData).slice(0, 20).join(', '));
+      console.log('\n💡 To fix:');
+      console.log('   1. Verify SmashFoodsIntegration returns hazmat data');
+      console.log('   2. Check Report model schema includes hazmat field');
+      console.log('   3. Re-upload file to save with hazmat data');
+    }
+
+    console.log('='.repeat(60) + '\n');
+
     await generatePDF(reportData, pdfPath);
 
     res.download(pdfPath, `AMZ-Prep-Analytics-Report-${reportId}.pdf`, (err) => {
@@ -1829,7 +3155,76 @@ app.get('/api/export/pdf/:id', authenticateToken, async (req, res) => {
   }
 });
 
+app.use('/api/rates', ratesRouter);
+
+app.use('/api/upload', uploadEnhancedRoutes);
+
+// Admin rate management (requires admin role)
+app.use('/api/admin/rates', adminRateUploadRoutes);
+
+app.use('/api/admin', adminUserManagementRoutes);
+
+app.use('/api', authenticateToken, separateUploadRoutes);
+
+app.use('/api/admin/fba-zoning', adminFBAZoningRoutes);
+
+// Download MM Rate Template
+app.get('/api/templates/mm-rate-template', (req, res) => {
+  try {
+    const templatePath = path.join(__dirname, 'templates', 'MM-Rate-Sample-Template.xlsx');
+
+    // Check if file exists
+    if (!fs.existsSync(templatePath)) {
+      return res.status(404).json({
+        success: false,
+        error: 'Template file not found'
+      });
+    }
+
+    // Set headers for file download
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename=MM-Rate-Sample-Template.xlsx');
+
+    // Stream the file
+    const fileStream = fs.createReadStream(templatePath);
+    fileStream.pipe(res);
+
+  } catch (error) {
+    console.error('Error downloading template:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to download template'
+    });
+  }
+});
+
+// Get list of available templates (optional - for future expansion)
+app.get('/api/templates', (req, res) => {
+  try {
+    const templates = [
+      {
+        id: 'mm-rate-template',
+        name: 'MM Rate Template',
+        description: 'Sample rate template for shipping cost analysis',
+        filename: 'MM-Rate-Sample-Template.xlsx',
+        downloadUrl: '/api/templates/mm-rate-template'
+      }
+      // Add more templates here as needed
+    ];
+
+    res.json({ success: true, templates });
+  } catch (error) {
+    console.error('Error fetching templates:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch templates'
+    });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`🚀 AMZ Prep Analytics API running on http://localhost:${PORT}`);
   console.log(`📁 Uploads directory: ${uploadsDir}`);
 });
+
+export { parseExcelFile, analyzeShipments };
