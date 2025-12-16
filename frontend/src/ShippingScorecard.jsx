@@ -1,47 +1,98 @@
 // ============================================================================
-// AMZ PREP SHIPPING SCORECARD - Updated with Admin Dashboard Preview Background
-// Creates urgency and lead generation through partial data reveal
+// AMZ PREP INBOUND SPEED SCORECARD - REVAMPED VERSION
+// Implements all requested changes from team feedback:
+// - Letter grades (A-F) instead of just numeric scores
+// - Prominent INBOUND SPEED display at the top
+// - Data-driven Key Insights section
+// - Professional tone (no excessive FOMO)
+// - Subtitle: "Grading your inbound speed and cost performance"
+// - Removed rate lock countdown
 // File: ShippingScorecard.jsx
 // ============================================================================
 
 import React, { useState } from 'react';
-import { TrendingDown, Clock, Package, DollarSign, ExternalLink, Lock } from 'lucide-react';
+import {
+  TrendingDown,
+  Clock,
+  Package,
+  DollarSign,
+  ExternalLink,
+  Lock,
+  Truck,
+  MapPin,
+  BarChart3,
+  Zap,
+  AlertTriangle,
+  CheckCircle,
+  ArrowRight
+} from 'lucide-react';
 import amzprepLogo from './assets/amzprep_white_logo.png';
 
-/**
- * Enterprise-level shipping scorecard component
- * Using brand colors: #00A8FF and Poppins font
- */
+// ============================================================================
+// BRAND CONSTANTS
+// ============================================================================
+const BRAND_BLUE = '#00A8FF';
+const BRAND_BLUE_RGB = '0, 168, 255';
+
+// ============================================================================
+// SCORING THRESHOLDS & LETTER GRADES
+// ============================================================================
+const GRADE_THRESHOLDS = {
+  A: { min: 85, color: '#10b981', label: 'Excellent', bgColor: 'rgba(16, 185, 129, 0.15)' },
+  B: { min: 70, color: '#22d3ee', label: 'Good', bgColor: 'rgba(34, 211, 238, 0.15)' },
+  C: { min: 55, color: '#fbbf24', label: 'Average', bgColor: 'rgba(251, 191, 36, 0.15)' },
+  D: { min: 40, color: '#f97316', label: 'Below Average', bgColor: 'rgba(249, 115, 22, 0.15)' },
+  E: { min: 25, color: '#ef4444', label: 'Poor', bgColor: 'rgba(239, 68, 68, 0.15)' },
+  F: { min: 0, color: '#dc2626', label: 'Critical', bgColor: 'rgba(220, 38, 38, 0.15)' }
+};
+
+// Speed thresholds (days)
+const SPEED_THRESHOLDS = {
+  excellent: 5,    // <= 5 days = A
+  good: 7,         // <= 7 days = B
+  average: 10,     // <= 10 days = C
+  belowAverage: 15, // <= 15 days = D
+  poor: 20,        // <= 20 days = E
+  critical: 21     // > 20 days = F (WORST)
+};
+
+// ============================================================================
+// MAIN COMPONENT
+// ============================================================================
 export const ShippingScorecard = ({ data, metadata = {}, isAdmin = false }) => {
-  // Calculate scorecard metrics from dashboard data
   const scorecardData = calculateScorecardMetrics(data, metadata);
 
   return (
-    <div className="shipping-scorecard space-y-8 font-['Poppins']">
-      {/* Header Section - Updated Layout: Score Left, Logo Right */}
-      <BrandHeader scorecardData={scorecardData} />
+    <div className="shipping-scorecard space-y-6 font-['Poppins']">
+      {/* Header Section - Score + Inbound Speed Prominently */}
+      <ScorecardHeader scorecardData={scorecardData} />
+
+      {/* Inbound Speed Hero Bar - MOST IMPORTANT */}
+      <InboundSpeedHero metrics={scorecardData.speedMetrics} />
 
       {/* Two Column Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Left Column: Industry Comparison */}
-        <BrandIndustryComparison comparison={scorecardData.comparison} />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Left Column: Performance Grades */}
+        <PerformanceGrades breakdown={scorecardData.breakdown} />
 
-        {/* Right Column: Performance Breakdown */}
-        <BrandPerformanceMetrics breakdown={scorecardData.breakdown} />
+        {/* Right Column: Industry Comparison */}
+        <IndustryComparison comparison={scorecardData.comparison} />
       </div>
 
-      {/* Key Insights Section */}
-      <BrandInsightsSection metrics={scorecardData.urgencyMetrics} />
+      {/* Key Insights Section - Data Driven */}
+      <KeyInsightsSection
+        metrics={scorecardData.keyMetrics}
+        shipMethodData={scorecardData.shipMethodData}
+      />
 
-      {/* FOMO Section for ALL Users (both regular and admin) */}
-      <BrandAnalysisSection
-        totalSavings={scorecardData.urgencyMetrics.totalAnnualSavings}
-        placementFeeSavings={scorecardData.urgencyMetrics.placementFeeSavings}
-        dailyLoss={scorecardData.urgencyMetrics.dailyLoss}
+      {/* CTA Section */}
+      <CTASection
+        totalSavings={scorecardData.keyMetrics.totalAnnualOpportunity}
+        placementFeeSavings={scorecardData.keyMetrics.placementFees}
         isAdmin={isAdmin}
       />
 
-      {/* Full Analysis Section - Initially Hidden */}
+      {/* Full Analysis Section - Initially Hidden (Admin Only) */}
       {isAdmin && (
         <div id="detailed-analysis" className="hidden">
           <DetailedAnalysisSection data={data} metadata={metadata} />
@@ -51,381 +102,501 @@ export const ShippingScorecard = ({ data, metadata = {}, isAdmin = false }) => {
   );
 };
 
-/**
- * Calculate scorecard metrics from existing dashboard data
- */
+// ============================================================================
+// CALCULATE SCORECARD METRICS
+// ============================================================================
 const calculateScorecardMetrics = (data, metadata) => {
-  console.log('🎯 Calculating scorecard from REAL analysis data...');
-  console.log('📊 Metadata available:', !!metadata);
+  console.log('🎯 Calculating scorecard from analysis data...');
 
-  // Get current costs from analysis (your backend data structure)
+  // Extract data from metadata (backend structure)
   const currentCosts = metadata?.currentCosts || {};
-  const proposedCosts = metadata?.proposedCosts?.combined || metadata?.proposedCosts || {};
+  const proposedCosts = metadata?.proposedCosts?.sop || metadata?.proposedCosts || {};
   const savings = metadata?.savings || {};
-
-  // Get transit time data
   const transitImprovement = metadata?.transitImprovement || {};
-  const currentTransitTime = transitImprovement.currentTransitDays || metadata?.avgTransitTime || 11;
+
+  // Core metrics
+  const currentTransitTime = Math.round(
+    transitImprovement.currentTransitDays ||
+    metadata?.avgTransitTime ||
+    16
+  );
   const amzPrepTransitTime = transitImprovement.amzPrepTransitDays || 3;
 
-  // Get totals from analysis
-  const totalLogisticsCost = currentCosts.totalCost || 200000;
-  const actualPlacementFees = currentCosts.totalPlacementFees || 0;
-  const totalUnits = metadata?.totalUnits || data?.totalShipments || 1000;
-  const totalCuft = metadata?.totalCuft || 500;
-  const totalPallets = metadata?.totalPallets || (totalCuft / 67);
+  // Volume metrics
+  const totalShipments = data?.totalShipments || metadata?.totalShipments || 0;
+  const totalUnits = metadata?.totalUnits || 0;
+  const totalCuft = metadata?.totalCuft || 0;
+  const totalPallets = metadata?.totalPallets || Math.round(totalCuft / 67);
 
-  // Calculate opportunity values
-  const placementFeeSavings = actualPlacementFees;
-  let totalAnnualSavings;
-  if (savings.amount && savings.amount > 0) {
-    totalAnnualSavings = savings.amount;
-  } else {
-    const hiddenCostSavings = Math.max(totalLogisticsCost * 0.10, 5000);
-    const speedImpactSavings = Math.max(totalLogisticsCost * 0.05, 2000);
-    totalAnnualSavings = placementFeeSavings + hiddenCostSavings + speedImpactSavings;
+  // Cost metrics
+  const totalPlacementFees = currentCosts.totalPlacementFees || 0;
+  const totalFreightCost = currentCosts.totalCost || currentCosts.totalFreight || 0;
+  const clientCarrierCost = currentCosts.totalFreight || 0;
+
+  // AMZ Prep costs
+  const mmCost = proposedCosts.mmCost || 0;
+  const internalTransfer = proposedCosts.internalTransferCost || proposedCosts.internalTransfer || 0;
+  const totalAMZPrepCost = proposedCosts.totalFreightCost || proposedCosts.totalCost || 0;
+
+  // Savings calculations
+  const savingsAmount = savings.amount || (totalFreightCost - totalAMZPrepCost);
+  const savingsPercent = savings.percent || (totalFreightCost > 0 ? (savingsAmount / totalFreightCost) * 100 : 0);
+
+  // Ship method breakdown
+  const shipMethodBreakdown = metadata?.shipMethodBreakdown || [];
+  const spdCount = shipMethodBreakdown.find(m => m.method === 'SPD')?.shipmentCount || 0;
+  const tlCount = shipMethodBreakdown.find(m => m.method === 'TL')?.shipmentCount || 0;
+  const ltlCount = shipMethodBreakdown.find(m => m.method === 'LTL')?.shipmentCount || 0;
+
+  // From Zip data for facility count
+  const fromZipBreakdown = metadata?.fromZipBreakdown || [];
+  const uniqueDestinations = new Set();
+  if (data?.topStates) {
+    data.topStates.forEach(s => uniqueDestinations.add(s.code));
   }
+  const amazonFacilityCount = uniqueDestinations.size || fromZipBreakdown.length || 0;
 
-  const hiddenCostSavings = Math.max((totalLogisticsCost - actualPlacementFees) * 0.10, 5000);
-  const transitTimeDifference = Math.max(0, currentTransitTime - amzPrepTransitTime);
-  const speedImpactSavings = transitTimeDifference > 5 ? Math.max(totalLogisticsCost * 0.05, 2000) : 1000;
-  const dailyLoss = Math.round(totalAnnualSavings / 365);
+  // ============================================================================
+  // SCORING CALCULATIONS
+  // ============================================================================
 
-  // Scoring framework
+  // SPEED SCORE (40 points max) - Based on transit time
   let speedScore = 40;
-  if (currentTransitTime >= 10) speedScore = 2;
-  else if (currentTransitTime >= 7) speedScore = 5;
-  else if (currentTransitTime >= 5) speedScore = 12;
-  else if (currentTransitTime >= 4) speedScore = 20;
-  else if (currentTransitTime >= 3) speedScore = 30;
+  let speedGrade = 'A';
+  if (currentTransitTime > 20) {
+    speedScore = 5;
+    speedGrade = 'F';
+  } else if (currentTransitTime > 15) {
+    speedScore = 10;
+    speedGrade = 'E';
+  } else if (currentTransitTime > 10) {
+    speedScore = 18;
+    speedGrade = 'D';
+  } else if (currentTransitTime > 7) {
+    speedScore = 25;
+    speedGrade = 'C';
+  } else if (currentTransitTime > 5) {
+    speedScore = 32;
+    speedGrade = 'B';
+  }
 
+  // COST SCORE (35 points max) - Based on placement fees & waste
   let costScore = 35;
-  if (actualPlacementFees > 0) {
-    costScore = 0;
-  } else if (totalAnnualSavings > totalLogisticsCost * 0.20) {
+  let costGrade = 'A';
+  const placementFeeRatio = totalFreightCost > 0 ? (totalPlacementFees / totalFreightCost) : 0;
+
+  if (totalPlacementFees > 0 && placementFeeRatio > 0.5) {
+    // WORST: More than 50% of cost is placement fees
     costScore = 5;
-  } else if (totalAnnualSavings > totalLogisticsCost * 0.15) {
-    costScore = 10;
-  } else if (totalAnnualSavings > totalLogisticsCost * 0.10) {
-    costScore = 20;
+    costGrade = 'F';
+  } else if (totalPlacementFees > 0 && placementFeeRatio > 0.3) {
+    costScore = 12;
+    costGrade = 'E';
+  } else if (totalPlacementFees > 0 && placementFeeRatio > 0.15) {
+    costScore = 18;
+    costGrade = 'D';
+  } else if (totalPlacementFees > 0) {
+    costScore = 25;
+    costGrade = 'C';
+  } else if (savingsPercent > 20) {
+    costScore = 28;
+    costGrade = 'B';
   }
 
+  // GEO SCORE (25 points max) - Based on distribution strategy
   let geoScore = 25;
+  let geoGrade = 'A';
   const splitShipmentRate = data?.splitShipmentRate || 0;
-  const topStatesCount = data?.topStates?.length || 0;
 
-  if (splitShipmentRate > 30) geoScore = 5;
-  else if (splitShipmentRate > 20) geoScore = 10;
-  else if (splitShipmentRate > 10) geoScore = 15;
-  else if (topStatesCount < 5) geoScore -= 5;
-
-  const rawScore = speedScore + costScore + geoScore;
-
-  // Timer for 2025 rate lock
-  const currentDate = new Date();
-  const endOfYear = new Date(currentDate.getFullYear(), 11, 31);
-  const daysUntilRateIncrease = Math.max(0, Math.ceil((endOfYear - currentDate) / (1000 * 60 * 60 * 24)));
-
-  // Industry benchmark positioning
-  let scoreStatus = 'CRITICAL';
-  let percentileRank = 'Bottom 5%';
-  let urgencyLevel = 'EMERGENCY';
-
-  if (rawScore >= 90) {
-    scoreStatus = 'EXCELLENT'; percentileRank = 'Top 1%'; urgencyLevel = 'OPTIMIZED';
-  } else if (rawScore >= 70) {
-    scoreStatus = 'GOOD'; percentileRank = 'Top 10%'; urgencyLevel = 'MINOR TWEAKS';
-  } else if (rawScore >= 50) {
-    scoreStatus = 'AVERAGE'; percentileRank = '50th Percentile'; urgencyLevel = 'SIGNIFICANT WASTE';
-  } else if (rawScore >= 30) {
-    scoreStatus = 'POOR'; percentileRank = 'Bottom 25%'; urgencyLevel = 'URGENT ACTION NEEDED';
+  if (splitShipmentRate > 40) {
+    geoScore = 8;
+    geoGrade = 'E';
+  } else if (splitShipmentRate > 30) {
+    geoScore = 12;
+    geoGrade = 'D';
+  } else if (splitShipmentRate > 20) {
+    geoScore = 16;
+    geoGrade = 'C';
+  } else if (splitShipmentRate > 10) {
+    geoScore = 20;
+    geoGrade = 'B';
   }
 
-  const totalScore = Math.min(rawScore, 35);
+  // TOTAL SCORE & OVERALL GRADE
+  const totalScore = speedScore + costScore + geoScore;
+  const overallGrade = getLetterGrade(totalScore);
+  const gradeInfo = GRADE_THRESHOLDS[overallGrade];
+
+  // Determine status message (professional tone, not excessive FOMO)
+  let statusMessage = '';
+  if (overallGrade === 'F') {
+    statusMessage = 'Significant optimization needed';
+  } else if (overallGrade === 'E') {
+    statusMessage = 'Multiple areas need attention';
+  } else if (overallGrade === 'D') {
+    statusMessage = 'Room for improvement';
+  } else if (overallGrade === 'C') {
+    statusMessage = 'Meeting industry average';
+  } else if (overallGrade === 'B') {
+    statusMessage = 'Performing well';
+  } else {
+    statusMessage = 'Excellent performance';
+  }
 
   return {
     totalScore,
-    scoreStatus,
-    percentileRank,
-    urgencyLevel,
-    daysUntilRateIncrease,
-    urgencyMetrics: {
-      dailyLoss,
-      extraDays: Math.max(0, currentTransitTime - amzPrepTransitTime),
-      totalAnnualSavings,
-      placementFeeSavings,
-      hiddenCostSavings,
-      speedImpactSavings,
-      currentTransitTime,
-      targetTransitTime: amzPrepTransitTime
+    overallGrade,
+    gradeInfo,
+    statusMessage,
+
+    speedMetrics: {
+      currentDays: currentTransitTime,
+      amzPrepDays: amzPrepTransitTime,
+      improvement: Math.max(0, currentTransitTime - amzPrepTransitTime),
+      improvementPercent: currentTransitTime > 0
+        ? Math.round(((currentTransitTime - amzPrepTransitTime) / currentTransitTime) * 100)
+        : 0,
+      grade: speedGrade
     },
+
     breakdown: {
       speed: {
         score: speedScore,
         max: 40,
-        status: speedScore <= 5 ? 'BOTTOM 1%' : speedScore <= 12 ? 'BOTTOM 5%' : speedScore <= 20 ? 'BOTTOM 20%' : speedScore <= 30 ? 'BELOW AVERAGE' : 'GOOD',
-        message: speedScore <= 5 ? `${currentTransitTime} days delivery puts you in bottom 1% - AMZ Prep delivers in 2-3 days` :
-                speedScore <= 12 ? `${currentTransitTime} days delivery is bottom 5% - customers expect faster` :
-                speedScore <= 20 ? `${currentTransitTime} days is bottom 20% - AMZ Prep delivers in 2-3 days to 90% ZIP codes` :
-                speedScore <= 30 ? `${currentTransitTime} days is below average - AMZ Prep achieves 2-3 days` : 'Competitive delivery speed'
+        grade: speedGrade,
+        gradeInfo: GRADE_THRESHOLDS[speedGrade],
+        message: getSpeedMessage(currentTransitTime, amzPrepTransitTime)
       },
       cost: {
         score: costScore,
         max: 35,
-        status: costScore === 0 ? 'CRITICAL' : costScore <= 10 ? 'BOTTOM 10%' : costScore <= 20 ? 'BELOW AVERAGE' : 'GOOD',
-        message: actualPlacementFees > 0 ? `Paying $${actualPlacementFees.toLocaleString()}/year in placement fees - AMZ Prep eliminates these completely FREE` :
-                costScore <= 10 ? `$${Math.round(totalAnnualSavings).toLocaleString()}+ annual waste identified - emergency optimization needed` :
-                costScore <= 20 ? `$${Math.round(hiddenCostSavings).toLocaleString()}+ in hidden waste - significant improvement opportunity` : 'Decent cost efficiency'
+        grade: costGrade,
+        gradeInfo: GRADE_THRESHOLDS[costGrade],
+        message: getCostMessage(totalPlacementFees, savingsAmount, placementFeeRatio)
       },
       geo: {
         score: geoScore,
         max: 25,
-        status: geoScore <= 10 ? 'CRITICAL' : geoScore <= 15 ? 'POOR' : geoScore <= 20 ? 'BELOW AVERAGE' : 'GOOD',
-        message: splitShipmentRate > 30 ? `${splitShipmentRate}% split shipment rate causing major inefficiencies` :
-                splitShipmentRate > 20 ? `${splitShipmentRate}% split rate - geographic optimization needed` :
-                splitShipmentRate > 10 ? `${splitShipmentRate}% split rate - distribution strategy can improve` : 'Good geographic distribution strategy'
+        grade: geoGrade,
+        gradeInfo: GRADE_THRESHOLDS[geoGrade],
+        message: getGeoMessage(splitShipmentRate, amazonFacilityCount)
       }
     },
+
     comparison: {
       current: totalScore,
-      currentStatus: scoreStatus,
-      amzPrepClients: 95,
+      currentGrade: overallGrade,
       industryAverage: 55,
-      opportunity: totalAnnualSavings,
-      realData: {
-        actualPlacementFees,
-        currentLogisticsCost: totalLogisticsCost,
-        calculatedSavings: totalAnnualSavings,
-        transitTimeGap: currentTransitTime - amzPrepTransitTime,
-        percentileRank,
-        urgencyLevel,
-        daysUntilRateIncrease
-      }
+      industryGrade: 'C',
+      topPerformers: 90,
+      topGrade: 'A'
+    },
+
+    keyMetrics: {
+      totalUnits,
+      totalCuft: Math.round(totalCuft),
+      totalPallets: Math.round(totalPallets * 100) / 100,
+      totalShipments,
+      placementFees: Math.round(totalPlacementFees),
+      clientCarrierCost: Math.round(clientCarrierCost),
+      totalFreightCost: Math.round(totalFreightCost),
+      mmCost: Math.round(mmCost),
+      internalTransfer: Math.round(internalTransfer),
+      totalAMZPrepCost: Math.round(totalAMZPrepCost),
+      savingsAmount: Math.round(savingsAmount),
+      savingsPercent: Math.round(savingsPercent * 10) / 10,
+      amazonFacilityCount,
+      totalAnnualOpportunity: Math.round(savingsAmount + totalPlacementFees)
+    },
+
+    shipMethodData: {
+      spd: { count: spdCount, percent: totalShipments > 0 ? Math.round((spdCount / totalShipments) * 100) : 0 },
+      tl: { count: tlCount, percent: totalShipments > 0 ? Math.round((tlCount / totalShipments) * 100) : 0 },
+      ltl: { count: ltlCount, percent: totalShipments > 0 ? Math.round((ltlCount / totalShipments) * 100) : 0 }
     }
   };
 };
 
-/**
- * Brand Header Component - Updated Layout
- */
-const BrandHeader = ({ scorecardData }) => {
-  const brandBlue = '#00A8FF';
-  const brandBlueRGB = '0, 168, 255';
+// ============================================================================
+// HELPER FUNCTIONS
+// ============================================================================
+const getLetterGrade = (score) => {
+  if (score >= 85) return 'A';
+  if (score >= 70) return 'B';
+  if (score >= 55) return 'C';
+  if (score >= 40) return 'D';
+  if (score >= 25) return 'E';
+  return 'F';
+};
+
+const getSpeedMessage = (current, target) => {
+  const diff = current - target;
+  if (current > 20) {
+    return `${current} days transit time is significantly slower than optimal. AMZ Prep delivers in ${target} days.`;
+  } else if (current > 10) {
+    return `${current} days transit puts inventory at risk. AMZ Prep can reduce this to ${target} days.`;
+  } else if (current > 5) {
+    return `${current} days is acceptable, but ${target} days with AMZ Prep improves cash flow.`;
+  }
+  return `${current} days transit time is competitive.`;
+};
+
+const getCostMessage = (placementFees, savings, ratio) => {
+  if (placementFees > 0 && ratio > 0.5) {
+    return `Placement fees are ${Math.round(ratio * 100)}% of total cost. AMZ Prep eliminates these entirely.`;
+  } else if (placementFees > 0) {
+    return `$${placementFees.toLocaleString()} in placement fees can be eliminated with AMZ Prep.`;
+  } else if (savings > 5000) {
+    return `$${Math.round(savings).toLocaleString()} in optimization opportunities identified.`;
+  }
+  return 'Cost structure is reasonably efficient.';
+};
+
+const getGeoMessage = (splitRate, facilityCount) => {
+  if (splitRate > 30) {
+    return `${splitRate}% split shipment rate is driving up costs. Strategic positioning can help.`;
+  } else if (facilityCount > 10) {
+    return `Shipping to ${facilityCount} Amazon facilities. Central positioning could reduce complexity.`;
+  }
+  return 'Geographic distribution strategy is working well.';
+};
+
+const formatCurrency = (amount) => {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0
+  }).format(amount || 0);
+};
+
+const formatNumber = (num) => {
+  return new Intl.NumberFormat('en-US').format(Math.round(num || 0));
+};
+
+// ============================================================================
+// SCORECARD HEADER COMPONENT
+// ============================================================================
+const ScorecardHeader = ({ scorecardData }) => {
+  const { totalScore, overallGrade, gradeInfo, statusMessage } = scorecardData;
 
   return (
-    <div className="relative bg-gray-900 rounded-2xl border border-gray-700/50 p-8 overflow-hidden">
-      {/* Background pattern */}
-      <div className="absolute inset-0 opacity-10">
-        <div className="grid grid-cols-12 grid-rows-8 h-full w-full gap-1">
-          {Array.from({ length: 96 }).map((_, i) => (
-            <div
-              key={i}
-              className="rounded"
-              style={{
-                backgroundColor: i % 3 === 0 ? 'transparent' : 'transparent'
-              }}
-            />
-          ))}
-        </div>
+    <div
+      className="relative rounded-2xl border border-gray-700/50 p-6 overflow-hidden"
+      style={{
+        background: 'linear-gradient(135deg, #0a0f1a 0%, #111827 100%)',
+        borderColor: `${gradeInfo.color}30`
+      }}
+    >
+      {/* Subtle background pattern */}
+      <div className="absolute inset-0 opacity-5">
+        <div
+          className="absolute inset-0"
+          style={{
+            backgroundImage: `radial-gradient(${gradeInfo.color} 1px, transparent 1px)`,
+            backgroundSize: '20px 20px'
+          }}
+        />
       </div>
 
-      {/* Content Grid: Score Left, Logo Right */}
-      <div className="relative grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
-        {/* Left: Score Section */}
-        <div>
-          <div className="mb-6">
-            <div className="text-6xl font-black mb-2">
-              <span className="text-red-500">{scorecardData.totalScore}</span>
-              <span className="text-gray-500 text-4xl">/100</span>
-            </div>
-            <div className="text-red-500 font-bold text-lg tracking-wider">
-              {scorecardData.scoreStatus}
-            </div>
-            <div className="text-gray-400 text-sm uppercase tracking-wider">
-              {scorecardData.urgencyLevel}
-            </div>
+      <div className="relative grid grid-cols-1 lg:grid-cols-2 gap-6 items-center">
+        {/* Left: Grade Display */}
+        <div className="flex items-center gap-6">
+          {/* Large Letter Grade */}
+          <div
+            className="relative flex items-center justify-center w-28 h-28 rounded-2xl"
+            style={{
+              background: gradeInfo.bgColor,
+              border: `2px solid ${gradeInfo.color}40`
+            }}
+          >
+            <span
+              className="text-6xl font-black"
+              style={{ color: gradeInfo.color }}
+            >
+              {overallGrade}
+            </span>
+            {/* Small numeric score */}
+            <span
+              className="absolute -bottom-2 -right-2 bg-gray-900 px-2 py-0.5 rounded-lg text-xs font-bold border"
+              style={{ borderColor: gradeInfo.color, color: gradeInfo.color }}
+            >
+              {totalScore}/100
+            </span>
           </div>
 
-          {/* Progress Bar */}
-          <div className="relative w-full h-3 bg-gray-800 rounded-xl border border-gray-700/50 mb-4">
-            <div
-              className="h-full rounded-xl transition-all duration-2000"
-              style={{
-                width: `${scorecardData.totalScore}%`,
-                background: scorecardData.totalScore <= 35 ? 'linear-gradient(90deg, #ef4444, #dc2626)' : 'linear-gradient(90deg, #3b82f6, #1d4ed8)'
-              }}
-            />
-          </div>
-
-          <div className="text-brand-blue text-sm font-medium">
-            {scorecardData.daysUntilRateIncrease} days to lock 2024 rates before increases
+          {/* Score Info */}
+          <div>
+            <h2
+              className="text-2xl font-bold mb-1"
+              style={{ color: gradeInfo.color }}
+            >
+              {gradeInfo.label}
+            </h2>
+            <p className="text-gray-400 text-sm">
+              {statusMessage}
+            </p>
           </div>
         </div>
 
-        {/* Right: Logo & Branding - UPDATED LAYOUT */}
-        <div className="text-center lg:text-right">
-          <div className="inline-flex flex-col items-center lg:items-end gap-2 mb-4">
-            {/* Logo at Top */}
-            <img
-              src={amzprepLogo}
-              alt="AMZ Prep"
-              className="h-10 w-auto mb-2"
-            />
-            {/* Text Below Logo */}
-            <div className="text-center lg:text-right">
-              <div className="text-white font-bold text-xl mb-2">Shipping Score</div>
-              <div className="text-brand-blue text-sm">Comprehensive logistics efficiency analysis</div>
-            </div>
-          </div>
+        {/* Right: Logo & Title */}
+        <div className="text-right">
+          <img
+            src={amzprepLogo}
+            alt="AMZ Prep"
+            className="h-9 w-auto ml-auto mb-3"
+          />
+          <h1 className="text-xl font-bold text-white mb-1">
+            Inbound Speed Scorecard
+          </h1>
+          <p className="text-sm" style={{ color: BRAND_BLUE }}>
+            Grading your inbound speed and cost performance
+          </p>
         </div>
       </div>
     </div>
   );
 };
 
-/**
- * Brand Industry Comparison Component
- */
-const BrandIndustryComparison = ({ comparison }) => {
-  const brandBlue = '#00A8FF';
-  const brandBlueRGB = '0, 168, 255';
-
-  const comparisonData = [
-    {
-      label: 'Your Current Score',
-      value: comparison.current,
-      max: 100,
-      status: comparison.currentStatus,
-      color: 'rgb(239, 68, 68)',
-      description: comparison.realData.percentileRank
-    },
-    {
-      label: 'Industry Average',
-      value: comparison.industryAverage,
-      max: 100,
-      status: '50th Percentile',
-      color: 'rgb(59, 130, 246)',
-      description: '$2M+ industry money'
-    },
-    {
-      label: 'Top Performers',
-      value: comparison.amzPrepClients,
-      max: 100,
-      status: 'Optimized sellers',
-      color: brandBlue,
-      description: 'Top 1%'
-    }
-  ];
+// ============================================================================
+// INBOUND SPEED HERO BAR - MOST IMPORTANT METRIC
+// ============================================================================
+const InboundSpeedHero = ({ metrics }) => {
+  const { currentDays, amzPrepDays, improvement, improvementPercent, grade } = metrics;
+  const gradeInfo = GRADE_THRESHOLDS[grade];
 
   return (
-    <div className="bg-gray-900 rounded-xl border border-gray-700/50 p-6">
-      <h2 className="text-2xl font-semibold text-white mb-6">
-        Where You Stand vs Industry
-      </h2>
+    <div
+      className="rounded-xl p-5 border"
+      style={{
+        background: 'linear-gradient(90deg, rgba(0, 168, 255, 0.08) 0%, rgba(0, 168, 255, 0.02) 100%)',
+        borderColor: `${BRAND_BLUE}30`
+      }}
+    >
+      <div className="flex items-center gap-2 mb-4">
+        <Zap className="w-5 h-5" style={{ color: BRAND_BLUE }} />
+        <h3 className="text-lg font-bold text-white">Speed Into Amazon</h3>
+        <span
+          className="ml-2 px-2 py-0.5 rounded text-xs font-bold"
+          style={{ backgroundColor: gradeInfo.bgColor, color: gradeInfo.color }}
+        >
+          Grade: {grade}
+        </span>
+      </div>
 
-      <div className="space-y-6">
-        {comparisonData.map((item, index) => (
-          <div key={index}>
-            <div className="flex justify-between items-center mb-2">
-              <span className="text-white font-medium">{item.label}</span>
-              <div className="text-right">
-                <span className="text-2xl font-bold" style={{ color: item.color }}>
-                  {item.value}/100
-                </span>
-                <div className="text-xs" style={{ color: item.color }}>
-                  {item.status}
-                </div>
-              </div>
+      {/* Speed Comparison Bar */}
+      <div className="relative">
+        {/* Background track */}
+        <div className="h-12 bg-gray-800/50 rounded-xl overflow-hidden relative">
+          {/* Current speed indicator */}
+          <div
+            className="absolute left-0 top-0 h-full flex items-center justify-end pr-4 transition-all duration-1000"
+            style={{
+              width: `${Math.min((currentDays / 30) * 100, 100)}%`,
+              background: `linear-gradient(90deg, ${gradeInfo.color}40 0%, ${gradeInfo.color}20 100%)`
+            }}
+          >
+            <div className="text-right">
+              <span className="text-2xl font-black text-white">{currentDays}</span>
+              <span className="text-sm text-gray-400 ml-1">days</span>
             </div>
-            <div className="w-full h-4 bg-gray-800 rounded-xl border border-gray-700/50">
-              <div
-                className="h-full rounded-xl transition-all duration-2000"
-                style={{
-                  width: `${item.value}%`,
-                  backgroundColor: item.color,
-                  boxShadow: item.value === comparison.current ? 'none' : `0 0 8px ${item.color}40`
-                }}
-              />
-            </div>
-            <p className="text-sm text-gray-400 mt-1">{item.description}</p>
           </div>
-        ))}
+
+          {/* AMZ Prep target line */}
+          <div
+            className="absolute top-0 h-full w-0.5 z-10"
+            style={{
+              left: `${(amzPrepDays / 30) * 100}%`,
+              background: BRAND_BLUE
+            }}
+          >
+            <div
+              className="absolute -top-1 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded text-xs font-bold whitespace-nowrap"
+              style={{ backgroundColor: BRAND_BLUE, color: 'white' }}
+            >
+              AMZ Prep: {amzPrepDays} days
+            </div>
+          </div>
+
+          {/* Scale markers */}
+          <div className="absolute bottom-1 left-0 right-0 flex justify-between px-4 text-[10px] text-gray-500">
+            <span>0</span>
+            <span>10</span>
+            <span>20</span>
+            <span>30+ days</span>
+          </div>
+        </div>
+
+        {/* Improvement callout */}
+        {improvement > 0 && (
+          <div className="mt-3 flex items-center justify-between">
+            <p className="text-sm text-gray-400">
+              <span className="text-white font-medium">Faster inbound</span> = better cashflow = less storage fees = higher in-stock rate
+            </p>
+            <div
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg"
+              style={{ backgroundColor: `${BRAND_BLUE}15` }}
+            >
+              <ArrowRight className="w-4 h-4" style={{ color: BRAND_BLUE }} />
+              <span className="text-sm font-bold" style={{ color: BRAND_BLUE }}>
+                {improvement} days faster with AMZ Prep
+              </span>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
 };
 
-/**
- * Brand Performance Metrics Component
- */
-const BrandPerformanceMetrics = ({ breakdown }) => {
-  const brandBlue = '#00A8FF';
-
+// ============================================================================
+// PERFORMANCE GRADES COMPONENT
+// ============================================================================
+const PerformanceGrades = ({ breakdown }) => {
   const metrics = [
-    {
-      title: 'Cost Efficiency',
-      score: breakdown.cost.score,
-      max: breakdown.cost.max,
-      status: breakdown.cost.status,
-      message: breakdown.cost.message
-    },
-    {
-      title: 'Speed Performance',
-      score: breakdown.speed.score,
-      max: breakdown.speed.max,
-      status: breakdown.speed.status,
-      message: breakdown.speed.message
-    },
-    {
-      title: 'Geographic Strategy',
-      score: breakdown.geo.score,
-      max: breakdown.geo.max,
-      status: breakdown.geo.status,
-      message: breakdown.geo.message
-    }
+    { key: 'speed', title: 'Speed Performance', icon: Clock, ...breakdown.speed },
+    { key: 'cost', title: 'Cost Efficiency', icon: DollarSign, ...breakdown.cost },
+    { key: 'geo', title: 'Geographic Strategy', icon: MapPin, ...breakdown.geo }
   ];
 
   return (
-    <div className="bg-gray-900 rounded-xl border border-gray-700/50 p-6">
-      <h2 className="text-2xl font-semibold text-white mb-6">
-        Performance Breakdown
-      </h2>
+    <div className="bg-gray-900/50 rounded-xl border border-gray-700/50 p-5">
+      <h3 className="text-lg font-bold text-white mb-4">Performance Breakdown</h3>
 
-      <div className="space-y-6">
-        {metrics.map((metric, index) => (
-          <div key={index}>
-            <div className="flex justify-between items-center mb-2">
-              <h3 className="text-white font-medium">{metric.title}</h3>
-              <div className="text-right">
-                <span className="text-xl font-bold text-brand-blue">
-                  {metric.score}/{metric.max}
+      <div className="space-y-4">
+        {metrics.map(({ key, title, icon: Icon, score, max, grade, gradeInfo, message }) => (
+          <div key={key} className="space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Icon className="w-4 h-4 text-gray-400" />
+                <span className="text-sm font-medium text-white">{title}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span
+                  className="text-lg font-bold"
+                  style={{ color: gradeInfo.color }}
+                >
+                  {grade}
                 </span>
-                <div className={`text-xs font-medium ${
-                  metric.status.includes('CRITICAL') || metric.status.includes('BOTTOM') ? 'text-red-500' :
-                  metric.status.includes('POOR') || metric.status.includes('BELOW') ? 'text-orange-500' :
-                  'text-brand-blue'
-                }`}>
-                  {metric.status}
-                </div>
+                <span className="text-xs text-gray-500">
+                  {score}/{max}
+                </span>
               </div>
             </div>
 
-            <div className="w-full h-3 bg-gray-800 rounded-xl border border-gray-700/50 mb-2">
+            {/* Progress bar */}
+            <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
               <div
-                className="h-full rounded-xl transition-all duration-2000"
+                className="h-full rounded-full transition-all duration-700"
                 style={{
-                  width: `${(metric.score / metric.max) * 100}%`,
-                  background: metric.score <= (metric.max * 0.3) ?
-                    'linear-gradient(90deg, #ef4444, #dc2626)' :
-                    metric.score <= (metric.max * 0.6) ?
-                    'linear-gradient(90deg, #f59e0b, #d97706)' :
-                    `linear-gradient(90deg, ${brandBlue}, rgba(0, 168, 255, 0.8))`
+                  width: `${(score / max) * 100}%`,
+                  backgroundColor: gradeInfo.color
                 }}
               />
             </div>
 
-            <p className="text-sm text-gray-300 leading-relaxed">
-              {metric.message}
+            <p className="text-xs text-gray-400 leading-relaxed">
+              {message}
             </p>
           </div>
         ))}
@@ -434,295 +605,713 @@ const BrandPerformanceMetrics = ({ breakdown }) => {
   );
 };
 
-/**
- * Brand Insights Section Component
- */
-const BrandInsightsSection = ({ metrics }) => {
-  console.log('🔍 Insights metrics received:', {
-    placementFeeSavings: metrics.placementFeeSavings,
-    hiddenCostSavings: metrics.hiddenCostSavings,
-    totalAnnualSavings: metrics.totalAnnualSavings,
-    dailyLoss: metrics.dailyLoss
-  });
-
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    }).format(amount);
-  };
-
-  const insights = [
+// ============================================================================
+// INDUSTRY COMPARISON COMPONENT
+// ============================================================================
+const IndustryComparison = ({ comparison }) => {
+  const positions = [
     {
-      title: 'Speed Crisis',
-      value: `${metrics.currentTransitTime} days`,
-      subtitle: `vs AMZ Prep's ${metrics.targetTransitTime} days`,
-      description: `Your ${metrics.extraDays} extra days = lost sales to faster competitors`,
+      label: 'Your Score',
+      score: comparison.current,
+      grade: comparison.currentGrade,
+      color: GRADE_THRESHOLDS[comparison.currentGrade].color,
+      highlight: true
     },
     {
-      title: 'Hidden Cost Discovery',
-      value: formatCurrency(metrics.hiddenCostSavings),
-      subtitle: 'additional waste',
-      description: 'Conservative estimate in optimization opportunities you\'re missing',
+      label: 'Industry Average',
+      score: comparison.industryAverage,
+      grade: comparison.industryGrade,
+      color: '#6b7280',
+      highlight: false
     },
     {
-      title: 'Total Annual Opportunity (Est.)',
-      value: formatCurrency(metrics.totalAnnualSavings),
-      subtitle: 'in preventable losses',
-      description: `Daily opportunity cost: ${formatCurrency(metrics.dailyLoss)}/day`,
+      label: 'Top Performers',
+      score: comparison.topPerformers,
+      grade: comparison.topGrade,
+      color: BRAND_BLUE,
+      highlight: false
     }
   ];
 
-  // Add placement fees insight if applicable
-  if (metrics.placementFeeSavings > 0) {
-    insights.unshift({
-      title: 'Placement Fees Waste',
-      value: formatCurrency(metrics.placementFeeSavings),
-      subtitle: 'per year',
-      description: 'AMZ Prep Middle Mile eliminates placement fees completely',
-    });
-  }
-
   return (
-    <div className="space-y-6">
-      <h2 className="text-2xl font-semibold text-white">
-        Key Insights
-      </h2>
+    <div className="bg-gray-900/50 rounded-xl border border-gray-700/50 p-5">
+      <h3 className="text-lg font-bold text-white mb-4">Where You Stand</h3>
 
-      <div className={`grid grid-cols-1 ${insights.length === 3 ? 'lg:grid-cols-3' : 'lg:grid-cols-2'} gap-6`}>
-        {insights.map((insight, index) => (
+      <div className="space-y-4">
+        {positions.map(({ label, score, grade, color, highlight }) => (
           <div
-            key={index}
-            className="bg-gray-900 rounded-xl border border-gray-700 p-6"
+            key={label}
+            className={`p-3 rounded-lg ${highlight ? 'border' : ''}`}
+            style={{
+              backgroundColor: highlight ? `${color}10` : 'transparent',
+              borderColor: highlight ? `${color}40` : 'transparent'
+            }}
           >
-            <div className="mb-4">
-              <h3 className="text-lg font-medium text-white mb-1">
-                {insight.title}
-              </h3>
-              <div className="text-2xl font-bold text-brand-blue mb-1">
-                {insight.value}
+            <div className="flex items-center justify-between mb-2">
+              <span className={`text-sm ${highlight ? 'text-white font-medium' : 'text-gray-400'}`}>
+                {label}
+              </span>
+              <div className="flex items-center gap-2">
+                <span
+                  className="text-xl font-bold"
+                  style={{ color }}
+                >
+                  {grade}
+                </span>
+                <span className="text-sm text-gray-500">
+                  {score}/100
+                </span>
               </div>
-              <p className="text-sm text-gray-400">
-                {insight.subtitle}
-              </p>
             </div>
 
-            <div className="pt-4 border-t border-gray-700/50">
-              <p className="text-sm text-gray-300 leading-relaxed">
-                {insight.description}
-              </p>
+            <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
+              <div
+                className="h-full rounded-full transition-all duration-700"
+                style={{
+                  width: `${score}%`,
+                  backgroundColor: color,
+                  opacity: highlight ? 1 : 0.6
+                }}
+              />
             </div>
           </div>
         ))}
+      </div>
+
+      {/* Gap indicator */}
+      <div className="mt-4 pt-4 border-t border-gray-700/50">
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-gray-400">Gap to Top Performers</span>
+          <span className="font-bold" style={{ color: BRAND_BLUE }}>
+            {comparison.topPerformers - comparison.current} points
+          </span>
+        </div>
       </div>
     </div>
   );
 };
 
-/**
- * Brand Analysis Section - UPDATED with Admin Dashboard Preview Background
- */
- /**
-  * Enhanced Brand Analysis Section with Detailed Map Preview
-  */
- const BrandAnalysisSection = ({
-   totalSavings = 15000,
-   placementFeeSavings = 0,
-   dailyLoss = 41,
-   isAdmin = false,
-   onUnlockAnalysis
- }) => {
-   const brandBlue = '#00A8FF';
-   const [showFullAnalysis, setShowFullAnalysis] = useState(false);
+// ============================================================================
+// KEY INSIGHTS SECTION - DATA DRIVEN
+// ============================================================================
+const KeyInsightsSection = ({ metrics, shipMethodData }) => {
+  return (
+    <div className="space-y-4">
+      <h3 className="text-lg font-bold text-white flex items-center gap-2">
+        <BarChart3 className="w-5 h-5" style={{ color: BRAND_BLUE }} />
+        Key Insights
+      </h3>
 
-   const formatCurrency = (amount) => {
-     return new Intl.NumberFormat('en-US', {
-       style: 'currency',
-       currency: 'USD',
-       minimumFractionDigits: 0,
-       maximumFractionDigits: 0
-     }).format(amount);
-   };
+      {/* Placement Fee Callout - If Applicable */}
+      {metrics.placementFees > 0 && (
+        <div
+          className="p-4 rounded-xl border"
+          style={{
+            background: 'linear-gradient(90deg, rgba(239, 68, 68, 0.1) 0%, rgba(239, 68, 68, 0.02) 100%)',
+            borderColor: 'rgba(239, 68, 68, 0.3)'
+          }}
+        >
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <h4 className="text-white font-semibold mb-1">Total Placement Fee Cost</h4>
+              <p className="text-2xl font-bold text-red-400 mb-1">
+                {formatCurrency(metrics.placementFees)}
+              </p>
+              <p className="text-sm text-gray-400">
+                You'd save {formatCurrency(metrics.placementFees)} per year with AMZ Prep as we eliminate placement fees entirely
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
-   const handleUnlockClick = () => {
-     if (isAdmin) {
-       // For admin users, show the detailed analysis section
-       setShowFullAnalysis(true);
-       const detailedSection = document.getElementById('detailed-analysis');
-       if (detailedSection) {
-         detailedSection.classList.remove('hidden');
-         detailedSection.scrollIntoView({ behavior: 'smooth' });
-       }
-     } else {
-       // For regular users, go to contact page
-       window.open('https://amzprep.com/contact-us/', '_blank');
-     }
-   };
+      {/* Main Metrics Grid */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <MetricCard
+          icon={Package}
+          label="Total Items Shipped"
+          value={formatNumber(metrics.totalUnits)}
+          subtext={`${formatNumber(metrics.totalShipments)} shipments`}
+        />
+        <MetricCard
+          icon={Truck}
+          label="Cubic Footage"
+          value={formatNumber(metrics.totalCuft)}
+          subtext={`${metrics.totalPallets.toFixed(1)} pallets`}
+        />
+        <MetricCard
+          icon={DollarSign}
+          label="Total Freight Cost"
+          value={formatCurrency(metrics.totalFreightCost)}
+          subtext="Current spend"
+        />
+        <MetricCard
+          icon={MapPin}
+          label="Amazon Facilities"
+          value={metrics.amazonFacilityCount || '-'}
+          subtext="Destinations"
+          highlight={metrics.amazonFacilityCount > 10}
+        />
+      </div>
 
-   return (
-     <div className="relative mt-12 p-8 rounded-2xl border border-gray-700/50 backdrop-blur-sm overflow-hidden">
-     {/* HIGHLY VISIBLE Admin Dashboard Preview Background */}
-     <div className="absolute inset-0 opacity-40 blur-[2.3px]">
-       <div className="h-full w-full bg-gradient-to-br from-[#0B1426] via-[#0F1C3A] to-[#1A2847]">
+      {/* Ship Method Breakdown */}
+      {(shipMethodData.spd.count > 0 || shipMethodData.tl.count > 0) && (
+        <div className="bg-gray-900/30 rounded-xl p-4 border border-gray-700/30">
+          <h4 className="text-sm font-medium text-gray-400 mb-3">Shipping Method Distribution</h4>
+          <div className="flex items-center gap-6">
+            {shipMethodData.spd.count > 0 && (
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full bg-blue-400" />
+                <span className="text-sm text-white">
+                  SPD: <span className="font-semibold">{shipMethodData.spd.percent}%</span>
+                </span>
+              </div>
+            )}
+            {shipMethodData.tl.count > 0 && (
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: BRAND_BLUE }} />
+                <span className="text-sm text-white">
+                  TL: <span className="font-semibold">{shipMethodData.tl.percent}%</span>
+                </span>
+              </div>
+            )}
+            {shipMethodData.ltl.count > 0 && (
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full bg-purple-400" />
+                <span className="text-sm text-white">
+                  LTL: <span className="font-semibold">{shipMethodData.ltl.percent}%</span>
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
-         {/* Dashboard Layout - ENHANCED VISIBILITY */}
-         <div className="p-8 h-full">
-           {/* Header Section */}
-           <div className="flex justify-between items-center mb-10">
-             <div className="h-10 bg-[#00A8FF] rounded-lg w-1/3 opacity-80"></div>
-             <div className="flex gap-4">
-               <div className="h-8 w-24 bg-[#00A8FF] rounded opacity-70"></div>
-               <div className="h-8 w-24 bg-emerald-500 rounded opacity-70"></div>
-             </div>
-           </div>
+      {/* Savings Summary */}
+      {metrics.savingsAmount > 0 && (
+        <div
+          className="p-4 rounded-xl border"
+          style={{
+            background: 'linear-gradient(90deg, rgba(16, 185, 129, 0.1) 0%, rgba(16, 185, 129, 0.02) 100%)',
+            borderColor: 'rgba(16, 185, 129, 0.3)'
+          }}
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <CheckCircle className="w-5 h-5 text-emerald-500" />
+              <div>
+                <h4 className="text-white font-semibold">Estimated Annual Opportunity</h4>
+                <p className="text-sm text-gray-400">Potential savings with AMZ Prep optimization</p>
+              </div>
+            </div>
+            <div className="text-right">
+              <p className="text-2xl font-bold text-emerald-400">
+                {formatCurrency(metrics.totalAnnualOpportunity)}
+              </p>
+              <p className="text-xs text-gray-500">
+                {formatCurrency(Math.round(metrics.totalAnnualOpportunity / 365))}/day
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
-           {/* KPI Cards - MUCH MORE VISIBLE */}
-           <div className="grid grid-cols-4 gap-6 mb-12">
-             {Array.from({ length: 4 }).map((_, i) => (
-               <div key={i} className="bg-[#1A2847] rounded-2xl border-2 border-[#00A8FF] p-6 opacity-90">
-                 <div className="h-4 bg-[#00A8FF] rounded mb-3 w-3/4 opacity-80"></div>
-                 <div className="h-8 bg-[#00A8FF] rounded w-1/2 mb-2 opacity-90"></div>
-                 <div className="h-3 bg-[#00A8FF]/50 rounded w-full"></div>
-               </div>
-             ))}
-           </div>
+// ============================================================================
+// METRIC CARD COMPONENT
+// ============================================================================
+const MetricCard = ({ icon: Icon, label, value, subtext, highlight = false }) => {
+  return (
+    <div
+      className={`p-4 rounded-xl border transition-all ${
+        highlight ? 'border-orange-500/30 bg-orange-500/5' : 'border-gray-700/30 bg-gray-900/30'
+      }`}
+    >
+      <div className="flex items-center gap-2 mb-2">
+        <Icon
+          className="w-4 h-4"
+          style={{ color: highlight ? '#f97316' : BRAND_BLUE }}
+        />
+        <span className="text-xs text-gray-400">{label}</span>
+      </div>
+      <p className={`text-xl font-bold ${highlight ? 'text-orange-400' : 'text-white'}`}>
+        {value}
+      </p>
+      <p className="text-xs text-gray-500 mt-0.5">{subtext}</p>
+    </div>
+  );
+};
 
-           {/* MAIN MAP SECTION - MAXIMUM VISIBILITY */}
-           <div className="bg-[#1A2847] rounded-3xl border-3 border-[#00A8FF] p-8 h-96 opacity-95">
-             <div className="flex justify-between items-center mb-6">
-               <div className="h-8 bg-[#00A8FF] rounded w-1/4 opacity-90"></div>
-               <div className="flex gap-3">
-                 <div className="px-4 py-2 bg-[#00A8FF] rounded-lg text-white font-bold opacity-80">Heat Map</div>
-                 <div className="px-4 py-2 bg-emerald-500 rounded-lg text-white font-bold opacity-80">Routes</div>
-                 <div className="px-4 py-2 bg-orange-500 rounded-lg text-white font-bold opacity-80">Zones</div>
-               </div>
-             </div>
-
-             {/* ULTRA-VISIBLE US MAP */}
-             <div className="relative h-72 bg-[#0F1C3A] rounded-2xl border-2 border-[#00A8FF]/60 overflow-hidden">
-               <svg className="absolute inset-0 w-full h-full" viewBox="0 0 600 400">
-                 {/* US Map Base - THICK OUTLINE */}
-                 <path
-                   d="M80 120 L160 100 L240 110 L320 120 L400 100 L480 110 L560 120 L560 300 L480 320 L400 310 L320 300 L240 310 L160 320 L80 310 Z"
-                   fill="rgba(0, 168, 255, 0.25)"
-                   stroke="#00A8FF"
-                   strokeWidth="4"
-                   opacity="0.9"
-                 />
-
-                 {/* State Division Lines */}
-                 <line x1="160" y1="100" x2="160" y2="320" stroke="#00A8FF" strokeWidth="2" opacity="0.4" />
-                 <line x1="240" y1="110" x2="240" y2="310" stroke="#00A8FF" strokeWidth="2" opacity="0.4" />
-                 <line x1="320" y1="120" x2="320" y2="300" stroke="#00A8FF" strokeWidth="2" opacity="0.4" />
-                 <line x1="400" y1="100" x2="400" y2="310" stroke="#00A8FF" strokeWidth="2" opacity="0.4" />
-                 <line x1="480" y1="110" x2="480" y2="320" stroke="#00A8FF" strokeWidth="2" opacity="0.4" />
-
-                 {/* MASSIVE Heat Zones - VERY VISIBLE */}
-                 <circle cx="450" cy="160" r="50" fill="#00A8FF" opacity="0.95" />
-                 <circle cx="280" cy="200" r="45" fill="#00A8FF" opacity="0.90" />
-                 <circle cx="180" cy="180" r="40" fill="#3B82F6" opacity="0.85" />
-
-                 {/* Medium Zones */}
-                 <circle cx="380" cy="240" r="35" fill="#60A5FA" opacity="0.80" />
-                 <circle cx="220" cy="150" r="30" fill="#60A5FA" opacity="0.75" />
-                 <circle cx="420" cy="190" r="32" fill="#93C5FD" opacity="0.70" />
-
-                 {/* THICK Shipping Routes */}
-                 <line x1="280" y1="200" x2="450" y2="160" stroke="#00A8FF" strokeWidth="8" opacity="0.95" strokeDasharray="12,6" />
-                 <line x1="180" y1="180" x2="380" y2="240" stroke="#60A5FA" strokeWidth="8" opacity="0.90" strokeDasharray="10,5" />
-                 <line x1="220" y1="150" x2="420" y2="190" stroke="#93C5FD" strokeWidth="6" opacity="0.85" strokeDasharray="8,4" />
-
-                 {/* Warehouse Markers - LARGE */}
-                 <rect x="275" y="195" width="15" height="15" fill="#FFD700" opacity="1" rx="2" />
-                 <rect x="445" y="155" width="15" height="15" fill="#FFD700" opacity="1" rx="2" />
-                 <rect x="175" y="175" width="15" height="15" fill="#FFD700" opacity="1" rx="2" />
-                 <rect x="375" y="235" width="15" height="15" fill="#FFD700" opacity="1" rx="2" />
-               </svg>
-
-               {/* PROMINENT Labels */}
-               <div className="absolute top-4 left-4 bg-[#00A8FF] px-4 py-3 rounded-xl text-white font-bold text-sm border-2 border-white/30">
-                 🗺️ Interactive Heat Map
-               </div>
-               <div className="absolute top-4 right-4 bg-emerald-500 px-4 py-3 rounded-xl text-white font-bold text-sm border-2 border-white/30">
-                 📍 Live Routes
-               </div>
-
-               {/* Enhanced Legend */}
-               <div className="absolute bottom-4 left-4 bg-[#1A2847] border-2 border-[#00A8FF] rounded-xl p-4 opacity-95">
-                 <div className="text-sm text-[#00A8FF] font-bold mb-2">Volume Zones</div>
-                 <div className="space-y-2">
-                   <div className="flex items-center gap-3 text-sm">
-                     <div className="w-4 h-4 bg-[#00A8FF] rounded-full"></div>
-                     <span className="text-white font-semibold">High ($3.2M)</span>
-                   </div>
-                   <div className="flex items-center gap-3 text-sm">
-                     <div className="w-4 h-4 bg-[#60A5FA] rounded-full"></div>
-                     <span className="text-white font-semibold">Medium ($1.8M)</span>
-                   </div>
-                   <div className="flex items-center gap-3 text-sm">
-                     <div className="w-4 h-4 bg-[#93C5FD] rounded-full"></div>
-                     <span className="text-white font-semibold">Low ($0.9M)</span>
-                   </div>
-                 </div>
-               </div>
-
-               <div className="absolute bottom-4 right-4 bg-[#00A8FF] px-4 py-3 rounded-xl text-white font-bold border-2 border-white/30">
-                 Total Analysis: $5.9M Impact
-               </div>
-             </div>
-           </div>
-         </div>
-       </div>
-     </div>
-
-     {/* MUCH LIGHTER Overlay for Maximum Map Visibility */}
-     <div className="absolute inset-0 bg-gradient-to-t from-gray-900/75 via-gray-900/40 to-gray-900/20"></div>
-     <div className="absolute inset-0 backdrop-blur-[0.5px]"></div>
-
-       {/* Content Overlay */}
-       <div className="relative z-10 text-center max-w-lg mx-auto">
-         <div className="w-16 h-16 bg-gradient-to-br from-[#00A8FF]/20 to-[#00A8FF]/40 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-[#00A8FF]/30 backdrop-blur-sm">
-           <Lock className="text-[#00A8FF]" size={32} />
-         </div>
-
-         <h3 className="text-4xl font-bold text-white mb-4">
-           Unlock Complete Analysis
-         </h3>
-
-         <p className="text-gray-300 mb-8 leading-relaxed text-lg">
-           Get your comprehensive AMZ Prep optimization analysis with detailed savings breakdown,
-           interactive cost mapping, and ROI projections.
-         </p>
-
-         <button
-           onClick={handleUnlockClick}
-           className="inline-block w-full bg-gradient-to-r from-[#00A8FF] to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-bold py-4 px-8 rounded-xl transition-all duration-300 transform hover:scale-105 shadow-xl text-center text-lg"
-         >
-           {isAdmin ? 'View Full Admin Dashboard' : 'Book Free Analysis Call'}
-         </button>
-
-         <p className="text-sm text-gray-400 mt-4">
-           {isAdmin
-             ? 'Access complete analytics • Interactive maps • Detailed breakdowns'
-             : '30-min analysis • No obligation • See exact savings before committing'
-           }
-         </p>
-       </div>
-     </div>
-   );
- };
+// ============================================================================
+// SALES REP ROUND-ROBIN CONFIGURATION
+// ============================================================================
+const SALES_REPS = [
+  {
+    id: 'rich',
+    name: 'Rich',
+    meetingLink: 'https://meetings.hubspot.com/rich338?uuid=44a8278a-9cbd-4a28-8876-5886306d367c',
+    title: 'Freight Solutions Specialist',
+    avatar: '👨‍💼',
+    specialties: ['Cost Optimization', 'FTL/LTL Strategy']
+  },
+  {
+    id: 'angelo',
+    name: 'Angelo',
+    meetingLink: 'https://calendly.com/angelo-amzprep/45min',
+    title: 'Inbound Logistics Expert',
+    avatar: '👨‍💼',
+    specialties: ['Speed Optimization', 'Placement Fee Elimination']
+  }
+];
 
 /**
- * Full detailed analysis for admin users
+ * Get the next sales rep in round-robin order
+ * Uses localStorage to persist across sessions
  */
+const getNextSalesRep = () => {
+  const STORAGE_KEY = 'amzprep_rep_index';
+
+  try {
+    // Get current index from localStorage
+    const currentIndex = parseInt(localStorage.getItem(STORAGE_KEY) || '0', 10);
+
+    // Calculate next index (round-robin)
+    const nextIndex = (currentIndex + 1) % SALES_REPS.length;
+
+    // Save next index for future visits
+    localStorage.setItem(STORAGE_KEY, nextIndex.toString());
+
+    // Return current rep (before incrementing)
+    return SALES_REPS[currentIndex % SALES_REPS.length];
+  } catch (e) {
+    // Fallback if localStorage is unavailable (e.g., incognito mode)
+    // Use time-based alternation as backup
+    const hourOfDay = new Date().getHours();
+    return SALES_REPS[hourOfDay % SALES_REPS.length];
+  }
+};
+
+/**
+ * Get assigned rep for this session (cached)
+ * Only assigns once per page load to ensure consistency
+ */
+let cachedRep = null;
+const getAssignedRep = () => {
+  if (!cachedRep) {
+    cachedRep = getNextSalesRep();
+    console.log(`📞 Assigned sales rep: ${cachedRep.name}`);
+  }
+  return cachedRep;
+};
+
+// ============================================================================
+// CTA SECTION WITH BOOKING MODAL JOURNEY
+// ============================================================================
+const CTASection = ({ totalSavings, placementFeeSavings, isAdmin }) => {
+  const [showBookingModal, setShowBookingModal] = useState(false);
+  const [bookingStep, setBookingStep] = useState('intro'); // 'intro' | 'matched' | 'redirecting'
+  const [assignedRep, setAssignedRep] = useState(null);
+
+  const handleUnlockClick = () => {
+    if (isAdmin) {
+      const detailedSection = document.getElementById('detailed-analysis');
+      if (detailedSection) {
+        detailedSection.classList.remove('hidden');
+        detailedSection.scrollIntoView({ behavior: 'smooth' });
+      }
+    } else {
+      // Open booking modal for users
+      setShowBookingModal(true);
+      setBookingStep('intro');
+    }
+  };
+
+  const handleConnectToSpecialist = () => {
+    // Get the next rep in rotation when user clicks connect
+    const rep = getAssignedRep();
+    setAssignedRep(rep);
+    setBookingStep('matched');
+  };
+
+  const handleBookMeeting = () => {
+    if (assignedRep) {
+      setBookingStep('redirecting');
+      // Short delay for UX feedback before redirect
+      setTimeout(() => {
+        window.open(assignedRep.meetingLink, '_blank');
+        // Close modal after redirect
+        setTimeout(() => {
+          setShowBookingModal(false);
+          setBookingStep('intro');
+        }, 500);
+      }, 800);
+    }
+  };
+
+  const handleCloseModal = () => {
+    setShowBookingModal(false);
+    setBookingStep('intro');
+  };
+
+  return (
+    <>
+      <div className="relative mt-8 p-8 rounded-2xl border border-gray-700/50 backdrop-blur-sm overflow-hidden">
+        {/* Blurred background preview */}
+        <div className="absolute inset-0 opacity-30 blur-[3px]">
+          <div className="h-full w-full bg-gradient-to-br from-[#0B1426] via-[#0F1C3A] to-[#1A2847]">
+            <div className="p-8 h-full">
+              {/* Mock dashboard elements */}
+              <div className="flex justify-between items-center mb-8">
+                <div className="h-8 bg-[#00A8FF]/60 rounded-lg w-1/3" />
+                <div className="flex gap-3">
+                  <div className="h-6 w-20 bg-[#00A8FF]/40 rounded" />
+                  <div className="h-6 w-20 bg-emerald-500/40 rounded" />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-4 gap-4 mb-8">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="bg-[#1A2847]/80 rounded-xl border border-[#00A8FF]/20 p-4">
+                    <div className="h-3 bg-[#00A8FF]/50 rounded mb-2 w-3/4" />
+                    <div className="h-6 bg-[#00A8FF]/70 rounded w-1/2" />
+                  </div>
+                ))}
+              </div>
+
+              {/* Map placeholder */}
+              <div className="bg-[#1A2847]/60 rounded-2xl border border-[#00A8FF]/30 h-48 flex items-center justify-center">
+                <div className="text-[#00A8FF]/60 text-lg font-bold">📊 Interactive Analysis</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Overlay */}
+        <div className="absolute inset-0 bg-gradient-to-t from-gray-900/90 via-gray-900/70 to-gray-900/50" />
+
+        {/* Content */}
+        <div className="relative z-10 text-center max-w-lg mx-auto">
+          <div
+            className="w-14 h-14 rounded-xl flex items-center justify-center mx-auto mb-5"
+            style={{
+              background: `${BRAND_BLUE}20`,
+              border: `1px solid ${BRAND_BLUE}40`
+            }}
+          >
+            <Lock className="w-7 h-7" style={{ color: BRAND_BLUE }} />
+          </div>
+
+          <h3 className="text-3xl font-bold text-white mb-3">
+            Unlock Full Freight Analysis
+          </h3>
+
+          <p className="text-gray-300 mb-6 leading-relaxed">
+            See how your inbound speed stacks up vs competitors and where you're leaving money on the table.
+            Get your real benchmarks, real savings, and a customized optimization plan.
+          </p>
+
+          <button
+            onClick={handleUnlockClick}
+            className="w-full py-4 px-8 rounded-xl font-bold text-lg transition-all duration-300 transform hover:scale-[1.02] shadow-lg"
+            style={{
+              background: `linear-gradient(135deg, ${BRAND_BLUE} 0%, #0066cc 100%)`,
+              color: 'white'
+            }}
+          >
+            {isAdmin ? 'View Full Admin Dashboard' : 'Book Free Analysis Call'}
+          </button>
+
+          <p className="text-sm text-gray-500 mt-4">
+            {isAdmin
+              ? 'Access complete analytics • Interactive maps • Detailed breakdowns'
+              : '30-min analysis • Zero Placement Fees • See exact savings before committing'
+            }
+          </p>
+        </div>
+      </div>
+
+      {/* Booking Modal */}
+      {showBookingModal && (
+        <BookingModal
+          step={bookingStep}
+          assignedRep={assignedRep}
+          totalSavings={totalSavings}
+          onConnectToSpecialist={handleConnectToSpecialist}
+          onBookMeeting={handleBookMeeting}
+          onClose={handleCloseModal}
+        />
+      )}
+    </>
+  );
+};
+
+// ============================================================================
+// BOOKING MODAL COMPONENT - USER JOURNEY
+// ============================================================================
+const BookingModal = ({
+  step,
+  assignedRep,
+  totalSavings,
+  onConnectToSpecialist,
+  onBookMeeting,
+  onClose
+}) => {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+      <div
+        className="relative w-full max-w-md rounded-2xl overflow-hidden animate-fadeIn"
+        style={{
+          background: 'linear-gradient(135deg, #0a0f1a 0%, #111827 100%)',
+          border: `1px solid ${BRAND_BLUE}30`,
+          animation: 'fadeIn 0.3s ease-out'
+        }}
+      >
+        {/* Close button */}
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 p-2 rounded-lg hover:bg-white/10 transition-colors z-10"
+        >
+          <svg className="w-5 h-5 text-gray-400 hover:text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+
+        {/* Step 1: Introduction */}
+        {step === 'intro' && (
+          <div className="p-8">
+            <div className="text-center">
+              <div
+                className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6"
+                style={{ background: `${BRAND_BLUE}20` }}
+              >
+                <Clock className="w-8 h-8" style={{ color: BRAND_BLUE }} />
+              </div>
+
+              <h3 className="text-2xl font-bold text-white mb-3">
+                Schedule Your Free Analysis
+              </h3>
+
+              <p className="text-gray-400 mb-6 leading-relaxed">
+                Get a personalized 30-minute consultation with one of our freight optimization specialists.
+              </p>
+            </div>
+
+            {/* What to expect */}
+            <div className="bg-gray-800/50 rounded-xl p-4 mb-6">
+              <h4 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
+                <Zap className="w-4 h-4" style={{ color: BRAND_BLUE }} />
+                What We'll Cover
+              </h4>
+              <ul className="space-y-2.5">
+                {[
+                  'Deep dive into your shipping data',
+                  'Identify cost-saving opportunities',
+                  'Transit time optimization strategies',
+                  'Custom recommendations for your business'
+                ].map((item, i) => (
+                  <li key={i} className="flex items-center gap-2 text-sm text-gray-300">
+                    <CheckCircle className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Savings callout */}
+            {totalSavings > 0 && (
+              <div
+                className="rounded-xl p-3 mb-6 text-center"
+                style={{ background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.3)' }}
+              >
+                <p className="text-sm text-emerald-400">
+                  💰 Based on your data: <span className="font-bold">{formatCurrency(totalSavings)}</span> potential savings identified
+                </p>
+              </div>
+            )}
+
+            <button
+              onClick={onConnectToSpecialist}
+              className="w-full py-4 px-8 rounded-xl font-bold text-lg transition-all duration-300 transform hover:scale-[1.02]"
+              style={{
+                background: `linear-gradient(135deg, ${BRAND_BLUE} 0%, #0066cc 100%)`,
+                color: 'white'
+              }}
+            >
+              Connect Me With a Specialist
+            </button>
+
+            <p className="text-xs text-gray-500 text-center mt-4">
+              No commitment required • Takes 30 seconds
+            </p>
+          </div>
+        )}
+
+        {/* Step 2: Rep Matched */}
+        {step === 'matched' && assignedRep && (
+          <div className="p-8">
+            <div className="text-center">
+              {/* Success checkmark animation */}
+              <div className="relative mb-6">
+                <div
+                  className="w-20 h-20 rounded-full flex items-center justify-center mx-auto text-4xl animate-scaleIn"
+                  style={{
+                    background: `${BRAND_BLUE}15`,
+                    border: `2px solid ${BRAND_BLUE}40`,
+                    animation: 'scaleIn 0.4s ease-out'
+                  }}
+                >
+                  {assignedRep.avatar}
+                </div>
+                <div
+                  className="absolute bottom-0 right-1/2 transform translate-x-10 w-7 h-7 rounded-full flex items-center justify-center"
+                  style={{ backgroundColor: '#10b981' }}
+                >
+                  <CheckCircle className="w-4 h-4 text-white" />
+                </div>
+              </div>
+
+              <h3 className="text-2xl font-bold text-white mb-2">
+                You've Been Matched!
+              </h3>
+
+              <p className="text-gray-400 mb-6">
+                Based on your needs and availability
+              </p>
+            </div>
+
+            {/* Rep Card */}
+            <div
+              className="rounded-xl p-5 mb-6"
+              style={{
+                background: `${BRAND_BLUE}08`,
+                border: `1px solid ${BRAND_BLUE}25`
+              }}
+            >
+              <div className="text-center mb-4">
+                <h4 className="text-xl font-bold text-white mb-1">
+                  {assignedRep.name}
+                </h4>
+                <p className="text-sm" style={{ color: BRAND_BLUE }}>
+                  {assignedRep.title}
+                </p>
+              </div>
+
+              {/* Specialties */}
+              <div className="flex flex-wrap justify-center gap-2 mb-4">
+                {assignedRep.specialties.map((specialty, i) => (
+                  <span
+                    key={i}
+                    className="px-2.5 py-1 rounded-full text-xs font-medium"
+                    style={{
+                      background: `${BRAND_BLUE}15`,
+                      color: BRAND_BLUE
+                    }}
+                  >
+                    {specialty}
+                  </span>
+                ))}
+              </div>
+
+              <div className="pt-4 border-t border-gray-700/50">
+                <div className="flex items-center justify-center gap-2 text-sm text-gray-400">
+                  <Clock className="w-4 h-4" />
+                  <span>30-minute video consultation</span>
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={onBookMeeting}
+              className="w-full py-4 px-8 rounded-xl font-bold text-lg transition-all duration-300 transform hover:scale-[1.02] flex items-center justify-center gap-2"
+              style={{
+                background: `linear-gradient(135deg, ${BRAND_BLUE} 0%, #0066cc 100%)`,
+                color: 'white'
+              }}
+            >
+              <span>Book Time with {assignedRep.name}</span>
+              <ExternalLink className="w-5 h-5" />
+            </button>
+
+            <p className="text-xs text-gray-500 text-center mt-4">
+              You'll be redirected to {assignedRep.name}'s calendar
+            </p>
+          </div>
+        )}
+
+        {/* Step 3: Redirecting */}
+        {step === 'redirecting' && assignedRep && (
+          <div className="p-8 text-center">
+            <div
+              className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6 animate-pulse"
+              style={{ background: `${BRAND_BLUE}20` }}
+            >
+              <ExternalLink className="w-8 h-8" style={{ color: BRAND_BLUE }} />
+            </div>
+
+            <h3 className="text-xl font-bold text-white mb-2">
+              Opening {assignedRep.name}'s Calendar...
+            </h3>
+
+            <p className="text-gray-400 text-sm">
+              A new tab is opening. If it doesn't appear, please disable your popup blocker.
+            </p>
+
+            {/* Loading dots animation */}
+            <div className="flex justify-center gap-1 mt-6">
+              {[0, 1, 2].map((i) => (
+                <div
+                  key={i}
+                  className="w-2 h-2 rounded-full"
+                  style={{
+                    backgroundColor: BRAND_BLUE,
+                    animation: `bounce 1s infinite ${i * 0.15}s`
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Animation styles */}
+      <style>{`
+        @keyframes fadeIn {
+          from { opacity: 0; transform: scale(0.95); }
+          to { opacity: 1; transform: scale(1); }
+        }
+        @keyframes scaleIn {
+          from { transform: scale(0); }
+          to { transform: scale(1); }
+        }
+        @keyframes bounce {
+          0%, 80%, 100% { transform: translateY(0); }
+          40% { transform: translateY(-8px); }
+        }
+        .animate-fadeIn {
+          animation: fadeIn 0.3s ease-out;
+        }
+        .animate-scaleIn {
+          animation: scaleIn 0.4s ease-out;
+        }
+      `}</style>
+    </div>
+  );
+};
+
+// ============================================================================
+// DETAILED ANALYSIS SECTION (Admin Only)
+// ============================================================================
 const DetailedAnalysisSection = ({ data, metadata }) => {
   return (
-    <div className="space-y-6">
-      <div className="bg-gray-800 rounded-xl p-6">
+    <div className="space-y-6 mt-8">
+      <div className="bg-gray-800/50 rounded-xl p-6 border border-gray-700">
         <h3 className="text-xl font-bold text-white mb-4">Detailed Cost Analysis</h3>
-        <p className="text-gray-400">Full analysis would be rendered here for admin users...</p>
+        <p className="text-gray-400">
+          Full analysis dashboard would be rendered here for admin users...
+        </p>
       </div>
     </div>
   );
