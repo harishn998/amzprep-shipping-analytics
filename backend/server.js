@@ -33,6 +33,7 @@ import AmazonEnhancementLayer from './utils/amazonEnhancementLayer.js';
 import separateUploadRoutes from './routes/separateUpload.js';
 import { startSessionCleanup } from './utils/sessionManager.js';
 import adminFBAZoningRoutes from './routes/adminFBAZoning.js';
+import publicAnalyzeRoutes from './routes/publicAnalyze.js';
 //import dotenv from 'dotenv';
 //dotenv.config();
 
@@ -54,25 +55,52 @@ startSessionCleanup(5);
 
 //app.use(cors());
 
+// ============================================
+// CORS CONFIGURATION - Works for Dev & Production
+// ============================================
 const allowedOrigins = [
-  'http://localhost:3000',
-  'http://localhost:5173',
+  // Production domains
+  'https://rate.amzprep.com',
+  'https://amzprep.com',
+  'https://www.amzprep.com',
+
+  // Development domains (only active in non-production)
+  ...(process.env.NODE_ENV !== 'production' ? [
+    'http://localhost:3000',
+    'http://localhost:5000',
+    'http://localhost:5173',
+    'http://127.0.0.1:3000',
+    'http://127.0.0.1:5000',
+    'http://127.0.0.1:5173',
+    'http://127.0.0.1:5500',
+  ] : []),
+
+  // For local HTML file testing (dev only)
+  ...(process.env.NODE_ENV !== 'production' ? ['null'] : []),
+
+  // From environment variable
   process.env.FRONTEND_URL
 ].filter(Boolean);
 
 app.use(cors({
   origin: function(origin, callback) {
-    // Allow requests with no origin (mobile apps, Postman, etc.)
     if (!origin) return callback(null, true);
-
     if (allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
+      console.warn(`⚠️ CORS blocked request from: ${origin}`);
       callback(new Error('Not allowed by CORS'));
     }
   },
-  credentials: true
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
+
+// Log CORS config on startup
+console.log(`🌐 CORS Configuration:`);
+console.log(`   Environment: ${process.env.NODE_ENV || 'development'}`);
+console.log(`   Allowed Origins: ${allowedOrigins.join(', ')}`);
 
 app.use(express.json());
 
@@ -84,6 +112,12 @@ if (!fs.existsSync(uploadsDir)) {
 const templatesDir = path.join(__dirname, 'templates');
 if (!fs.existsSync(templatesDir)) {
   fs.mkdirSync(templatesDir);
+}
+
+// Ensure public-temp directory exists for lead magnet uploads
+const publicTempDir = path.join(__dirname, 'uploads', 'public-temp');
+if (!fs.existsSync(publicTempDir)) {
+  fs.mkdirSync(publicTempDir, { recursive: true });
 }
 
 const storage = multer.diskStorage({
@@ -119,6 +153,12 @@ app.use(session({
 // Initialize Passport
 app.use(passport.initialize());
 app.use(passport.session());
+
+// ============================================
+// PUBLIC ROUTES - NO AUTHENTICATION REQUIRED
+// ============================================
+app.use('/api/public', publicAnalyzeRoutes);
+console.log('✅ Public routes: /api/public/health, /api/public/analyze-files');
 
 const upload = multer({
   storage,
