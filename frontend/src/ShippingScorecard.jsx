@@ -28,6 +28,10 @@ import {
 } from 'lucide-react';
 import amzprepLogo from './assets/amzprep_white_logo.png';
 
+// Sales Rep Images
+import richImage from './assets/Rich-Pearl.png';
+import angeloImage from './assets/Angelo.png';
+
 // ============================================================================
 // BRAND CONSTANTS
 // ============================================================================
@@ -851,18 +855,20 @@ const MetricCard = ({ icon: Icon, label, value, subtext, highlight = false }) =>
 const SALES_REPS = [
   {
     id: 'rich',
-    name: 'Rich',
+    name: 'Rich Pearl',
     meetingLink: 'https://meetings.hubspot.com/rich338?uuid=44a8278a-9cbd-4a28-8876-5886306d367c',
     title: 'Freight Solutions Specialist',
     avatar: '👨‍💼',
+    image: richImage,
     specialties: ['Cost Optimization', 'FTL/LTL Strategy']
   },
   {
     id: 'angelo',
-    name: 'Angelo',
+    name: "Angelo D'onofrio",
     meetingLink: 'https://calendly.com/angelo-amzprep/45min',
     title: 'Inbound Logistics Expert',
     avatar: '👨‍💼',
+    image: angeloImage,
     specialties: ['Speed Optimization', 'Placement Fee Elimination']
   }
 ];
@@ -1156,14 +1162,22 @@ const BookingModal = ({
               {/* Success checkmark animation */}
               <div className="relative mb-6">
                 <div
-                  className="w-20 h-20 rounded-full flex items-center justify-center mx-auto text-4xl animate-scaleIn"
+                  className="w-20 h-20 rounded-full flex items-center justify-center mx-auto overflow-hidden animate-scaleIn"
                   style={{
                     background: `${BRAND_BLUE}15`,
-                    border: `2px solid ${BRAND_BLUE}40`,
+                    border: `3px solid ${BRAND_BLUE}40`,
                     animation: 'scaleIn 0.4s ease-out'
                   }}
                 >
-                  {assignedRep.avatar}
+                  {assignedRep.image ? (
+                    <img
+                      src={assignedRep.image}
+                      alt={assignedRep.name}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-4xl">{assignedRep.avatar}</span>
+                  )}
                 </div>
                 <div
                   className="absolute bottom-0 right-1/2 transform translate-x-10 w-7 h-7 rounded-full flex items-center justify-center"
