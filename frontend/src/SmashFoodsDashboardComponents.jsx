@@ -196,13 +196,13 @@ const SmashFoodsKeyMetrics = ({ data, metadata }) => {
            <h3 className="text-lg font-semibold text-white mb-3">AMZ Prep Solution</h3>
            <div className="space-y-2">
              <div className="flex justify-between text-sm">
-               <span className="text-gray-400">Pattern (DC→FBA):</span>
+               <span className="text-gray-400">Middle Mile (AMZ Prep→FBA):</span>
                <span className="text-white font-medium">
                  ${proposedCosts.mmCost?.toLocaleString() || '0'}
                </span>
              </div>
              <div className="flex justify-between text-sm">
-               <span className="text-gray-400">Internal (Whse→DC):</span>
+               <span className="text-gray-400">Internal Transfer (You→AMZ Prep):</span>
                <span className="text-white font-medium">
                  ${proposedCosts.internalTransferCost?.toLocaleString() || '0'}
                </span>
@@ -493,7 +493,7 @@ const SmashFoodsAnalysisSection = ({ proposedCosts, totalCuft, totalPallets }) =
       <div className="mt-4 p-4 bg-blue-900/20 border border-blue-500/30 rounded-lg">
         <div className="text-sm text-gray-300 space-y-1">
           <p><strong>Rate Analysis:</strong></p>
-          <p>• Pattern Rates: $2.75-$7.00/cuft (varies by warehouse & type)</p>
+          <p>• Middle Mile Rates: $2.75-$7.00/cuft (varies by warehouse & type)</p>
           <p>• Internal Transfer: Based on FTL cost / 1742 × 1.20</p>
           <p>• Total Volume: {totalCuft?.toFixed(2)} cuft ({totalPallets?.toFixed(2)} pallets)</p>
         </div>

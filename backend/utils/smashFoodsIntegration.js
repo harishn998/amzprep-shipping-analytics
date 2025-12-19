@@ -379,13 +379,13 @@ class SmashFoodsIntegration {
 
             breakdown: [
               {
-                type: 'Middle Mile (Pattern to Amazon)',
+                type: 'Middle Mile (AMZ Prep to FBA)',
                 description: `${Math.round(summary.totalCuft)} cuft × rate (varies by type)`,
                 cost: sopCalculation.summary.totalMM,
                 formula: 'Cuft × Pattern Rate ($2.75-$7.00 depending on type)'
               },
               {
-                type: 'Internal Transfer (Warehouse to Pattern)',
+                type: 'Internal Transfer (Warehouse to AMZ Prep)',
                 description: `${Math.round(summary.totalCuft)} cuft × (FTL/1742) × 1.20`,
                 cost: sopCalculation.summary.totalInternalTransfer,
                 formula: 'Cuft × (FTL/1742) × 1.20 markup'

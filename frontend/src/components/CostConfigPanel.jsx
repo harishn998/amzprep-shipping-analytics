@@ -235,7 +235,7 @@ export const CostConfigPanel = ({
           <div className="pt-4">
             <div className="block text-sm font-semibold text-gray-300 mb-2">
               <MapPin size={14} className="inline mr-2" />
-              Pattern Destination
+              MM Destination
             </div>
             <div className="flex gap-4">
               <label className="flex items-center cursor-pointer">
@@ -354,7 +354,7 @@ export const CostConfigPanel = ({
                 className="w-full bg-[#0f1419] border border-gray-700 rounded-lg px-4 py-3 text-white focus:border-[#00A8FF] focus:outline-none focus:ring-2 focus:ring-[#00A8FF]/20"
               />
               <p className="text-xs text-gray-500 mt-1">
-                Pattern rate: {config.destination} = ${PATTERN_RATES[config.destination].Standard}
+                MM rate: {config.destination} = ${PATTERN_RATES[config.destination].Standard}
               </p>
             </div>
 

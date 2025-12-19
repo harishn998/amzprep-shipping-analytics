@@ -2710,7 +2710,7 @@ return (
                   <div className="bg-white/10 rounded-lg p-4 backdrop-blur">
                     <span className="text-sm opacity-80 block mb-1">Recommended</span>
                     <div className="text-2xl font-bold">
-                      {dashboardData.warehouseComparison.find(w => w.recommended).savingsPercent}% Savings
+                      {dashboardData.warehouseComparison.find(w => w.recommended).savingsPercent} Savings
                     </div>
                   </div>
                 </div>
