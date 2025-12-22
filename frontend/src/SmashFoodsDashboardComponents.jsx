@@ -124,17 +124,21 @@ const SmashFoodsKeyMetrics = ({ data, metadata }) => {
         </div>
       </div>
 
-      {/* Transit Time */}
+      {/* Transit Time (Dock-to-Dock) */}
       <div className="bg-gray-800 p-6 rounded-lg">
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-gray-400 text-sm font-medium">Transit Time</h3>
           <Clock className="text-orange-400" size={20} />
         </div>
         <div className="text-3xl font-bold text-white">
-          {metadata.avgTransitTime} → {metadata.amzPrepTransitTime} days
+          {metadata.avgTransitTime} → 2–5 days
         </div>
         <div className="text-sm text-green-400 mt-1">
-          -{metadata.transitImprovement} days faster
+          ~4 days average with AMZ Prep
+        </div>
+        <div className="text-xs text-gray-500 mt-2 flex items-center gap-1">
+          <Clock size={12} />
+          <span>Dock-to-dock basis</span>
         </div>
       </div>
     </div>
@@ -573,7 +577,7 @@ const SmashFoodsRecommendations = ({ recommendations }) => {
             )}
             {rec.improvement && (
               <div className="text-sm text-green-400">
-                Improvement: {rec.improvement} days faster
+                Improvement: ~{rec.improvement} days faster (dock-to-dock)
               </div>
             )}
           </div>

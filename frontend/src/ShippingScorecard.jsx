@@ -74,7 +74,13 @@ export const ShippingScorecard = ({ data, metadata = {}, isAdmin = false }) => {
       {/* Inbound Speed Hero Bar - MOST IMPORTANT */}
       <InboundSpeedHero metrics={scorecardData.speedMetrics} />
 
-      {/* Two Column Layout */}
+      {/* Key Insights Section - Data Driven (MOVED UP per feedback) */}
+      <KeyInsightsSection
+        metrics={scorecardData.keyMetrics}
+        shipMethodData={scorecardData.shipMethodData}
+      />
+
+      {/* Two Column Layout: Performance Grades + Industry Comparison */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Left Column: Performance Grades */}
         <PerformanceGrades breakdown={scorecardData.breakdown} />
@@ -82,12 +88,6 @@ export const ShippingScorecard = ({ data, metadata = {}, isAdmin = false }) => {
         {/* Right Column: Industry Comparison */}
         <IndustryComparison comparison={scorecardData.comparison} />
       </div>
-
-      {/* Key Insights Section - Data Driven */}
-      <KeyInsightsSection
-        metrics={scorecardData.keyMetrics}
-        shipMethodData={scorecardData.shipMethodData}
-      />
 
       {/* CTA Section */}
       <CTASection
@@ -464,10 +464,16 @@ const ScorecardHeader = ({ scorecardData }) => {
 
 // ============================================================================
 // INBOUND SPEED HERO BAR - MOST IMPORTANT METRIC
+// Updated: Added Dock-to-Dock clarification and range-based display
 // ============================================================================
 const InboundSpeedHero = ({ metrics }) => {
   const { currentDays, amzPrepDays, improvement, improvementPercent, grade } = metrics;
   const gradeInfo = GRADE_THRESHOLDS[grade];
+
+  // AMZ Prep transit time range (2-5 days dock-to-dock)
+  const amzPrepRangeMin = 2;
+  const amzPrepRangeMax = 5;
+  const amzPrepAverage = 4;
 
   return (
     <div
@@ -477,16 +483,24 @@ const InboundSpeedHero = ({ metrics }) => {
         borderColor: `${BRAND_BLUE}30`
       }}
     >
-      <div className="flex items-center gap-2 mb-4">
-        <Zap className="w-5 h-5" style={{ color: BRAND_BLUE }} />
-        <h3 className="text-lg font-bold text-white">Speed Into Amazon</h3>
-        <span
-          className="ml-2 px-2 py-0.5 rounded text-xs font-bold"
-          style={{ backgroundColor: gradeInfo.bgColor, color: gradeInfo.color }}
-        >
-          Grade: {grade}
-        </span>
+      <div className="flex items-center justify-between mb-1">
+        <div className="flex items-center gap-2">
+          <Zap className="w-5 h-5" style={{ color: BRAND_BLUE }} />
+          <h3 className="text-lg font-bold text-white">Speed Into Amazon</h3>
+          <span
+            className="ml-2 px-2 py-0.5 rounded text-xs font-bold"
+            style={{ backgroundColor: gradeInfo.bgColor, color: gradeInfo.color }}
+          >
+            Grade: {grade}
+          </span>
+        </div>
       </div>
+
+      {/* Dock-to-Dock Clarification Badge */}
+      <p className="text-xs text-gray-400 mb-4 flex items-center gap-1">
+        <Clock className="w-3 h-3" />
+        Transit time calculated on a <span className="text-white font-medium">dock-to-dock</span> basis
+      </p>
 
       {/* Speed Comparison Bar */}
       <div className="relative">
@@ -506,11 +520,21 @@ const InboundSpeedHero = ({ metrics }) => {
             </div>
           </div>
 
-          {/* AMZ Prep target line */}
+          {/* AMZ Prep target zone (range indicator) */}
+          <div
+            className="absolute top-0 h-full z-10 opacity-30"
+            style={{
+              left: `${(amzPrepRangeMin / 30) * 100}%`,
+              width: `${((amzPrepRangeMax - amzPrepRangeMin) / 30) * 100}%`,
+              background: BRAND_BLUE
+            }}
+          />
+
+          {/* AMZ Prep target line (average) */}
           <div
             className="absolute top-0 h-full w-0.5 z-10"
             style={{
-              left: `${(amzPrepDays / 30) * 100}%`,
+              left: `${(amzPrepAverage / 30) * 100}%`,
               background: BRAND_BLUE
             }}
           >
@@ -518,7 +542,7 @@ const InboundSpeedHero = ({ metrics }) => {
               className="absolute -top-1 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded text-xs font-bold whitespace-nowrap"
               style={{ backgroundColor: BRAND_BLUE, color: 'white' }}
             >
-              AMZ Prep: {amzPrepDays} days
+              AMZ Prep: {amzPrepRangeMin}–{amzPrepRangeMax} days
             </div>
           </div>
 
@@ -533,7 +557,7 @@ const InboundSpeedHero = ({ metrics }) => {
 
         {/* Improvement callout */}
         {improvement > 0 && (
-          <div className="mt-3 flex items-center justify-between">
+          <div className="mt-3 flex items-center justify-between flex-wrap gap-2">
             <p className="text-sm text-gray-400">
               <span className="text-white font-medium">Faster inbound</span> = better cashflow = less storage fees = higher in-stock rate
             </p>
@@ -543,11 +567,16 @@ const InboundSpeedHero = ({ metrics }) => {
             >
               <ArrowRight className="w-4 h-4" style={{ color: BRAND_BLUE }} />
               <span className="text-sm font-bold" style={{ color: BRAND_BLUE }}>
-                {improvement} days faster with AMZ Prep
+                ~{amzPrepAverage} days avg with AMZ Prep
               </span>
             </div>
           </div>
         )}
+
+        {/* Dock-to-Dock Helper Text */}
+        <p className="text-xs text-gray-500 mt-3 italic">
+          * Actual transit time may vary between {amzPrepRangeMin}–{amzPrepRangeMax} days depending on origin and destination.
+        </p>
       </div>
     </div>
   );
@@ -788,35 +817,6 @@ const KeyInsightsSection = ({ metrics, shipMethodData }) => {
                 </span>
               </div>
             )}
-          </div>
-        </div>
-      )}
-
-      {/* Savings Summary */}
-      {metrics.savingsAmount > 0 && (
-        <div
-          className="p-4 rounded-xl border"
-          style={{
-            background: 'linear-gradient(90deg, rgba(16, 185, 129, 0.1) 0%, rgba(16, 185, 129, 0.02) 100%)',
-            borderColor: 'rgba(16, 185, 129, 0.3)'
-          }}
-        >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <CheckCircle className="w-5 h-5 text-emerald-500" />
-              <div>
-                <h4 className="text-white font-semibold">Estimated Annual Opportunity</h4>
-                <p className="text-sm text-gray-400">Potential savings with AMZ Prep optimization</p>
-              </div>
-            </div>
-            <div className="text-right">
-              <p className="text-2xl font-bold text-emerald-400">
-                {formatCurrency(metrics.totalAnnualOpportunity)}
-              </p>
-              <p className="text-xs text-gray-500">
-                {formatCurrency(Math.round(metrics.totalAnnualOpportunity / 365))}/day
-              </p>
-            </div>
           </div>
         </div>
       )}
