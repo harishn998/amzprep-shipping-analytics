@@ -2234,17 +2234,30 @@ app.use('/api/admin/rates', adminRateUploadRoutes);
 
 app.use('/api/admin', adminUserManagementRoutes);
 
-app.use('/api', authenticateToken, separateUploadRoutes);
-
 app.use('/api/admin/fba-zoning', adminFBAZoningRoutes);
 
-// Download MM Rate Template
+// ============================================================================
+// PUBLIC TEMPLATE ROUTES - No authentication required
+// IMPORTANT: These must be defined BEFORE the catch-all /api route below
+// ============================================================================
+
+// Download MM Rate Template (PUBLIC - no auth)
 app.get('/api/templates/mm-rate-template', (req, res) => {
   try {
-    const templatePath = path.join(__dirname, 'templates', 'MM-Rate-Sample-Template.xlsx');
+    const templatePath = path.join(__dirname, 'templates', 'rates', 'MM-Rate-Sample-Template.xlsx');
 
     // Check if file exists
     if (!fs.existsSync(templatePath)) {
+      // Try alternative path
+      const altPath = path.join(__dirname, 'templates', 'MM-Rate-Sample-Template.xlsx');
+      if (fs.existsSync(altPath)) {
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', 'attachment; filename=MM-Rate-Sample-Template.xlsx');
+        const fileStream = fs.createReadStream(altPath);
+        return fileStream.pipe(res);
+      }
+
+      console.error('Template not found at:', templatePath, 'or', altPath);
       return res.status(404).json({
         success: false,
         error: 'Template file not found'
@@ -2268,7 +2281,7 @@ app.get('/api/templates/mm-rate-template', (req, res) => {
   }
 });
 
-// Get list of available templates (optional - for future expansion)
+// Get list of available templates (PUBLIC - no auth)
 app.get('/api/templates', (req, res) => {
   try {
     const templates = [
@@ -2291,6 +2304,11 @@ app.get('/api/templates', (req, res) => {
     });
   }
 });
+
+// ============================================================================
+// CATCH-ALL AUTHENTICATED ROUTES - Must be AFTER public routes
+// ============================================================================
+app.use('/api', authenticateToken, separateUploadRoutes);
 
 app.listen(PORT, () => {
   console.log(`🚀 AMZ Prep Analytics API running on http://localhost:${PORT}`);

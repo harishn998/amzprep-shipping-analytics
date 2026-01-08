@@ -103,7 +103,9 @@ class SmashFoodsParser {
 
     // Filter by year and month range
     const beforeDateFilter = parsedData.dataSheet.length;
-    parsedData.dataSheet = parsedData.dataSheet.filter(row => {
+
+    // 🆕 FIX: First, try filtering with the requested year
+    let filteredByDate = parsedData.dataSheet.filter(row => {
       if (!row.createdDate) return false;
 
       const created = new Date(row.createdDate);
@@ -117,6 +119,103 @@ class SmashFoodsParser {
 
       return true;
     });
+
+    // 🆕 ENHANCED FIX: If no results found, auto-detect year prioritizing Placement data matches
+    if (filteredByDate.length === 0 && beforeDateFilter > 0) {
+      console.log(`⚠️ No shipments found for year ${year}. Auto-detecting year from data...`);
+
+      // Build a set of shipment IDs that have Placement data (for cuft lookup)
+      const placementShipmentIDs = new Set();
+      if (parsedData.placementSheet && parsedData.placementSheet.length > 0) {
+        parsedData.placementSheet.forEach(item => {
+          if (item.fbaShipmentID) {
+            placementShipmentIDs.add(item.fbaShipmentID);
+          }
+        });
+      }
+      console.log(`   📦 Placement sheet has ${placementShipmentIDs.size} unique shipment IDs`);
+
+      // Find all years present in the data WITH match counts
+      const yearsInData = new Map();
+      parsedData.dataSheet.forEach(row => {
+        if (row.createdDate) {
+          const created = new Date(row.createdDate);
+          if (!isNaN(created.getTime())) {
+            const rowYear = created.getFullYear();
+            if (!yearsInData.has(rowYear)) {
+              yearsInData.set(rowYear, { total: 0, withPlacement: 0 });
+            }
+            const yearData = yearsInData.get(rowYear);
+            yearData.total += 1;
+
+            // Check if this shipment has Placement data (which means it has Cuft)
+            if (row.fbaShipmentID && placementShipmentIDs.has(row.fbaShipmentID)) {
+              yearData.withPlacement += 1;
+            }
+          }
+        }
+      });
+
+      if (yearsInData.size > 0) {
+        // Log all years with their match counts
+        console.log(`📅 Years found in data:`);
+        const sortedYears = Array.from(yearsInData.entries()).sort((a, b) => b[0] - a[0]);
+        sortedYears.forEach(([yr, data]) => {
+          const matchPercent = data.total > 0 ? Math.round((data.withPlacement / data.total) * 100) : 0;
+          console.log(`      ${yr}: ${data.total} total, ${data.withPlacement} with Placement data (${matchPercent}%)`);
+        });
+
+        // 🆕 SMART SELECTION: Prioritize years with Placement data matches
+        // Strategy: Pick the year with MOST shipments that have Placement data
+        // If tie, prefer the most recent year
+        let detectedYear = year;
+        let maxPlacementMatches = 0;
+
+        sortedYears.forEach(([yr, data]) => {
+          if (data.withPlacement > maxPlacementMatches) {
+            maxPlacementMatches = data.withPlacement;
+            detectedYear = yr;
+          } else if (data.withPlacement === maxPlacementMatches && data.withPlacement > 0 && yr > detectedYear) {
+            // Tie-breaker: prefer more recent year
+            detectedYear = yr;
+          }
+        });
+
+        // Fallback: If no year has Placement matches, use the most recent year with most data
+        if (maxPlacementMatches === 0) {
+          console.log(`   ⚠️ No years have Placement data matches, falling back to most recent year`);
+          let maxTotal = 0;
+          sortedYears.forEach(([yr, data]) => {
+            if (data.total > maxTotal) {
+              maxTotal = data.total;
+              detectedYear = yr;
+            }
+          });
+        }
+
+        const selectedYearData = yearsInData.get(detectedYear);
+        console.log(`✅ Auto-selected year ${detectedYear} (${selectedYearData?.withPlacement || 0} shipments with Placement data, ${selectedYearData?.total || 0} total)`);
+
+        // Re-filter with detected year
+        filteredByDate = parsedData.dataSheet.filter(row => {
+          if (!row.createdDate) return false;
+
+          const created = new Date(row.createdDate);
+          if (isNaN(created.getTime())) return false;
+
+          const rowYear = created.getFullYear();
+
+          if (rowYear !== detectedYear) return false;
+          // When auto-detecting, include all months (1-12) to get maximum data
+
+          return true;
+        });
+
+        console.log(`✅ After auto-detected date filter (${detectedYear} all months): ${filteredByDate.length} rows`);
+      }
+    }
+
+    parsedData.dataSheet = filteredByDate;
 
     console.log(`✅ After date filter (${year} ${startMonth}-${endMonth}): ${parsedData.dataSheet.length} rows`);
     console.log(`   (Filtered out ${beforeDateFilter - parsedData.dataSheet.length} rows outside date range)`);

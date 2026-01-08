@@ -398,8 +398,17 @@ const PremiumSidebar = () => {
   // Function to download template
   const handleDownloadTemplate = async () => {
     try {
+      // Get token from localStorage if available
+      const token = localStorage.getItem('token');
+
+      const headers = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
       const response = await fetch(`${API_URL}/templates/mm-rate-template`, {
         method: 'GET',
+        headers: headers
       });
 
       if (response.ok) {
@@ -413,10 +422,13 @@ const PremiumSidebar = () => {
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
       } else {
-        console.error('Failed to download template');
+        const errorText = await response.text();
+        console.error('Failed to download template:', errorText);
+        alert('Failed to download template. Please try again.');
       }
     } catch (error) {
       console.error('Error downloading template:', error);
+      alert('Error downloading template. Please check your connection.');
     }
   };
 

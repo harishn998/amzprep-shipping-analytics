@@ -422,7 +422,7 @@ export const CostConfigPanel = ({
                   disabled={disabled}
                   className="w-full bg-[#1a1f2e] border border-gray-600 rounded-lg px-3 py-2 text-white focus:border-[#00A8FF] focus:outline-none"
                 >
-                  {[2023, 2024, 2025, 2026].map(year => (
+                  {[2023, 2024, 2025, 2026, 2027].map(year => (
                     <option key={year} value={year}>{year}</option>
                   ))}
                 </select>
