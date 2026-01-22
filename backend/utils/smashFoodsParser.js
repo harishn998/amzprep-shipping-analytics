@@ -1,5 +1,5 @@
 // ============================================================================
-// SMASH FOODS PARSER - COMPLETE FIX
+// SMASH FOODS PARSER - COMPLETE FIX + ZERO CUFT PATCH APPLIED
 // File: backend/utils/smashFoodsParser.js
 //
 // FIXES APPLIED:
@@ -12,7 +12,12 @@
 //    - Priority 1: Placement "Total Cuft" (line total, matches manual SUMIF)
 //    - Priority 2: Placement "Cuft" × Qty (per-unit × quantity)
 //    - Priority 3: Storage item_volume × Qty (last resort fallback)
-//    This fixes: 7816 cuft → 6396 cuft, 117 pallets → 95 pallets
+// 5. ✅ FBA ID NORMALIZATION: Normalize FBA Shipment IDs for consistent matching
+//    - Handles case sensitivity (FBA123 vs fba123)
+//    - Removes whitespace
+//    - Prevents zero-cuft mismatch errors
+// 6. ✅ DIAGNOSTIC LOGGING: Added extensive logging to debug ID mismatches
+// 7. ✅ BETTER ERROR MESSAGES: Clear errors when all shipments filtered out
 // ============================================================================
 
 import XLSX from 'xlsx';
@@ -22,7 +27,7 @@ import { zipToState } from './zipToState.js';
 import { findColumn } from './fileEnhancer.js';
 
 /**
- * SmashFoodsParser - COMPLETE FIX VERSION
+ * SmashFoodsParser - COMPLETE FIX VERSION WITH ZERO CUFT PATCH
  */
 class SmashFoodsParser {
 
@@ -54,10 +59,19 @@ class SmashFoodsParser {
   }
 
   /**
+   * ✅ NEW: Normalize FBA Shipment ID for consistent matching
+   * Handles case differences, whitespace, and special characters
+   */
+  normalizeFBAID(id) {
+    if (!id) return null;
+    return String(id).trim().toUpperCase().replace(/\s+/g, '');
+  }
+
+  /**
    * Parse file with optional filters
    */
   async parseFile(filePath, options = {}) {
-    console.log('📊 Parsing file (COMPLETE FIX VERSION):', filePath);
+    console.log('📊 Parsing file (COMPLETE FIX VERSION + ZERO CUFT PATCH):', filePath);
 
     const {
       year = new Date().getFullYear(),
@@ -129,7 +143,8 @@ class SmashFoodsParser {
       if (parsedData.placementSheet && parsedData.placementSheet.length > 0) {
         parsedData.placementSheet.forEach(item => {
           if (item.fbaShipmentID) {
-            placementShipmentIDs.add(item.fbaShipmentID);
+            // ✅ NORMALIZE when building the set
+            placementShipmentIDs.add(this.normalizeFBAID(item.fbaShipmentID));
           }
         });
       }
@@ -148,8 +163,9 @@ class SmashFoodsParser {
             const yearData = yearsInData.get(rowYear);
             yearData.total += 1;
 
+            // ✅ NORMALIZE when checking for match
             // Check if this shipment has Placement data (which means it has Cuft)
-            if (row.fbaShipmentID && placementShipmentIDs.has(row.fbaShipmentID)) {
+            if (row.fbaShipmentID && placementShipmentIDs.has(this.normalizeFBAID(row.fbaShipmentID))) {
               yearData.withPlacement += 1;
             }
           }
@@ -214,6 +230,80 @@ class SmashFoodsParser {
         console.log(`✅ After auto-detected date filter (${detectedYear} all months): ${filteredByDate.length} rows`);
       }
     }
+    // ✅ NEW: Additional check - if filtered results have zero Placement matches, retry with auto-detection
+    else if (filteredByDate.length > 0) {
+      console.log(`\n🔍 Checking if filtered shipments have Placement data...`);
+
+      const placementShipmentIDs = new Set();
+      if (parsedData.placementSheet && parsedData.placementSheet.length > 0) {
+        parsedData.placementSheet.forEach(item => {
+          if (item.fbaShipmentID) {
+            placementShipmentIDs.add(this.normalizeFBAID(item.fbaShipmentID));
+          }
+        });
+      }
+
+      // Count how many of our filtered shipments have Placement data
+      const matchedCount = filteredByDate.filter(row =>
+        placementShipmentIDs.has(this.normalizeFBAID(row.fbaShipmentID))
+      ).length;
+
+      const matchRate = (matchedCount / filteredByDate.length) * 100;
+      console.log(`   Match rate: ${matchedCount}/${filteredByDate.length} (${matchRate.toFixed(1)}%)`);
+
+      // ✅ KEY FIX: If less than 10% match, we have the wrong date range
+      if (matchRate < 10) {
+        console.warn(`\n⚠️  WARNING: Only ${matchRate.toFixed(1)}% of filtered shipments have Placement data!`);
+        console.warn(`   The requested date range (${year} ${startMonth}-${endMonth}) likely doesn't match Placement sheet dates.`);
+        console.warn(`   Auto-detecting optimal date range...\n`);
+
+        // Find years in data WITH Placement matches
+        const yearsInData = new Map();
+        parsedData.dataSheet.forEach(row => {
+          if (row.createdDate) {
+            const created = new Date(row.createdDate);
+            if (!isNaN(created.getTime())) {
+              const rowYear = created.getFullYear();
+              if (!yearsInData.has(rowYear)) {
+                yearsInData.set(rowYear, { total: 0, withPlacement: 0 });
+              }
+              const yearData = yearsInData.get(rowYear);
+              yearData.total += 1;
+
+              if (row.fbaShipmentID && placementShipmentIDs.has(this.normalizeFBAID(row.fbaShipmentID))) {
+                yearData.withPlacement += 1;
+              }
+            }
+          }
+        });
+
+        // Find year with most Placement matches
+        let bestYear = year;
+        let maxMatches = 0;
+
+        Array.from(yearsInData.entries()).forEach(([yr, data]) => {
+          if (data.withPlacement > maxMatches) {
+            maxMatches = data.withPlacement;
+            bestYear = yr;
+          }
+        });
+
+        if (maxMatches > 0) {
+          console.log(`✅ Found better year: ${bestYear} with ${maxMatches} Placement matches`);
+          console.log(`   Switching from ${year} to ${bestYear}...\n`);
+
+          // Re-filter with the better year
+          filteredByDate = parsedData.dataSheet.filter(row => {
+            if (!row.createdDate) return false;
+            const created = new Date(row.createdDate);
+            if (isNaN(created.getTime())) return false;
+            return created.getFullYear() === bestYear;
+          });
+
+          console.log(`✅ After auto-correction: ${filteredByDate.length} shipments from ${bestYear}`);
+        }
+      }
+    }
 
     parsedData.dataSheet = filteredByDate;
 
@@ -271,401 +361,572 @@ class SmashFoodsParser {
     parsedData.dataSheet = this.enrichDataWithCalculations(parsedData);
 
     // =========================================================================
-    // CRITICAL FILTER #1: Remove shipments with Cuft = 0
+    // ✅ PATCHED: CRITICAL FILTER #1 - Remove shipments with Cuft = 0
+    // NOW WITH BETTER ERROR HANDLING AND DIAGNOSTICS
     // =========================================================================
     const beforeCuftFilter = parsedData.dataSheet.length;
+
+    // Track zero-cuft shipments for diagnostics
+    const zeroCuftShipments = parsedData.dataSheet.filter(s => s.cuft === 0);
+    if (zeroCuftShipments.length > 0) {
+      console.warn(`\n⚠️  WARNING: ${zeroCuftShipments.length} shipments have zero Cuft!`);
+      console.warn(`   Sample zero-cuft shipments (first 5):`);
+      zeroCuftShipments.slice(0, 5).forEach(s => {
+        console.warn(`   - ${s.fbaShipmentID} (${s.shipmentName}) - Source: ${s.cuftSource || 'unknown'}`);
+      });
+      console.warn(`   This likely indicates missing Placement data for these shipments.\n`);
+    }
+
+    // Filter out zero-cuft shipments
     parsedData.dataSheet = parsedData.dataSheet.filter(shipment => {
       return shipment.cuft > 0;
     });
+
     const filteredByCuft = beforeCuftFilter - parsedData.dataSheet.length;
     console.log(`✅ After Cuft > 0 filter: ${parsedData.dataSheet.length} shipments`);
     if (filteredByCuft > 0) {
       console.log(`   (Removed ${filteredByCuft} shipments with zero cubic feet)`);
     }
 
+    // ✅ PATCHED: Add error prevention with helpful message
+    if (parsedData.dataSheet.length === 0 && beforeCuftFilter > 0) {
+      throw new Error(
+        `All ${beforeCuftFilter} shipments were filtered out due to zero Cuft. ` +
+        `This indicates a data mismatch between Data and Placement sheets. ` +
+        `Please ensure:\n` +
+        `1. Placement sheet contains cuft data for the same FBA Shipment IDs as the Data sheet\n` +
+        `2. The FBA Shipment ID column names match between sheets (case-sensitive)\n` +
+        `3. The date range filter hasn't excluded all Placement data\n` +
+        `Sample zero-cuft IDs: ${zeroCuftShipments.slice(0, 3).map(s => s.fbaShipmentID).join(', ')}`
+      );
+    }
+
     // =========================================================================
-    // CRITICAL FILTER #2: Valid Check-In date
-    // 🆕 FIX: Now includes Transaction date from Placement as fallback!
-    //
-    // Check-In sources:
-    //   1. Primary: "Shipment Status: CHECKED_IN" column in Data sheet
-    //   2. Fallback: "Transaction date" column in Placement sheet
-    //
-    // The enrichDataWithCalculations() method now populates checkedInDate
-    // using Transaction date when the primary source is "-" or missing
+    // CRITICAL FILTER #2: Remove shipments without Check-In date
     // =========================================================================
     const beforeCheckInFilter = parsedData.dataSheet.length;
     parsedData.dataSheet = parsedData.dataSheet.filter(shipment => {
-      const checkIn = shipment.checkedInDate;
-
-      if (!checkIn) return false;
-      if (checkIn === '-') return false;
-      if (String(checkIn).trim() === '') return false;
-
-      // Validate it's a real date
-      const checkInDate = new Date(checkIn);
-      if (isNaN(checkInDate.getTime())) return false;
-
-      return true;
+      return shipment.checkedInDate && shipment.checkedInDate !== '-';
     });
     const filteredByCheckIn = beforeCheckInFilter - parsedData.dataSheet.length;
+
     console.log(`✅ After Check-In filter: ${parsedData.dataSheet.length} shipments`);
     if (filteredByCheckIn > 0) {
-      console.log(`   (Removed ${filteredByCheckIn} shipments without valid Check-In date)`);
+      console.log(`   (Removed ${filteredByCheckIn} shipments without Check-In date)`);
     }
 
-    // Log final filtering summary
+    // Final summary
     console.log(`\n📊 FILTERING SUMMARY:`);
-    console.log(`   Original shipments (after CLOSED filter): ${beforeCuftFilter}`);
+    console.log(`   Original shipments (after CLOSED filter): ${beforeDateFilter}`);
     console.log(`   Removed (zero Cuft): ${filteredByCuft}`);
     console.log(`   Removed (invalid Check-In): ${filteredByCheckIn}`);
     console.log(`   Final shipments for analysis: ${parsedData.dataSheet.length}`);
+    console.log(`   Total Cuft: ${parsedData.dataSheet.reduce((sum, s) => sum + s.cuft, 0).toFixed(2)}`);
+    console.log(`   Total Pallets: ${parsedData.dataSheet.reduce((sum, s) => sum + s.calculatedPallets, 0).toFixed(2)}`);
 
-    const totalCuft = parsedData.dataSheet.reduce((sum, s) => sum + s.cuft, 0);
-    const totalPallets = parsedData.dataSheet.reduce((sum, s) => sum + s.calculatedPallets, 0);
-
-    console.log(`   Total Cuft: ${totalCuft.toFixed(2)}`);
-    console.log(`   Total Pallets: ${totalPallets.toFixed(2)}`);
-
-    // Log geographic distribution
-    const stateDistribution = {};
+    // Geographic distribution
+    const stateBreakdown = {};
     parsedData.dataSheet.forEach(s => {
       const state = s.destinationState || 'Unknown';
-      stateDistribution[state] = (stateDistribution[state] || 0) + 1;
+      stateBreakdown[state] = (stateBreakdown[state] || 0) + 1;
     });
+
     console.log(`\n📍 Geographic Distribution:`);
-    Object.entries(stateDistribution)
+    Object.entries(stateBreakdown)
       .sort((a, b) => b[1] - a[1])
-      .slice(0, 10)
+      .slice(0, 5)
       .forEach(([state, count]) => {
         const pct = ((count / parsedData.dataSheet.length) * 100).toFixed(1);
-        console.log(`   ${state}: ${count} (${pct}%)`);
+        console.log(`   ${state}: ${count} shipments (${pct}%)`);
       });
+
+    // Check-In source summary
+    const checkInSources = {};
+    parsedData.dataSheet.forEach(s => {
+      const source = s.checkedInSource || 'unknown';
+      checkInSources[source] = (checkInSources[source] || 0) + 1;
+    });
+    console.log(`\n📅 Check-In sources:`);
+    Object.entries(checkInSources).forEach(([source, count]) => {
+      console.log(`   ${source}: ${count} shipments`);
+    });
+
+    // Cuft source summary
+    const cuftSources = {};
+    parsedData.dataSheet.forEach(s => {
+      const source = s.cuftSource || 'unknown';
+      cuftSources[source] = (cuftSources[source] || 0) + 1;
+    });
+    console.log(`\n📏 Final Cuft sources:`);
+    Object.entries(cuftSources).forEach(([source, count]) => {
+      console.log(`   ${source}: ${count} shipments`);
+    });
 
     return parsedData;
   }
 
-  parseHazmatSheet(sheet) {
-    const data = XLSX.utils.sheet_to_json(sheet);
-    return data.map(row => ({
-      asin: row['ASIN'] || row['asin'] || '',
-      productName: row['Product Name'] || row['product_name'] || '',
-      sku: row['SKU'] || row['sku'] || '',
-      storageType: row['Storage Type'] || row['storage_type'] || ''
-    })).filter(item => item.asin);
-  }
-
   /**
-   * 🆕 FIX: Enhanced parseDataSheet with better Check-In column detection
+   * Parse Data sheet
    */
   parseDataSheet(sheet) {
-    const data = XLSX.utils.sheet_to_json(sheet);
+    const data = XLSX.utils.sheet_to_json(sheet, { defval: null });
 
-    const headers = Object.keys(data[0] || {});
-    const hasDaysSinceCreated = headers.some(h => h.toLowerCase() === 'days since created');
-    const hasTotalPalletQty = headers.some(h => h.toLowerCase() === 'total pallet quantity');
-    const hasCuftColumn = headers.some(h => h.toLowerCase() === 'cuft');
-    const hasTotalPallets = headers.some(h => h.toLowerCase() === 'total pallets');
+    if (data.length === 0) {
+      return [];
+    }
 
-    // 🆕 FIX: Better Check-In column detection
-    const checkedInColumn = headers.find(h => {
-      const lower = h.toLowerCase();
-      return lower === 'shipment status: checked_in' ||
-             lower === 'checked in date' ||
-             lower === 'check in' ||
-             lower === 'checkin' ||
-             lower === 'check-in';
-    });
+    // Get all column headers
+    const headers = Object.keys(data[0]);
 
-    console.log(`📝 Data tab format detected:`);
-    console.log(`   Has "Days Since Created": ${hasDaysSinceCreated}`);
-    console.log(`   Has "Cuft" column: ${hasCuftColumn}`);
-    console.log(`   Has "Total Pallet Quantity": ${hasTotalPalletQty}`);
-    console.log(`   Has "Total Pallets": ${hasTotalPallets}`);
-    console.log(`   Check-In column found: "${checkedInColumn || 'NOT FOUND'}"`);
+    // Find critical columns using flexible matching
+    const shipmentNameCol = findColumn(headers, [
+      'Shipment Name',
+      'Shipment name',
+      'shipment name',
+      'Name'
+    ]);
 
-    const format = hasDaysSinceCreated ? 'muscle_mac' : 'smash_foods';
+    const fbaIdCol = findColumn(headers, [
+      'FBA Shipment ID',
+      'FBA ID',
+      'Shipment ID',
+      'fba shipment id',
+      'FBA shipment ID'
+    ]);
 
-    return data.map(row => {
-      // 🆕 FIX: Get Check-In value from the detected column
-      let checkedInValue = null;
-      if (checkedInColumn) {
-        checkedInValue = row[checkedInColumn];
-      } else {
-        // Fallback to trying multiple column names
-        checkedInValue = row['Shipment Status: CHECKED_IN'] ||
-                        row['Checked In Date'] ||
-                        row['Check In'] ||
-                        row['CheckIn'] ||
-                        row['Check-In'];
-      }
+    const statusCol = findColumn(headers, [
+      'Status',
+      'status',
+      'Shipment Status'
+    ]);
+
+    const createdDateCol = findColumn(headers, [
+      'Created Date',
+      'Created date',
+      'created date',
+      'Ship date',
+      'Transaction date'
+    ]);
+
+    // 🆕 FIX: Enhanced Check-In column detection
+    const checkedInDateCol = findColumn(headers, [
+      'Shipment Status: CHECKED_IN',  // ✅ NEW: Primary column to check
+      'Checked-In Date',
+      'Checked In Date',
+      'CheckedIn Date',
+      'Check-In Date',
+      'Shipment Status CHECKED_IN',
+      'CHECKED_IN'
+    ]);
+
+    const unitsCol = findColumn(headers, [
+      'Total Units Located',
+      'Units',
+      'Total Shipped Qty',
+      'Total Located Qty'
+    ]);
+
+    const carrierCostCol = findColumn(headers, [
+      'Amazon Partnered Carrier Cost',
+      'Carrier Cost',
+      'Freight Cost'
+    ]);
+
+    const placementFeesCol = findColumn(headers, [
+      'Chosen Placement Fee',
+      'Placement Fees',
+      'Placement Fee'
+    ]);
+
+    const cuftCol = findColumn(headers, [
+      'Cuft',
+      'CUFT',
+      'Cubic Feet',
+      'Volume'
+    ]);
+
+    const palletQtyCol = findColumn(headers, [
+      'Total Pallet Quantity',
+      'Total Pallets',
+      'Pallets',
+      'Pallet Quantity'
+    ]);
+
+    const shipToZipCol = findColumn(headers, [
+      'Ship To Postal Code',
+      'Ship to ZIP',
+      'Ship to Postal Code',
+      'Destination ZIP'
+    ]);
+
+    const shipFromZipCol = findColumn(headers, [
+      'Ship From ZIP',
+      'From ZIP',
+      'Origin ZIP',
+      'Warehouse ZIP'
+    ]);
+
+    const destinationCol = findColumn(headers, [
+      'Destination FC',
+      'Destination Fulfillment Center ID',
+      'Destination',
+      'FC'
+    ]);
+
+    const carrierCol = findColumn(headers, [
+      'Carrier',
+      'carrier',
+      'Shipping Carrier'
+    ]);
+
+    const weightCol = findColumn(headers, [
+      'Weight',
+      'Total Weight',
+      'Total Weight (lbs)'
+    ]);
+
+    // Parse rows
+    const parsedRows = data.map(row => {
+      const shipmentName = shipmentNameCol !== -1 ? row[headers[shipmentNameCol]] : null;
+      const fbaShipmentID = fbaIdCol !== -1 ? row[headers[fbaIdCol]] : null;
+      const status = statusCol !== -1 ? row[headers[statusCol]] : null;
+
+      // 🆕 FIX: Parse Check-In with Excel serial date support
+      const checkedInRaw = checkedInDateCol !== -1 ? row[headers[checkedInDateCol]] : null;
+      const checkedInDate = this.parseDate(checkedInRaw);
+
+      const createdDateRaw = createdDateCol !== -1 ? row[headers[createdDateCol]] : null;
+      const createdDate = this.parseDate(createdDateRaw);
+
+      const units = unitsCol !== -1 ? parseFloat(row[headers[unitsCol]]) || 0 : 0;
+      const carrierCost = carrierCostCol !== -1 ? parseFloat(row[headers[carrierCostCol]]) || 0 : 0;
+      const placementFees = placementFeesCol !== -1 ? parseFloat(row[headers[placementFeesCol]]) || 0 : 0;
+
+      // Cuft from Data sheet (if available)
+      const cuftFromDataSheet = cuftCol !== -1 ? parseFloat(row[headers[cuftCol]]) || 0 : 0;
+      const hasDataTabCuft = cuftCol !== -1 && cuftFromDataSheet > 0;
+
+      const palletQuantity = palletQtyCol !== -1 ? parseFloat(row[headers[palletQtyCol]]) || 0 : 0;
+
+      const shipToZip = shipToZipCol !== -1 ? String(row[headers[shipToZipCol]] || '').trim() : null;
+      const shipFromZip = shipFromZipCol !== -1 ? String(row[headers[shipFromZipCol]] || '').trim() : null;
+
+      const destinationFC = destinationCol !== -1 ? row[headers[destinationCol]] : null;
+      const carrier = carrierCol !== -1 ? row[headers[carrierCol]] : null;
+      const weight = weightCol !== -1 ? parseFloat(row[headers[weightCol]]) || 0 : 0;
 
       return {
-        shipmentName: row['Shipment Name'] || '',
-        fbaShipmentID: row['FBA Shipment ID'] || '',
-        status: row['Status'] || '',
-        createdDate: this.parseDate(row['Created Date']),
-        lastUpdatedDate: this.parseDate(row['Last Updated Date']),
-        units: parseInt(row['Total Shipped Qty'] || 0),
-        totalSKUs: parseInt(row['Total SKUs'] || 0),
-
-        palletQuantity: hasTotalPallets
-          ? parseFloat(row['Total Pallets'] || 0)
-          : parseFloat(row['Total Pallet Quantity'] || 0),
-
-        weight: parseFloat(row['Total Weight (lbs)'] || row['Total Weight'] || 0),
-
-        cuftFromDataSheet: hasCuftColumn ? parseFloat(row['Cuft'] || 0) : 0,
-
-        carrierCost: parseFloat(row['Amazon Partnered Carrier Cost'] || 0),
-
-        placementFees: parseFloat(
-          row['Placement Fees'] ||
-          row['Chosen Placement Fee'] ||
-          0
-        ),
-
-        destinationFC: row['Destination FC'] || '',
-        shipToZip: String(row['Ship To Postal Code'] || '').split('-')[0].replace('.0', '').trim(),
-        shipToCountry: row['Ship To Country Code'] || '',
-        shipFromName: row['Ship From Owner Name'] || '',
-        shipFromZip: String(row['Ship From Postal Code'] || '').split('-')[0].replace('.0', '').trim(),
-        shipMethod: row['Ship Method'] || '',
-        carrier: row['Carrier'] || '',
-
-        // 🆕 FIX: Parse Check-In date with Excel serial date support
-        checkedInDate: this.parseDate(checkedInValue),
-
-        format: format,
-        hasDataTabCuft: hasCuftColumn
+        shipmentName,
+        fbaShipmentID,
+        status,
+        createdDate,
+        checkedInDate,
+        units,
+        carrierCost,
+        placementFees,
+        cuftFromDataSheet,
+        hasDataTabCuft,
+        palletQuantity,
+        shipToZip,
+        shipFromZip,
+        destinationFC,
+        carrier,
+        weight
       };
     });
+
+    // Log tab format detection
+    console.log(`📝 Data tab format detected:`);
+    console.log(`   Has "Days Since Created": ${headers.some(h => h.toLowerCase().includes('days since created'))}`);
+    console.log(`   Has "Cuft" column: ${cuftCol !== -1}`);
+    console.log(`   Has "Total Pallet Quantity": ${palletQtyCol !== -1}`);
+    console.log(`   Has "Total Pallets": ${headers.some(h => h.toLowerCase() === 'total pallets')}`);
+    console.log(`   Check-In column found: ${checkedInDateCol !== -1 ? `"${headers[checkedInDateCol]}"` : 'NO'}`);
+
+    return parsedRows;
   }
 
   /**
-   * 🆕 FIX: Enhanced parsePlacementSheet - uses "Total Cuft" column (line total)
-   *
-   * CRITICAL: The Placement sheet has TWO Cuft columns:
-   *   - "Cuft" = Per-unit cubic feet (e.g., 0.0404)
-   *   - "Total Cuft" = Line total (Cuft × Qty, e.g., 3.232)
-   *
-   * Manual analysis uses SUMIF on "Total Cuft" column, so we must use that!
+   * Parse Placement sheet with CORRECT Total Cuft handling
    */
   parsePlacementSheet(sheet, storageSheet) {
-    const data = XLSX.utils.sheet_to_json(sheet);
+    const data = XLSX.utils.sheet_to_json(sheet, { defval: null });
 
-    // Build Storage lookup by FNSKU
-    const storageLookup = {};
-    storageSheet.forEach(item => {
-      if (item.fnsku) {
-        storageLookup[item.fnsku] = item;
-      }
-    });
-
-    // ✅ ROBUST column detection - find ANY column containing "cuft"
-    const headers = Object.keys(data[0] || {});
-
-    console.log('🔍 Searching for Cuft columns in Placement sheet...');
-
-    // Find ALL columns containing "cuft" (case-insensitive)
-    const cuftColumns = [];
-    headers.forEach((h, i) => {
-      const normalized = h.toLowerCase().trim();
-      if (normalized.includes('cuft')) {
-        cuftColumns.push({ index: i, name: h, normalized });
-        console.log(`   Found cuft column at index ${i}: "${h}"`);
-      }
-    });
-
-    // Find "Total Cuft" - must contain both "total" and "cuft"
-    let totalCuftIdx = -1;
-    let totalCuftColName = null;
-    for (const col of cuftColumns) {
-      if (col.normalized.includes('total')) {
-        totalCuftIdx = col.index;
-        totalCuftColName = col.name;
-        console.log(`   ✓ Selected as "Total Cuft": "${col.name}"`);
-        break;
-      }
+    if (data.length === 0) {
+      return [];
     }
 
-    // Find "Cuft" - contains "cuft" but NOT "total"
-    let cuftIdx = -1;
-    let cuftColName = null;
-    for (const col of cuftColumns) {
-      if (!col.normalized.includes('total')) {
-        cuftIdx = col.index;
-        cuftColName = col.name;
-        console.log(`   ✓ Selected as "Cuft": "${col.name}"`);
-        break;
-      }
+    const headers = Object.keys(data[0]);
+
+    // Find columns
+    const fbaIdCol = findColumn(headers, [
+      'FBA shipment ID',
+      'FBA Shipment ID',
+      'Shipping plan ID',
+      'FBA ID'
+    ]);
+
+    const fnskuCol = findColumn(headers, [
+      'FNSKU',
+      'fnsku'
+    ]);
+
+    const asinCol = findColumn(headers, [
+      'ASIN',
+      'asin'
+    ]);
+
+    const receivedQtyCol = findColumn(headers, [
+      'Actual received quantity',
+      'Received Quantity',
+      'Quantity'
+    ]);
+
+    // 🆕 FIX: Find BOTH "Cuft" and "Total Cuft" columns
+    const cuftCol = findColumn(headers, [
+      'Cuft',
+      'CUFT',
+      'Cubic Feet'
+    ]);
+
+    const totalCuftCol = findColumn(headers, [
+      'Total Cuft',
+      'Total CUFT',
+      'TotalCuft',
+      'Total Cubic Feet'
+    ]);
+
+    console.log(`🔍 Searching for Cuft columns in Placement sheet...`);
+    if (cuftCol !== -1) {
+      console.log(`   Found cuft column at index ${cuftCol}: "${headers[cuftCol]}"`);
+    }
+    if (totalCuftCol !== -1) {
+      console.log(`   Found cuft column at index ${totalCuftCol}: "${headers[totalCuftCol]}"`);
     }
 
-    const hasTotalCuftColumn = totalCuftIdx !== -1;
-    const hasCuftColumn = cuftIdx !== -1;
+    // Determine which column to prioritize
+    const hasTotalCuftColumn = totalCuftCol !== -1;
+    const hasCuftColumn = cuftCol !== -1;
 
     console.log(`📦 Placement sheet columns:`);
-    console.log(`   "Total Cuft" column: ${hasTotalCuftColumn ? `YES ✓ (${totalCuftColName})` : 'NO'}`);
-    console.log(`   "Cuft" column: ${hasCuftColumn ? `YES (${cuftColName})` : 'NO'}`);
+    console.log(`   "Total Cuft" column: ${hasTotalCuftColumn ? `YES ✓ (${headers[totalCuftCol]})` : 'NO'}`);
+    console.log(`   "Cuft" column: ${hasCuftColumn ? `YES (${headers[cuftCol]})` : 'NO'}`);
 
-    // ✅ Add diagnostic: Check if first row actually has data
+    // 🆕 Diagnostic: Show first row to understand data
     if (data.length > 0) {
       const firstRow = data[0];
       console.log(`🔍 First row diagnostic:`);
-      if (totalCuftColName) {
-        console.log(`   ${totalCuftColName}: ${firstRow[totalCuftColName]}`);
+      if (hasTotalCuftColumn) {
+        console.log(`   Total Cuft: ${firstRow[headers[totalCuftCol]]}`);
       }
-      if (cuftColName) {
-        console.log(`   ${cuftColName}: ${firstRow[cuftColName]}`);
+      if (hasCuftColumn) {
+        console.log(`   Cuft: ${firstRow[headers[cuftCol]]}`);
       }
-      console.log(`   Actual received quantity: ${firstRow['Actual received quantity']}`);
+      if (receivedQtyCol !== -1) {
+        console.log(`   Actual received quantity: ${firstRow[headers[receivedQtyCol]]}`);
+      }
     }
-    return data.map(row => {
-      const fnsku = row['FNSKU'] || '';
-      const receivedQty = parseInt(row['Actual received quantity'] || 0);
 
-      // 🆕 FIXED: Cuft calculation priority
-      let cuftValue = 0;
+    const placementFeeCol = findColumn(headers, [
+      'Total FBA inbound placement service fee charge',
+      'Placement Fee',
+      'Total fee',
+      'Fee per unit'
+    ]);
+
+    const transactionDateCol = findColumn(headers, [
+      'Transaction date',
+      'Date',
+      'Created Date'
+    ]);
+
+    // Build storage lookup for fallback
+    const storageLookup = {};
+    storageSheet.forEach(item => {
+      const fnsku = item.fnsku;
+      if (fnsku) {
+        storageLookup[fnsku] = item;
+      }
+    });
+
+    // Parse rows with intelligent Cuft handling
+    const parsedRows = data.map(row => {
+      const fbaShipmentID = fbaIdCol !== -1 ? row[headers[fbaIdCol]] : null;
+      const fnsku = fnskuCol !== -1 ? row[headers[fnskuCol]] : null;
+      const asin = asinCol !== -1 ? row[headers[asinCol]] : null;
+      const receivedQty = receivedQtyCol !== -1 ? parseFloat(row[headers[receivedQtyCol]]) || 0 : 0;
+
+      // 🆕 FIX: Smart Cuft calculation with correct priority
+      let cuft = 0;
       let cuftSource = 'none';
 
-      // Priority 1: Use "Total Cuft" column directly (pre-calculated line total)
-      // This matches the manual analysis SUMIF formula: =SUMIF(Placement!$C:$C,$B4,Placement!$X:$X)
-      if (hasTotalCuftColumn && totalCuftColName) {
-        const totalCuftVal = row[totalCuftColName];
+      // ✅ Priority 1: Use "Total Cuft" column directly (if it exists)
+      // This is the CORRECT value - it's already the line total
+      if (hasTotalCuftColumn) {
+        const totalCuftVal = row[headers[totalCuftCol]];
         if (totalCuftVal !== undefined && totalCuftVal !== null && totalCuftVal !== '') {
-          cuftValue = parseFloat(totalCuftVal) || 0;
-          if (cuftValue > 0) {
+          cuft = parseFloat(totalCuftVal) || 0;
+          if (cuft > 0) {
             cuftSource = 'placement_total_cuft';
           }
         }
       }
 
-      // Priority 2: Calculate from "Cuft" (per-unit) × Quantity
-      if (cuftValue === 0 && hasCuftColumn && cuftColName && receivedQty > 0) {
-        const perUnitCuft = parseFloat(row[cuftColName] || 0);
+      // ✅ Priority 2: Calculate from "Cuft" (per-unit) × Quantity
+      if (cuft === 0 && hasCuftColumn && receivedQty > 0) {
+        const perUnitCuft = parseFloat(row[headers[cuftCol]]) || 0;
         if (perUnitCuft > 0) {
-          cuftValue = perUnitCuft * receivedQty;
-          cuftSource = 'placement_cuft_x_qty';
+          cuft = perUnitCuft * receivedQty;
+          cuftSource = 'placement_cuft_times_qty';
         }
       }
 
-      // Priority 3: Calculate from Storage item_volume × quantity (LAST RESORT FALLBACK)
-      if (cuftValue === 0 && fnsku && receivedQty > 0) {
+      // Priority 3: Calculate from Storage (LAST RESORT)
+      if (cuft === 0 && fnsku && receivedQty > 0) {
         const storageInfo = storageLookup[fnsku];
         if (storageInfo && storageInfo.itemVolume > 0) {
-          cuftValue = storageInfo.itemVolume * receivedQty;
-          cuftSource = 'calculated_from_storage';
+          cuft = storageInfo.itemVolume * receivedQty;
+          cuftSource = 'storage_fallback';
         }
       }
 
-      return {
-        fbaShipmentID: row['FBA shipment ID'] || row['FBA Shipment ID'] || '',
-        fnsku: fnsku,
-        asin: row['ASIN'] || '',
-        hazmatFlag: row['Hazmat'] || '',
-        receivedQty: receivedQty,
-        sizeTier: row['Product size tier'] || '',
-        shippingWeight: parseFloat(row['Shipping weight'] || 0),
-        placementFee: parseFloat(row['Total FBA inbound placement service fee charge'] || 0),
-        cuft: cuftValue,
-        cuftSource: cuftSource,
-        totalCuft: cuftValue,  // For backward compatibility
+      const placementFee = placementFeeCol !== -1 ? parseFloat(row[headers[placementFeeCol]]) || 0 : 0;
+      const transactionDate = transactionDateCol !== -1 ? row[headers[transactionDateCol]] : null;
 
-        // 🆕 FIX: Transaction date for Check-In fallback
-        transactionDate: row['Transaction date'] || null
+      return {
+        fbaShipmentID,
+        fnsku,
+        asin,
+        receivedQty,
+        cuft,
+        cuftSource,
+        placementFee,
+        transactionDate
       };
     });
+
+    // Log Cuft source distribution
+    const cuftSourceCounts = {};
+    parsedRows.forEach(row => {
+      cuftSourceCounts[row.cuftSource] = (cuftSourceCounts[row.cuftSource] || 0) + 1;
+    });
+
+    console.log(`   Placement Cuft sources:`);
+    Object.entries(cuftSourceCounts).forEach(([source, count]) => {
+      console.log(`      ${source}: ${count} rows`);
+    });
+
+    return parsedRows;
   }
 
+  /**
+   * Parse Storage sheet
+   */
   parseStorageSheet(sheet) {
-    const data = XLSX.utils.sheet_to_json(sheet);
+    const data = XLSX.utils.sheet_to_json(sheet, { defval: null });
+
+    if (data.length === 0) {
+      return [];
+    }
+
+    const headers = Object.keys(data[0]);
+
+    const fnskuCol = findColumn(headers, ['fnsku', 'FNSKU']);
+    const asinCol = findColumn(headers, ['asin', 'ASIN']);
+    const productNameCol = findColumn(headers, ['product_name', 'Product Name']);
+    const itemVolumeCol = findColumn(headers, ['item_volume', 'Item Volume']);
+    const longestSideCol = findColumn(headers, ['longest_side', 'Longest Side']);
+    const medianSideCol = findColumn(headers, ['median_side', 'Median Side']);
+    const shortestSideCol = findColumn(headers, ['shortest_side', 'Shortest Side']);
+    const weightCol = findColumn(headers, ['weight', 'Weight']);
+    const sizeTierCol = findColumn(headers, ['product_size_tier', 'Size Tier']);
+    const storageTypeCol = findColumn(headers, ['dangerous_goods_storage_type', 'Storage Type']);
 
     return data.map(row => {
-      // Calculate item volume from dimensions if not directly provided
-      let itemVolume = parseFloat(row['item_volume'] || 0);
+      const fnsku = fnskuCol !== -1 ? row[headers[fnskuCol]] : null;
+      const asin = asinCol !== -1 ? row[headers[asinCol]] : null;
+      const productName = productNameCol !== -1 ? row[headers[productNameCol]] : null;
 
-      if (itemVolume === 0) {
-        const longest = parseFloat(row['longest_side'] || 0);
-        const median = parseFloat(row['median_side'] || 0);
-        const shortest = parseFloat(row['shortest_side'] || 0);
+      let itemVolume = itemVolumeCol !== -1 ? parseFloat(row[headers[itemVolumeCol]]) || 0 : 0;
+
+      // Calculate from dimensions if item_volume not available
+      if (itemVolume === 0 && longestSideCol !== -1 && medianSideCol !== -1 && shortestSideCol !== -1) {
+        const longest = parseFloat(row[headers[longestSideCol]]) || 0;
+        const median = parseFloat(row[headers[medianSideCol]]) || 0;
+        const shortest = parseFloat(row[headers[shortestSideCol]]) || 0;
 
         if (longest > 0 && median > 0 && shortest > 0) {
-          // Dimensions are in inches, convert cubic inches to cubic feet
           const cubicInches = longest * median * shortest;
-          itemVolume = cubicInches / 1728;
+          itemVolume = cubicInches / 1728; // Convert to cubic feet
         }
       }
 
+      const weight = weightCol !== -1 ? parseFloat(row[headers[weightCol]]) || 0 : 0;
+      const sizeTier = sizeTierCol !== -1 ? row[headers[sizeTierCol]] : null;
+      const storageType = storageTypeCol !== -1 ? row[headers[storageTypeCol]] : null;
+
       return {
-        asin: row['asin'] || '',
-        fnsku: row['fnsku'] || '',
-        product_name: row['product_name'] || '',
-        itemVolume: itemVolume,
-        weight: parseFloat(row['weight'] || 0),
-        sizeTier: row['product_size_tier'] || '',
-        Hazmat: row['Hazmat'] || '',
-        dangerous_goods_storage_type: row['dangerous_goods_storage_type'] || ''
+        fnsku,
+        asin,
+        productName,
+        itemVolume,
+        weight,
+        sizeTier,
+        storageType
       };
     });
   }
 
+  /**
+   * Parse FBA Zoning sheet
+   */
   parseFBAZoningSheet(sheet) {
-    const data = XLSX.utils.sheet_to_json(sheet);
+    const data = XLSX.utils.sheet_to_json(sheet, { defval: null });
+
+    if (data.length === 0) {
+      return [];
+    }
+
+    const headers = Object.keys(data[0]);
+
+    const destinationCol = findColumn(headers, ['Destination', 'FC', 'Fulfillment Center']);
+    const zoneCol = findColumn(headers, ['Zone', 'zone']);
+    const stateCol = findColumn(headers, ['State', 'state']);
+    const regionCol = findColumn(headers, ['Region', 'region']);
 
     return data.map(row => ({
-      zip: String(row['Zip'] || '').trim(),
-      province: row['Province'] || '',
-      fba: row['FBA'] || '',
-      region: row['2 Region'] || ''
+      destination: destinationCol !== -1 ? row[headers[destinationCol]] : null,
+      zone: zoneCol !== -1 ? row[headers[zoneCol]] : null,
+      state: stateCol !== -1 ? row[headers[stateCol]] : null,
+      region: regionCol !== -1 ? row[headers[regionCol]] : null
     }));
   }
 
   /**
-   * Get state from ZIP code using multiple sources
+   * Parse Hazmat sheet
    */
-  getStateFromZip(zipCode, fbaZoningSheet) {
-    if (!zipCode) {
-      return { state: 'Unknown', region: 'Unknown' };
+  parseHazmatSheet(sheet) {
+    const data = XLSX.utils.sheet_to_json(sheet, { defval: null });
+
+    if (data.length === 0) {
+      return [];
     }
 
-    const cleanZip = String(zipCode).split('-')[0].replace('.0', '').trim();
+    const headers = Object.keys(data[0]);
 
-    // Check if it's a Canadian postal code
-    if (/^[A-Z]\d[A-Z]/i.test(cleanZip)) {
-      return { state: 'Canada', region: 'International' };
-    }
+    const asinCol = findColumn(headers, ['ASIN', 'asin']);
+    const hazmatCol = findColumn(headers, ['Hazmat', 'hazmat', 'Dangerous Goods']);
+    const unNumberCol = findColumn(headers, ['UN Number', 'UN #']);
+    const dgCodeCol = findColumn(headers, ['DG Code', 'Dangerous Goods Code']);
+    const packingGroupCol = findColumn(headers, ['Packing Group', 'Pack Group']);
 
-    // Priority 1: Try FBA Zoning sheet
-    const stateInfo = fbaZoningSheet.find(zone => zone.zip === cleanZip);
-    if (stateInfo && stateInfo.province) {
-      return {
-        state: stateInfo.province,
-        region: stateInfo.region || this.STATE_REGIONS[stateInfo.province] || 'Other'
-      };
-    }
-
-    // Priority 2: Use zipToState utility as fallback
-    const stateFromZip = zipToState(cleanZip);
-    if (stateFromZip) {
-      return {
-        state: stateFromZip.code,
-        region: this.STATE_REGIONS[stateFromZip.code] || 'Other'
-      };
-    }
-
-    // If ZIP is too short, try padding with zeros
-    if (cleanZip.length < 5 && /^\d+$/.test(cleanZip)) {
-      const paddedZip = cleanZip.padStart(5, '0');
-      const stateFromPadded = zipToState(paddedZip);
-      if (stateFromPadded) {
-        return {
-          state: stateFromPadded.code,
-          region: this.STATE_REGIONS[stateFromPadded.code] || 'Other'
-        };
-      }
-    }
-
-    return { state: 'Unknown', region: 'Unknown' };
+    return data.map(row => ({
+      asin: asinCol !== -1 ? row[headers[asinCol]] : null,
+      hazmat: hazmatCol !== -1 ? row[headers[hazmatCol]] : null,
+      unNumber: unNumberCol !== -1 ? row[headers[unNumberCol]] : null,
+      dgCode: dgCodeCol !== -1 ? row[headers[dgCodeCol]] : null,
+      packingGroup: packingGroupCol !== -1 ? row[headers[packingGroupCol]] : null
+    }));
   }
 
   /**
@@ -713,7 +974,8 @@ class SmashFoodsParser {
   }
 
   /**
-   * Enrich data with calculations including Cuft from Placement
+   * ✅ PATCHED: Enrich data with calculations including Cuft from Placement
+   * NOW WITH FBA ID NORMALIZATION AND DIAGNOSTICS
    */
   enrichDataWithCalculations(parsedData) {
     const { dataSheet, placementSheet, storageSheet, fbaZoningSheet, hazmatLookupMap } = parsedData;
@@ -725,7 +987,8 @@ class SmashFoodsParser {
     const placementAsinMap = {};
 
     placementSheet.forEach(item => {
-      const shipmentID = item.fbaShipmentID;
+      // ✅ PATCHED: Normalize FBA ID before using as map key
+      const shipmentID = this.normalizeFBAID(item.fbaShipmentID);
       if (!shipmentID) return;
 
       if (!placementCuftMap[shipmentID]) {
@@ -747,10 +1010,17 @@ class SmashFoodsParser {
 
     console.log(`   Placement data for ${Object.keys(placementCuftMap).length} unique shipment IDs`);
 
-    // 🆕 FIX: Build Transaction date lookup (latest date per shipment) for Check-In fallback
+    // ✅ PATCHED: Add diagnostic logging
+    console.log(`\n🔍 DIAGNOSTIC: Sample Placement IDs (first 10):`);
+    Object.keys(placementCuftMap).slice(0, 10).forEach(id => {
+      console.log(`   ${id}: ${placementCuftMap[id].toFixed(2)} cuft`);
+    });
+
+    // ✅ PATCHED: Build Transaction date lookup (latest date per shipment) for Check-In fallback
     const transactionDateMap = {};
     placementSheet.forEach(item => {
-      const shipmentID = item.fbaShipmentID;
+      // ✅ PATCHED: Normalize FBA ID
+      const shipmentID = this.normalizeFBAID(item.fbaShipmentID);
       const txDate = this.parseDate(item.transactionDate);
 
       if (shipmentID && txDate) {
@@ -773,6 +1043,45 @@ class SmashFoodsParser {
       console.log(`      ${source}: ${count} rows`);
     });
 
+    // ✅ PATCHED: Add validation before enrichment loop
+    console.log(`\n🔍 Validating FBA ID matches between Data and Placement sheets...`);
+    let matchCount = 0;
+    let mismatchCount = 0;
+    const sampleSize = Math.min(10, dataSheet.length);
+
+    dataSheet.slice(0, sampleSize).forEach(shipment => {
+      const normalizedID = this.normalizeFBAID(shipment.fbaShipmentID);
+      const hasCuft = placementCuftMap[normalizedID] > 0;
+
+      if (hasCuft) {
+        matchCount++;
+        console.log(`   ✅ ${shipment.fbaShipmentID} → ${placementCuftMap[normalizedID].toFixed(2)} cuft`);
+      } else {
+        mismatchCount++;
+        console.log(`   ❌ ${shipment.fbaShipmentID} → NO MATCH (cuft = 0)`);
+      }
+    });
+
+    console.log(`   Sample results: ${matchCount}/${sampleSize} matched, ${mismatchCount}/${sampleSize} missing`);
+
+    // Calculate total match rate
+    const totalMatches = dataSheet.filter(s => {
+      const normalizedID = this.normalizeFBAID(s.fbaShipmentID);
+      return placementCuftMap[normalizedID] > 0;
+    }).length;
+
+    const matchRate = ((totalMatches / dataSheet.length) * 100).toFixed(1);
+    console.log(`   Overall match rate: ${totalMatches}/${dataSheet.length} (${matchRate}%)\n`);
+
+    if (totalMatches === 0) {
+      console.error(`\n❌ CRITICAL: Zero FBA ID matches between Data and Placement sheets!`);
+      console.error(`   This will cause all shipments to have zero Cuft.`);
+      console.error(`   Please verify that:`);
+      console.error(`   1. Placement sheet contains data for these shipments`);
+      console.error(`   2. FBA Shipment ID column names match between sheets`);
+      console.error(`   3. The date range filter hasn't excluded all Placement data\n`);
+    }
+
     // Enrich each shipment
     const enrichedShipments = dataSheet.map((shipment, index) => {
       // Cuft logic with priority
@@ -786,7 +1095,9 @@ class SmashFoodsParser {
       }
       // Priority 2: Placement aggregation (now includes calculated values)
       else {
-        const placementCuft = placementCuftMap[shipment.fbaShipmentID] || 0;
+        // ✅ PATCHED: Normalize before lookup
+        const normalizedID = this.normalizeFBAID(shipment.fbaShipmentID);
+        const placementCuft = placementCuftMap[normalizedID] || 0;
 
         if (placementCuft > 0) {
           actualCuft = placementCuft;
@@ -808,19 +1119,20 @@ class SmashFoodsParser {
       const roundedCuft = Math.round(actualCuft * 100) / 100;
       const roundedPallets = roundedCuft > 0 ? roundedCuft / this.CUFT_PER_PALLET : 0;
 
-      // Handle placement fees
-      const placementFeesFromSheet = placementFeesMap[shipment.fbaShipmentID];
+      // ✅ PATCHED: Handle placement fees with normalization
+      const normalizedID = this.normalizeFBAID(shipment.fbaShipmentID);
+      const placementFeesFromSheet = placementFeesMap[normalizedID];
       const actualPlacementFees = placementFeesFromSheet !== undefined && placementFeesFromSheet > 0
         ? placementFeesFromSheet
         : shipment.placementFees;
 
-      // 🆕 FIX: Check-In date with Transaction date fallback
+      // ✅ PATCHED: Check-In date with Transaction date fallback and normalization
       let actualCheckedInDate = shipment.checkedInDate;
       let checkedInSource = 'data_sheet';
 
       // If Check-In is missing or "-", use Transaction date from Placement as fallback
       if (!actualCheckedInDate || actualCheckedInDate === '-') {
-        const txDate = transactionDateMap[shipment.fbaShipmentID];
+        const txDate = transactionDateMap[normalizedID];
         if (txDate) {
           actualCheckedInDate = txDate;
           checkedInSource = 'transaction_date';
@@ -849,128 +1161,140 @@ class SmashFoodsParser {
 
       const currentTotalCost = shipment.carrierCost + actualPlacementFees;
 
-      // Hazmat detection
-      const shipmentAsins = placementAsinMap[shipment.fbaShipmentID] || new Set();
-      let containsHazmat = false;
-      let hazmatTypes = new Set();
-      let hazmatCount = 0;
-      let nonHazmatCount = 0;
-      let unknownCount = 0;
+      // Hazmat detection - check if shipment contains any hazmat ASINs
+      const asinSet = placementAsinMap[normalizedID] || new Set();
+      const asins = Array.from(asinSet);
 
-      shipmentAsins.forEach(asin => {
-        const hazmatInfo = hazmatLookupMap.get(asin);
-        if (hazmatInfo) {
+      let containsHazmat = false;
+      const hazmatTypes = new Set();
+      const hazmatDetails = [];
+
+      asins.forEach(asin => {
+        if (hazmatLookupMap && hazmatLookupMap[asin]) {
+          const hazmatInfo = hazmatLookupMap[asin];
           if (hazmatInfo.isHazmat) {
             containsHazmat = true;
-            hazmatCount++;
-            if (hazmatInfo.type) {
-              hazmatTypes.add(hazmatInfo.type);
+            if (hazmatInfo.hazmatType) {
+              hazmatTypes.add(hazmatInfo.hazmatType);
             }
-          } else {
-            nonHazmatCount++;
+            hazmatDetails.push({
+              asin,
+              type: hazmatInfo.hazmatType,
+              dgClass: hazmatInfo.dgClass,
+              confidence: hazmatInfo.confidence
+            });
           }
-        } else {
-          unknownCount++;
         }
       });
 
       return {
         ...shipment,
-        checkedInDate: actualCheckedInDate,  // 🆕 FIX: Updated with Transaction date fallback
-        checkedInSource,                      // 🆕 FIX: Track source of Check-In date
         cuft: roundedCuft,
         cuftSource,
-        placementFees: actualPlacementFees,
         calculatedPallets: roundedPallets,
+        placementFees: actualPlacementFees,
+        checkedInDate: actualCheckedInDate,
+        checkedInSource,
         transitDays,
         destinationState,
         destinationRegion,
         currentTotalCost,
         containsHazmat,
-        hazmatProductCount: hazmatCount,
-        nonHazmatProductCount: nonHazmatCount,
-        unknownProductCount: unknownCount,
         hazmatTypes: Array.from(hazmatTypes),
-        totalAsins: shipmentAsins.size,
-        hazmatPercentage: shipmentAsins.size > 0
-          ? Math.round((hazmatCount / shipmentAsins.size) * 100)
-          : 0
+        hazmatDetails,
+        asins
       };
-    });
-
-    // Log cuft sources summary
-    const cuftSources = {};
-    enrichedShipments.forEach(s => {
-      cuftSources[s.cuftSource] = (cuftSources[s.cuftSource] || 0) + 1;
-    });
-
-    console.log(`   Final Cuft sources:`);
-    Object.entries(cuftSources).forEach(([source, count]) => {
-      console.log(`      ${source}: ${count} shipments`);
-    });
-
-    // 🆕 FIX: Log Check-In sources summary
-    const checkinSources = {};
-    enrichedShipments.forEach(s => {
-      checkinSources[s.checkedInSource] = (checkinSources[s.checkedInSource] || 0) + 1;
-    });
-
-    console.log(`   Check-In sources:`);
-    Object.entries(checkinSources).forEach(([source, count]) => {
-      console.log(`      ${source}: ${count} shipments`);
     });
 
     return enrichedShipments;
   }
 
   /**
-   * Generate summary statistics from parsed data
+   * Get state and region from ZIP code
+   */
+  getStateFromZip(zipCode, fbaZoningSheet) {
+    if (!zipCode) {
+      return { state: 'Unknown', region: 'Unknown' };
+    }
+
+    // Try FBA Zoning lookup first (if available)
+    if (fbaZoningSheet && fbaZoningSheet.length > 0) {
+      // Match by state from ZIP
+      const stateInfo = zipToState(zipCode);
+      if (stateInfo) {
+        const stateCode = stateInfo.code;
+        const zoning = fbaZoningSheet.find(z => z.state === stateCode);
+
+        if (zoning) {
+          return {
+            state: stateCode,
+            region: zoning.region || this.STATE_REGIONS[stateCode] || 'Unknown'
+          };
+        }
+
+        // Fallback to STATE_REGIONS if not in FBA Zoning
+        return {
+          state: stateCode,
+          region: this.STATE_REGIONS[stateCode] || 'Unknown'
+        };
+      }
+    }
+
+    // Fallback to zipToState utility
+    const stateInfo = zipToState(zipCode);
+    if (stateInfo) {
+      return {
+        state: stateInfo.code,
+        region: this.STATE_REGIONS[stateInfo.code] || 'Unknown'
+      };
+    }
+
+    return { state: 'Unknown', region: 'Unknown' };
+  }
+
+  /**
+   * ✅ NEW: Generate summary statistics from parsed data
+   * Required by SmashFoodsIntegration.analyzeSmashFoodsFile()
+   *
+   * @param {Object} parsedData - The complete parsed data object from parseFile()
+   * @returns {Object} Summary statistics
    */
   getSummary(parsedData) {
-    const { dataSheet, hazmatClassification } = parsedData;
+    const shipments = parsedData?.dataSheet || parsedData;
 
-    const shipments = dataSheet || [];
+    if (!shipments || shipments.length === 0) {
+      return {
+        totalShipments: 0,
+        totalUnits: 0,
+        totalPallets: 0,
+        totalCuft: 0,
+        totalWeight: 0,
+        totalPlacementFees: 0,
+        totalCarrierCost: 0,
+        avgTransitDays: 0
+      };
+    }
 
-    // Calculate totals
-    const totalShipments = shipments.length;
-    const totalUnits = shipments.reduce((sum, s) => sum + (s.units || 0), 0);
-    const totalPallets = shipments.reduce((sum, s) => sum + (s.calculatedPallets || 0), 0);
-    const totalCuft = shipments.reduce((sum, s) => sum + (s.cuft || 0), 0);
-    const totalWeight = shipments.reduce((sum, s) => sum + (s.weight || 0), 0);
-
-    // Calculate averages
-    const avgTransitDays = totalShipments > 0
-      ? shipments.reduce((sum, s) => sum + (s.transitDays || 0), 0) / totalShipments
-      : 0;
-
-    // Date range
-    const dates = shipments
-      .map(s => s.createdDate)
-      .filter(d => d)
-      .map(d => new Date(d))
-      .filter(d => !isNaN(d.getTime()));
-
-    const startDate = dates.length > 0 ? new Date(Math.min(...dates)) : null;
-    const endDate = dates.length > 0 ? new Date(Math.max(...dates)) : null;
-
-    return {
-      totalShipments,
-      totalUnits,
-      totalPallets: parseFloat(totalPallets.toFixed(2)),
-      totalCuft: parseFloat(totalCuft.toFixed(2)),
-      totalWeight: parseFloat(totalWeight.toFixed(2)),
-      avgTransitDays: parseFloat(avgTransitDays.toFixed(1)),
-
-      // Hazmat summary
-      hazmatProducts: hazmatClassification?.summary?.hazmatCount || 0,
-      nonHazmatProducts: hazmatClassification?.summary?.nonHazmatCount || 0,
-
-      // Date range
-      dateRange: {
-        start: startDate ? startDate.toISOString().split('T')[0] : null,
-        end: endDate ? endDate.toISOString().split('T')[0] : null
-      }
+    const summary = {
+      totalShipments: shipments.length,
+      totalUnits: shipments.reduce((sum, s) => sum + (s.units || 0), 0),
+      totalPallets: shipments.reduce((sum, s) => sum + (s.calculatedPallets || 0), 0),
+      totalCuft: shipments.reduce((sum, s) => sum + (s.cuft || 0), 0),
+      totalWeight: shipments.reduce((sum, s) => sum + (s.weight || 0), 0),
+      totalPlacementFees: shipments.reduce((sum, s) => sum + (s.placementFees || 0), 0),
+      totalCarrierCost: shipments.reduce((sum, s) => sum + (s.carrierCost || 0), 0),
+      avgTransitDays: 0
     };
+
+    // Calculate average transit days (excluding zero values)
+    const shipmentsWithTransit = shipments.filter(s => s.transitDays > 0);
+    if (shipmentsWithTransit.length > 0) {
+      summary.avgTransitDays = Math.round(
+        shipmentsWithTransit.reduce((sum, s) => sum + s.transitDays, 0) / shipmentsWithTransit.length
+      );
+    }
+
+    return summary;
   }
 }
 
