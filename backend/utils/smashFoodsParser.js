@@ -360,6 +360,9 @@ class SmashFoodsParser {
     // Enrich with cuft from Placement
     parsedData.dataSheet = this.enrichDataWithCalculations(parsedData);
 
+    // ✅ NEW: Log sample enriched data for debugging
+    this.logEnrichedSample(parsedData.dataSheet);
+
     // =========================================================================
     // ✅ PATCHED: CRITICAL FILTER #1 - Remove shipments with Cuft = 0
     // NOW WITH BETTER ERROR HANDLING AND DIAGNOSTICS
@@ -560,10 +563,15 @@ class SmashFoodsParser {
     ]);
 
     const shipFromZipCol = findColumn(headers, [
+      'Ship From Postal Code',      // ← MOVED TO TOP (Get Welly format)
       'Ship From ZIP',
+      'Ship from ZIP',
+      'Ship from Postal Code',
       'From ZIP',
       'Origin ZIP',
-      'Warehouse ZIP'
+      'Warehouse ZIP',
+      'Origin Postal Code',
+      'Shipped From ZIP'
     ]);
 
     const destinationCol = findColumn(headers, [
@@ -577,6 +585,13 @@ class SmashFoodsParser {
       'Carrier',
       'carrier',
       'Shipping Carrier'
+    ]);
+
+    const shipMethodCol = findColumn(headers, [
+      'Ship Method',
+      'Shipping Method',
+      'Method',
+      'Ship Type'
     ]);
 
     const weightCol = findColumn(headers, [
@@ -609,10 +624,38 @@ class SmashFoodsParser {
       const palletQuantity = palletQtyCol !== -1 ? parseFloat(row[headers[palletQtyCol]]) || 0 : 0;
 
       const shipToZip = shipToZipCol !== -1 ? String(row[headers[shipToZipCol]] || '').trim() : null;
-      const shipFromZip = shipFromZipCol !== -1 ? String(row[headers[shipFromZipCol]] || '').trim() : null;
+
+      // ✅ NEW: Handle Ship From ZIP with fallback to ensure we always have a value
+      let shipFromZip = null;
+      if (shipFromZipCol !== -1) {
+        shipFromZip = String(row[headers[shipFromZipCol]] || '').trim();
+        // If empty string, set to null
+        if (shipFromZip === '') shipFromZip = null;
+      }
 
       const destinationFC = destinationCol !== -1 ? row[headers[destinationCol]] : null;
-      const carrier = carrierCol !== -1 ? row[headers[carrierCol]] : null;
+
+      // ✅ NEW: Handle Ship Method
+      let shipMethod = null;
+      if (shipMethodCol !== -1) {
+        shipMethod = row[headers[shipMethodCol]];
+        if (shipMethod !== null && shipMethod !== undefined) {
+          shipMethod = String(shipMethod).trim();
+          if (shipMethod === '') shipMethod = null;
+        }
+      }
+
+      // ✅ NEW: Handle Carrier with proper string conversion
+      let carrier = null;
+      if (carrierCol !== -1) {
+        carrier = row[headers[carrierCol]];
+        if (carrier !== null && carrier !== undefined) {
+          carrier = String(carrier).trim();
+          // If empty string, set to null
+          if (carrier === '') carrier = null;
+        }
+      }
+
       const weight = weightCol !== -1 ? parseFloat(row[headers[weightCol]]) || 0 : 0;
 
       return {
@@ -630,6 +673,7 @@ class SmashFoodsParser {
         shipToZip,
         shipFromZip,
         destinationFC,
+        shipMethod,
         carrier,
         weight
       };
@@ -642,6 +686,19 @@ class SmashFoodsParser {
     console.log(`   Has "Total Pallet Quantity": ${palletQtyCol !== -1}`);
     console.log(`   Has "Total Pallets": ${headers.some(h => h.toLowerCase() === 'total pallets')}`);
     console.log(`   Check-In column found: ${checkedInDateCol !== -1 ? `"${headers[checkedInDateCol]}"` : 'NO'}`);
+    console.log(`   Ship From ZIP column found: ${shipFromZipCol !== -1 ? `"${headers[shipFromZipCol]}"` : 'NO'}`);
+    console.log(`   Ship Method column found: ${shipMethodCol !== -1 ? `"${headers[shipMethodCol]}"` : 'NO'}`);
+    console.log(`   Carrier column found: ${carrierCol !== -1 ? `"${headers[carrierCol]}"` : 'NO'}`);
+
+    // ✅ NEW: Log first shipment data for debugging
+    if (parsedRows.length > 0) {
+      const firstShipment = parsedRows[0];
+      console.log(`\n🔍 First shipment sample data:`);
+      console.log(`   Shipment ID: ${firstShipment.fbaShipmentID}`);
+      console.log(`   Ship From ZIP: "${firstShipment.shipFromZip}" (type: ${typeof firstShipment.shipFromZip})`);
+      console.log(`   Ship Method: "${firstShipment.shipMethod}" (type: ${typeof firstShipment.shipMethod})`);
+      console.log(`   Carrier: "${firstShipment.carrier}" (type: ${typeof firstShipment.carrier})`);
+    }
 
     return parsedRows;
   }
@@ -1207,6 +1264,26 @@ class SmashFoodsParser {
     });
 
     return enrichedShipments;
+  }
+
+  /**
+   * ✅ NEW: Log enriched shipment sample for debugging
+   * Call this after enrichment to see what data is actually present
+   */
+  logEnrichedSample(enrichedShipments) {
+    if (enrichedShipments && enrichedShipments.length > 0) {
+      console.log(`\n🔍 ENRICHED SHIPMENT SAMPLE (first shipment):`);
+      const first = enrichedShipments[0];
+      console.log(`   FBA Shipment ID: ${first.fbaShipmentID}`);
+      console.log(`   Ship From ZIP: "${first.shipFromZip}" (type: ${typeof first.shipFromZip})`);
+      console.log(`   Ship To ZIP: "${first.shipToZip}" (type: ${typeof first.shipToZip})`);
+      console.log(`   Ship Method: "${first.shipMethod}" (type: ${typeof first.shipMethod})`);
+      console.log(`   Carrier: "${first.carrier}" (type: ${typeof first.carrier})`);
+      console.log(`   Destination FC: "${first.destinationFC}"`);
+      console.log(`   Destination State: "${first.destinationState}"`);
+      console.log(`   Cuft: ${first.cuft}`);
+      console.log(`   Cuft Source: ${first.cuftSource}`);
+    }
   }
 
   /**
