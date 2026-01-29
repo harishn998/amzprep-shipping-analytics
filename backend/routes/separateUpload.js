@@ -1,12 +1,14 @@
 // ============================================================================
 // SEPARATE UPLOAD ROUTES - Handle tab-by-tab uploads (AUTH REQUIRED)
 // File: backend/routes/separateUpload.js
+// ✅ WITH CSV SUPPORT
 // ============================================================================
 
 import express from 'express';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
+import xlsx from 'xlsx'; // ✅ ADD: For CSV to Excel conversion
 import mongoose from 'mongoose';
 import Report from '../models/Report.js';
 import {
@@ -37,10 +39,10 @@ function extractBrandFromFilename(filename) {
   name = name.replace(/^copy\s*(of\s*)?/i, '');
 
   // Remove common suffixes (in order from most specific to least)
-  name = name.replace(/[\s-]*[-–]\s*full\s*data\s*analysis$/i, '');
+  name = name.replace(/[\s-]*[-—]\s*full\s*data\s*analysis$/i, '');
   name = name.replace(/[\s-]*full\s*data\s*analysis$/i, '');
-  name = name.replace(/[\s-]*analysis\s*[-–]\s*data$/i, '');  // ✅ ADD: "Analysis - Data"
-  name = name.replace(/[\s-]*[-–]\s*data$/i, '');  // ✅ ADD: "- Data" or " - Data"
+  name = name.replace(/[\s-]*analysis\s*[-—]\s*data$/i, '');  // ✅ ADD: "Analysis - Data"
+  name = name.replace(/[\s-]*[-—]\s*data$/i, '');  // ✅ ADD: "- Data" or " - Data"
   name = name.replace(/[\s-]*data$/i, '');  // ✅ ADD: " Data" at end
   name = name.replace(/[\s-]*analysis$/i, '');
 
@@ -49,6 +51,53 @@ function extractBrandFromFilename(filename) {
   name = name.replace(/\s+/g, ' ').trim();
 
   return name || null;
+}
+
+// ============================================================================
+// ✅ NEW: CSV TO EXCEL CONVERSION UTILITY
+// ============================================================================
+
+/**
+ * Convert CSV file to Excel (.xlsx)
+ * @param {string} csvFilePath - Path to CSV file
+ * @returns {string} - Path to converted Excel file
+ */
+function convertCsvToExcel(csvFilePath) {
+  try {
+    console.log(`   📄 Converting CSV to Excel: ${path.basename(csvFilePath)}`);
+
+    // Read CSV file
+    const workbook = xlsx.readFile(csvFilePath, { type: 'file' });
+
+    // Get the first sheet
+    const sheetName = workbook.SheetNames[0];
+    const worksheet = workbook.Sheets[sheetName];
+
+    // Create new workbook with the sheet
+    const newWorkbook = xlsx.utils.book_new();
+    xlsx.utils.book_append_sheet(newWorkbook, worksheet, 'Sheet1');
+
+    // Generate output path (replace .csv with .xlsx)
+    const xlsxPath = csvFilePath.replace(/\.csv$/i, '.xlsx');
+
+    // Write Excel file
+    xlsx.writeFile(newWorkbook, xlsxPath);
+
+    console.log(`   ✅ Converted to: ${path.basename(xlsxPath)}`);
+
+    return xlsxPath;
+
+  } catch (error) {
+    console.error(`   ❌ CSV conversion failed: ${error.message}`);
+    throw new Error(`Failed to convert CSV to Excel: ${error.message}`);
+  }
+}
+
+/**
+ * Check if file is CSV
+ */
+function isCsvFile(filename) {
+  return path.extname(filename).toLowerCase() === '.csv';
 }
 
 // Multer configuration for tab uploads
@@ -70,12 +119,13 @@ const upload = multer({
   storage,
   limits: { fileSize: 10 * 1024 * 1024 }, // 10MB per tab
   fileFilter: (req, file, cb) => {
-    const allowedTypes = ['.xlsx', '.xls'];
+    // ✅ UPDATED: Allow CSV files in addition to Excel
+    const allowedTypes = ['.xlsx', '.xls', '.csv'];
     const ext = path.extname(file.originalname).toLowerCase();
     if (allowedTypes.includes(ext)) {
       cb(null, true);
     } else {
-      cb(new Error('Only Excel files (.xlsx, .xls) are allowed'));
+      cb(new Error('Only Excel (.xlsx, .xls) and CSV (.csv) files are allowed'));
     }
   }
 });
@@ -84,8 +134,12 @@ const upload = multer({
  * POST /api/separate-upload
  * Upload individual tab (data, placement, or storage)
  * ✅ REQUIRES AUTHENTICATION
+ * ✅ NOW SUPPORTS CSV FILES
  */
 router.post('/separate-upload', upload.single('file'), async (req, res) => {
+  let uploadedFilePath = null;
+  let convertedFilePath = null;
+
   try {
     console.log('\n📤 ============ TAB UPLOAD REQUEST ============');
 
@@ -104,12 +158,13 @@ router.post('/separate-upload', upload.single('file'), async (req, res) => {
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
+    uploadedFilePath = req.file.path;
     const { tabType, sessionId: existingSessionId } = req.body;
     const userId = req.user.id;  // ✅ Always authenticated
 
     // Validate tabType
     if (!['data', 'placement', 'storage'].includes(tabType)) {
-      fs.unlinkSync(req.file.path); // Cleanup
+      fs.unlinkSync(uploadedFilePath); // Cleanup
       return res.status(400).json({
         error: 'Invalid tab type. Must be: data, placement, or storage'
       });
@@ -120,12 +175,40 @@ router.post('/separate-upload', upload.single('file'), async (req, res) => {
     console.log(`   User: ${req.user.email}`);
     console.log(`   Existing Session ID: ${existingSessionId || 'None (will create new)'}`);
 
+    // ✅ NEW: Check if file is CSV and convert it
+    const isCSV = isCsvFile(req.file.originalname);
+    let filePathToValidate = uploadedFilePath;
+
+    if (isCSV) {
+      console.log(`   📄 CSV file detected - converting to Excel...`);
+
+      try {
+        convertedFilePath = convertCsvToExcel(uploadedFilePath);
+        filePathToValidate = convertedFilePath;
+
+        console.log(`   ✅ CSV converted successfully`);
+
+      } catch (conversionError) {
+        // Cleanup on conversion error
+        fs.unlinkSync(uploadedFilePath);
+
+        return res.status(400).json({
+          error: `CSV conversion failed: ${conversionError.message}`,
+          tabType,
+          suggestion: 'Please ensure your CSV file is properly formatted with headers in the first row'
+        });
+      }
+    }
+
     // Get or create session
     let session;
     if (existingSessionId) {
       session = getSession(existingSessionId, userId);
       if (!session) {
-        fs.unlinkSync(req.file.path); // Cleanup
+        // Cleanup on session error
+        fs.unlinkSync(uploadedFilePath);
+        if (convertedFilePath) fs.unlinkSync(convertedFilePath);
+
         return res.status(404).json({
           error: 'Session not found or expired. Please start over.',
           expired: true
@@ -135,38 +218,49 @@ router.post('/separate-upload', upload.single('file'), async (req, res) => {
       session = createNewSession(userId);
     }
 
-    // Validate tab file
+    // Validate tab file (using converted Excel file if CSV was uploaded)
     try {
       let validationResult;
 
       switch (tabType) {
         case 'data':
-          validationResult = validateDataTab(req.file.path);
+          validationResult = validateDataTab(filePathToValidate);
           break;
         case 'placement':
-          validationResult = validatePlacementTab(req.file.path);
+          validationResult = validatePlacementTab(filePathToValidate);
           break;
         case 'storage':
-          validationResult = validateStorageTab(req.file.path);
+          validationResult = validateStorageTab(filePathToValidate);
           break;
       }
 
       console.log(`   ✅ Validation passed: ${validationResult.rowCount} rows`);
 
     } catch (validationError) {
-      fs.unlinkSync(req.file.path); // Cleanup invalid file
+      // Cleanup on validation error
+      fs.unlinkSync(uploadedFilePath);
+      if (convertedFilePath) fs.unlinkSync(convertedFilePath);
+
       return res.status(400).json({
         error: validationError.message,
-        tabType
+        tabType,
+        wasCSV: isCSV
       });
+    }
+
+    // ✅ IMPORTANT: Store the converted Excel file path, not the CSV
+    // Delete the original CSV if conversion happened
+    if (isCSV && convertedFilePath) {
+      fs.unlinkSync(uploadedFilePath); // Delete original CSV
+      uploadedFilePath = convertedFilePath; // Use converted Excel file
     }
 
     // Update session with uploaded tab
     updateSessionTab(
       session.sessionId,
       tabType,
-      req.file.path,
-      req.file.originalname
+      uploadedFilePath, // This is now always an Excel file
+      req.file.originalname // Keep original filename for display
     );
 
     // Check if all tabs are ready
@@ -185,16 +279,25 @@ router.post('/separate-upload', upload.single('file'), async (req, res) => {
       uploaded: tabType,
       ready,
       filesUploaded: status.uploadedTabs,
-      expiresAt: session.expiresAt
+      expiresAt: session.expiresAt,
+      // ✅ NEW: Inform frontend if file was converted
+      wasConverted: isCSV,
+      originalFormat: isCSV ? 'CSV' : 'Excel'
     });
 
   } catch (error) {
     console.error('❌ Tab upload error:', error);
 
-    // Cleanup file on error
-    if (req.file && req.file.path) {
+    // Cleanup files on error
+    if (uploadedFilePath && fs.existsSync(uploadedFilePath)) {
       try {
-        fs.unlinkSync(req.file.path);
+        fs.unlinkSync(uploadedFilePath);
+      } catch (err) {}
+    }
+
+    if (convertedFilePath && fs.existsSync(convertedFilePath)) {
+      try {
+        fs.unlinkSync(convertedFilePath);
       } catch (err) {}
     }
 

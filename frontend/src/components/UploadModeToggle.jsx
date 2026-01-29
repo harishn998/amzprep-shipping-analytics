@@ -98,7 +98,7 @@ const UploadModeToggle = ({ mode, onModeChange }) => {
             }`}
           >
             <p className="text-[13px] text-gray-400 leading-relaxed mb-2.5">
-              Upload FBA Shipment, Placement Fees, and Monthly Storage files step-by-step for better accuracy
+            Upload FBA Shipment, Placement Fees, and Monthly Storage files (.xlsx or .csv format) step-by-step for better accuracy
             </p>
             <div className="flex flex-wrap gap-1.5">
               <div className="flex items-center gap-1.5 px-2 py-1 bg-[#0386FE]/10 rounded-full border border-[#0386FE]/20">
@@ -123,7 +123,7 @@ const UploadModeToggle = ({ mode, onModeChange }) => {
             }`}
           >
             <p className="text-[13px] text-gray-400 leading-relaxed mb-2.5">
-              Upload one Excel file containing all required tabs (FBA Shipment, Placement, Storage, FBA Zoning)
+              Upload one Excel file (.xlsx format) containing all required tabs (FBA Shipment, Placement, Storage, FBA Zoning)
             </p>
             <div className="flex items-start gap-2 p-2 bg-blue-900/20 border border-blue-500/30 rounded-lg">
               <div className="w-1 h-1 rounded-full bg-blue-400 mt-1.5 flex-shrink-0" />

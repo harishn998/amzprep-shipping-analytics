@@ -58,6 +58,12 @@ const SeparateTabUploader = ({
     placement: false,
     storage: false
   });
+  // ✅ Track uploaded file formats (CSV vs Excel) - for backend logging only
+  const [uploadedFormats, setUploadedFormats] = useState({
+    data: null,
+    placement: null,
+    storage: null
+  });
   const [uploadProgress, setUploadProgress] = useState({
     data: 0,
     placement: 0,
@@ -120,6 +126,10 @@ const SeparateTabUploader = ({
 
     const tabType = currentStepConfig.id;
 
+    // ✅ Detect if file is CSV (for backend logging only)
+    const isCSV = file.name.toLowerCase().endsWith('.csv');
+    const fileFormat = isCSV ? 'CSV' : 'Excel';
+
     try {
       setErrors(prev => ({ ...prev, [tabType]: null }));
       setUploadProgress(prev => ({ ...prev, [tabType]: 0 }));
@@ -155,14 +165,31 @@ const SeparateTabUploader = ({
         }
         setUploadedTabs(prev => ({ ...prev, [tabType]: true }));
         setUploadProgress(prev => ({ ...prev, [tabType]: 100 }));
+
+        // ✅ Store file format from server response (for logging only, not displayed to user)
+        const uploadedFormat = response.data.originalFormat || fileFormat;
+        setUploadedFormats(prev => ({ ...prev, [tabType]: uploadedFormat }));
+
+        // ✅ Log CSV conversion if it happened
+        if (response.data.wasConverted) {
+          console.log(`✅ ${tabType} tab: CSV file automatically converted to Excel`);
+        }
       } else {
         throw new Error(response.data.error || 'Upload failed');
       }
     } catch (error) {
       const errorMessage = error.response?.data?.error || error.message || 'Upload failed';
-      setErrors(prev => ({ ...prev, [tabType]: errorMessage }));
+
+      // ✅ Add helpful tip for CSV errors
+      let displayError = errorMessage;
+      if (error.response?.data?.wasCSV) {
+        displayError += '\n\nTip: Ensure your CSV file has column headers in the first row.';
+      }
+
+      setErrors(prev => ({ ...prev, [tabType]: displayError }));
       setUploadProgress(prev => ({ ...prev, [tabType]: 0 }));
       setUploadedTabs(prev => ({ ...prev, [tabType]: false }));
+      setUploadedFormats(prev => ({ ...prev, [tabType]: null }));
 
       if (error.response?.status === 401 || error.response?.data?.requiresAuth) {
         onError?.('Please log in to upload files. Your session may have expired.');

@@ -1,6 +1,7 @@
 // ============================================================================
-// TAB UPLOAD SECTION - Individual tab upload component (FIXED)
+// TAB UPLOAD SECTION - Individual tab upload component
 // File: frontend/src/components/TabUploadSection.jsx
+// ✅ CSV SUPPORT (backend only - no UI indicators)
 // ============================================================================
 
 import React, { useRef } from 'react';
@@ -20,7 +21,7 @@ const TabUploadSection = ({
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
-      onUpload(tabType, file);  // ✅ FIXED: Pass BOTH tabType and file
+      onUpload(tabType, file);  // Pass BOTH tabType and file
     }
     // Reset input so same file can be uploaded again
     e.target.value = '';
@@ -111,7 +112,7 @@ const TabUploadSection = ({
           <input
             ref={fileInputRef}
             type="file"
-            accept=".xlsx,.xls"
+            accept=".xlsx,.xls,.csv"
             onChange={handleFileChange}
             className="hidden"
           />
