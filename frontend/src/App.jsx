@@ -75,7 +75,8 @@ const ShippingAnalytics = () => {
     totalShippingCost: 0,
     totalPlacementFees: 0
   });
-  const [viewType, setViewType] = useState('scorecard');
+  // ✅ FIX: Default to 'detailed' view for admin users, 'scorecard' for regular users
+  const [viewType, setViewType] = useState(user?.role === 'admin' ? 'detailed' : 'scorecard');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [costConfig, setCostConfig] = useState({
     freightCost: 1315,
@@ -87,7 +88,7 @@ const ShippingAnalytics = () => {
     palletCost: 150,
     analysisYear: new Date().getFullYear(),
     analysisStartMonth: 1,
-    analysisEndMonth: 9,    // Default to September
+    analysisEndMonth: 12,    // Default to December
     shipFromFilter: []
   });
   const [uploadMode, setUploadMode] = useState('separate');
@@ -348,6 +349,8 @@ const ShippingAnalytics = () => {
     });
 
     setActiveView('dashboard');
+    // ✅ FIX: Reset viewType to correct default based on user role when loading report
+    setViewType(user?.role === 'admin' ? 'detailed' : 'scorecard');
   } catch (err) {
     if (err.response?.status === 401 || err.response?.status === 403) {
       logout();
@@ -913,6 +916,8 @@ const Alert = PremiumAlert;
           setProcessingModalOpen(false);
           setSuccess(`Amazon ${amazonRateType} file uploaded successfully!`);
           setActiveView('dashboard');
+          // ✅ FIX: Reset viewType to correct default based on user role
+          setViewType(user?.role === 'admin' ? 'detailed' : 'scorecard');
           fetchReports();
         }, 500);
       }
@@ -1018,6 +1023,8 @@ const Alert = PremiumAlert;
           setProcessingModalOpen(false);
           setSuccess(`Shopify ${shopifyRateType} file uploaded successfully!`);
           setActiveView('dashboard');
+          // ✅ FIX: Reset viewType to correct default based on user role
+          setViewType(user?.role === 'admin' ? 'detailed' : 'scorecard');
           fetchReports();
         }, 500);
       }
@@ -1302,6 +1309,8 @@ const Alert = PremiumAlert;
                   setCurrentReportId(reportId);
                   setSuccess('Analysis complete! View your results below.');
                   setActiveView('dashboard');
+                  // ✅ FIX: Reset viewType to correct default based on user role
+                  setViewType(user?.role === 'admin' ? 'detailed' : 'scorecard');
                   fetchReports();
                 }}
                 onError={(errorMessage) => {
@@ -2577,18 +2586,8 @@ return (
           </p>
         </div>
 
-        {/* Toggle Buttons */}
+        {/* Toggle Buttons - Full Admin Dashboard first for admin users */}
         <div className="flex gap-3">
-          <button
-            onClick={() => setViewType('scorecard')}
-            className={`px-6 py-3 rounded-lg font-semibold transition-all ${
-              viewType === 'scorecard'
-                ? 'bg-brand-blue text-white'
-                : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-            }`}
-          >
-            Customer Scorecard View
-          </button>
           <button
             onClick={() => setViewType('detailed')}
             className={`px-6 py-3 rounded-lg font-semibold transition-all ${
@@ -2598,6 +2597,16 @@ return (
             }`}
           >
             Full Admin Dashboard
+          </button>
+          <button
+            onClick={() => setViewType('scorecard')}
+            className={`px-6 py-3 rounded-lg font-semibold transition-all ${
+              viewType === 'scorecard'
+                ? 'bg-brand-blue text-white'
+                : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+            }`}
+          >
+            Customer Scorecard View
           </button>
         </div>
       </div>
@@ -2610,6 +2619,7 @@ return (
         data={dashboardData}
         metadata={dashboardData.metadata}
         isAdmin={true}
+        onViewFullDashboard={() => setViewType('detailed')}
       />
     ) : (
       // Show Full Dashboard (your existing detailed view)
@@ -2623,77 +2633,6 @@ return (
           </>
           // standard dashboard
         )}
-
-        {/* YOUR EXISTING DASHBOARD CONTENT */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <MetricCard
-            icon={Package}
-            label="Total Shipments Analyzed"
-            subtitle={`(${dashboardData.analysisMonths} months)`}
-            value={dashboardData.totalShipments.toLocaleString()}
-            color="blue"
-          />
-          <MetricCard
-            icon={DollarSign}
-            label="Current Average Shipping Cost"
-            value={typeof dashboardData.avgCost === 'number' ? `$${dashboardData.avgCost}` : dashboardData.avgCost}
-            color="green"
-          />
-          <MetricCard
-            icon={BarChart3}
-            label="Average Weight (lbs)"
-            value={dashboardData.avgWeight}
-            color="purple"
-          />
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="bg-[#1a1f2e] rounded-xl p-6 border border-gray-800">
-            <h3 className="text-white text-lg font-semibold mb-6">Shipping Method Split</h3>
-            <div className="space-y-4">
-              {dashboardData.shippingMethods.map((method, idx) => (
-                <div key={idx}>
-                  <div className="flex items-center justify-between mb-2 text-sm">
-                    <span className="text-gray-300">{method.name}</span>
-                    <span className="text-white font-bold">{method.count.toLocaleString()}</span>
-                  </div>
-                  <div className="bg-[#0f1419] rounded-full h-8 overflow-hidden relative">
-                    <div
-                      className="bg-gradient-to-r from-green-500 to-green-600 h-full rounded-full transition-all duration-500 flex items-center justify-end pr-2"
-                      style={{ width: `${method.percentage}%` }}
-                    >
-                      {method.percentage > 5 && (
-                        <span className="text-xs text-white font-semibold">{method.percentage}%</span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="bg-[#1a1f2e] rounded-xl p-6 border border-gray-800">
-            <h3 className="text-white text-lg font-semibold mb-6">Weight Split</h3>
-            <div className="space-y-4">
-              {dashboardData.weightDistribution.map((weight, idx) => (
-                <div key={idx}>
-                  <div className="flex items-center justify-between mb-2 text-sm">
-                    <span className="text-gray-300">{weight.range}</span>
-                    <span className="text-white font-bold">{weight.count.toLocaleString()}</span>
-                  </div>
-                  <div className="bg-[#0f1419] rounded-full h-8 overflow-hidden">
-                    <div
-                      className="bg-gradient-to-r from-blue-500 to-blue-600 h-full rounded-full transition-all duration-500"
-                      style={{ width: `${(weight.count / dashboardData.totalShipments) * 100}%` }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <DomesticVsInternational data={dashboardData.domesticVsInternational} />
-        </div>
 
         {dashboardData.warehouseComparison.find(w => w.recommended) && (
           <div className="bg-gradient-to-r from-sky-500 to-blue-700 rounded-xl p-8 border border-blue-500 shadow-2xl shadow-blue-500/20">

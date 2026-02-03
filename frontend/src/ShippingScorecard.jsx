@@ -63,7 +63,7 @@ const SPEED_THRESHOLDS = {
 // ============================================================================
 // MAIN COMPONENT
 // ============================================================================
-export const ShippingScorecard = ({ data, metadata = {}, isAdmin = false }) => {
+export const ShippingScorecard = ({ data, metadata = {}, isAdmin = false, onViewFullDashboard }) => {
   const scorecardData = calculateScorecardMetrics(data, metadata);
 
   return (
@@ -94,6 +94,7 @@ export const ShippingScorecard = ({ data, metadata = {}, isAdmin = false }) => {
         totalSavings={scorecardData.keyMetrics.totalAnnualOpportunity}
         placementFeeSavings={scorecardData.keyMetrics.placementFees}
         isAdmin={isAdmin}
+        onViewFullDashboard={onViewFullDashboard}
       />
 
       {/* Full Analysis Section - Initially Hidden (Admin Only) */}
@@ -916,17 +917,16 @@ const getAssignedRep = () => {
 // ============================================================================
 // CTA SECTION WITH BOOKING MODAL JOURNEY
 // ============================================================================
-const CTASection = ({ totalSavings, placementFeeSavings, isAdmin }) => {
+const CTASection = ({ totalSavings, placementFeeSavings, isAdmin, onViewFullDashboard }) => {
   const [showBookingModal, setShowBookingModal] = useState(false);
   const [bookingStep, setBookingStep] = useState('intro'); // 'intro' | 'matched' | 'redirecting'
   const [assignedRep, setAssignedRep] = useState(null);
 
   const handleUnlockClick = () => {
     if (isAdmin) {
-      const detailedSection = document.getElementById('detailed-analysis');
-      if (detailedSection) {
-        detailedSection.classList.remove('hidden');
-        detailedSection.scrollIntoView({ behavior: 'smooth' });
+      // ✅ FIX: Call the callback to switch to Full Admin Dashboard view
+      if (onViewFullDashboard) {
+        onViewFullDashboard();
       }
     } else {
       // Open booking modal for users
